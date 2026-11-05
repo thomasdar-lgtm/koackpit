@@ -1,12 +1,14 @@
 package com.koala.koackpit
 
-import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.widget.Toast
+import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,15 +20,23 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -34,193 +44,229 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-val Navy = Color(0xFF00071A)
-val Card = Color(0xFF0E1A33)
-val Yellow = Color(0xFFFFCC00)
-val Red = Color(0xFFE63946)
-val Muted = Color(0xFF8A96B0)
-
-fun toast(ctx: Context, msg: String) = Toast.makeText(ctx, msg, Toast.LENGTH_LONG).show()
+enum class Screen { HOME, APPS, SETTINGS }
 
 class MainActivity : ComponentActivity() {
-    private var zip: File? = null
-    private val server = FileServer { zip }
+    private val screen = mutableStateOf(Screen.HOME)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { DiagScreen(server) { zip = it } }
+        // Écran d'accueil : le bouton retour ramène à l'accueil sans fermer l'appli
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() { screen.value = Screen.HOME }
+        })
+        setContent { Koackpit(screen) }
     }
 
-    override fun onDestroy() {
-        server.stop()
-        super.onDestroy()
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // Bouton maison : retour à l'accueil
+        if (intent.hasCategory(Intent.CATEGORY_HOME)) screen.value = Screen.HOME
     }
 }
 
-private const val LIMIT_MB = 300
+@Composable
+fun Koackpit(screen: androidx.compose.runtime.MutableState<Screen>) {
+    val upd = remember { UpdateState() }
+    LaunchedEffect(Unit) { runCatching { upd.info = Updater.check() } }
+    Column(Modifier.fillMaxSize().background(Navy)) {
+        UpdateBanner(upd)
+        when (screen.value) {
+            Screen.HOME -> Home(onApps = { screen.value = Screen.APPS }, onSettings = { screen.value = Screen.SETTINGS })
+            Screen.APPS -> AppDrawer(onBack = { screen.value = Screen.HOME })
+            Screen.SETTINGS -> SettingsScreen(onBack = { screen.value = Screen.HOME })
+        }
+    }
+}
 
 @Composable
-fun DiagScreen(server: FileServer, onZip: (File) -> Unit) {
+fun Home(onApps: () -> Unit, onSettings: () -> Unit) {
     val ctx = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val upd = remember { UpdateState() }
-    val apps = remember { mutableStateListOf<AppEntry>() }
-    val selected = remember { mutableStateListOf<String>() }
-    var loading by remember { mutableStateOf(true) }
-    var progress by remember { mutableStateOf<Float?>(null) }
-    var step by remember { mutableStateOf("") }
-    var result by remember { mutableStateOf<File?>(null) }
-    var savedAt by remember { mutableStateOf<String?>(null) }
-    var url by remember { mutableStateOf<String?>(null) }
+    var now by remember { mutableStateOf(Date()) }
+    LaunchedEffect(Unit) { while (true) { now = Date(); delay(5_000) } }
+    val time = remember(now) { SimpleDateFormat("HH:mm", Locale.FRANCE).format(now) }
+    val date = remember(now) {
+        SimpleDateFormat("EEEE d MMMM", Locale.FRANCE).format(now).replaceFirstChar { it.uppercase() }
+    }
+    val nav = Prefs.nav(ctx)
 
-    LaunchedEffect(Unit) {
-        val list = withContext(Dispatchers.IO) { Diag.apps(ctx) }
-        apps.addAll(list)
-        selected.addAll(list.filter { it.carInfo || it.vendor }.map { it.pkg })
-        loading = false
-        runCatching { upd.info = Updater.check() }
+    fun go(pkgs: List<String>, name: String) {
+        if (!Apps.open(ctx, pkgs)) toast(ctx, "$name n'est pas installé")
     }
 
-    val totalMb = apps.filter { it.pkg in selected }.sumOf { it.size } / 1_048_576
-    val carInfo = apps.firstOrNull { it.carInfo }
-
-    Column(Modifier.fillMaxSize().background(Navy).padding(16.dp)) {
-        UpdateBanner(upd)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Koackpit", color = Yellow, fontSize = 26.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.width(12.dp))
-            Text("Diagnostic ${BuildConfig.VERSION_NAME}", color = Muted, fontSize = 15.sp)
-        }
-        Spacer(Modifier.height(10.dp))
-
-        Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            // Liste des applis
-            Column(Modifier.weight(1.1f).fillMaxHeight()) {
-                Text(
-                    when {
-                        loading -> "Recherche des applis…"
-                        carInfo != null -> "Car Info trouvée : ${carInfo.pkg}"
-                        else -> "Car Info non reconnue automatiquement : coche-la dans la liste"
-                    },
-                    color = if (carInfo != null || loading) Color.White else Red, fontWeight = FontWeight.Bold, fontSize = 15.sp,
-                )
-                Text("Applis cochées : $totalMb Mo", color = Muted, fontSize = 13.sp)
-                Spacer(Modifier.height(6.dp))
-                LazyColumn(Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)).background(Card)) {
-                    items(apps, key = { it.pkg }) { a ->
-                        val on = a.pkg in selected
-                        Row(
-                            Modifier.fillMaxWidth().clickable(enabled = progress == null) {
-                                if (on) selected.remove(a.pkg) else selected.add(a.pkg)
-                            }.padding(horizontal = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Checkbox(
-                                checked = on, onCheckedChange = null,
-                                colors = CheckboxDefaults.colors(checkedColor = Yellow, checkmarkColor = Navy, uncheckedColor = Muted),
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
-                                Text(
-                                    a.label + if (a.carInfo) "  ★" else "",
-                                    color = if (a.carInfo) Yellow else Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-                                )
-                                Text(a.pkg, color = Muted, fontSize = 11.sp)
-                            }
-                            Text("${a.size / 1_048_576} Mo", color = Muted, fontSize = 12.sp)
-                        }
-                    }
-                }
+    Row(Modifier.fillMaxSize().padding(20.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+        // Colonne gauche : heure, date
+        Column(Modifier.weight(0.8f).fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
+            Column {
+                Text(time, color = Color.White, fontSize = 88.sp, fontWeight = FontWeight.Black, lineHeight = 88.sp)
+                Text(date, color = Yellow, fontSize = 22.sp, fontWeight = FontWeight.Bold)
             }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Koackpit", color = Muted, fontSize = 16.sp, fontWeight = FontWeight.Black)
+                Spacer(Modifier.weight(1f))
+                RoundButton(Icons.Filled.Settings, onSettings)
+            }
+        }
 
-            // Actions
-            Column(Modifier.weight(0.9f).fillMaxHeight().clip(RoundedCornerShape(12.dp)).background(Card).padding(16.dp)) {
-                Text("1. Créer le fichier", color = Yellow, fontWeight = FontWeight.Black, fontSize = 17.sp)
-                Text(
-                    "Les applis du fabricant sont déjà cochées. Rien n'est modifié sur l'autoradio : on fait juste une copie.",
-                    color = Color.White, fontSize = 13.sp,
-                )
-                Spacer(Modifier.height(10.dp))
-                val p = progress
-                if (p != null) {
-                    LinearProgressIndicator(progress = { p }, Modifier.fillMaxWidth(), color = Yellow, trackColor = Navy)
-                    Text("${(p * 100).toInt()} % — $step", color = Muted, fontSize = 12.sp)
-                } else {
-                    Button(
-                        enabled = !loading && selected.isNotEmpty() && totalMb <= LIMIT_MB,
-                        onClick = {
-                            progress = 0f
-                            result = null
-                            scope.launch {
-                                val f = withContext(Dispatchers.IO) {
-                                    runCatching {
-                                        Diag.build(ctx, apps.toList(), selected.toSet()) { v, s -> progress = v; step = s }
-                                    }.onFailure { e -> withContext(Dispatchers.Main) { toast(ctx, "Erreur : ${e.message}") } }.getOrNull()
-                                }
-                                if (f != null) {
-                                    onZip(f)
-                                    result = f
-                                    savedAt = withContext(Dispatchers.IO) { Diag.copyToDownloads(ctx, f) }
-                                    val port = server.start()
-                                    url = Diag.ip()?.takeIf { port > 0 }?.let { "http://$it:$port" }
-                                }
-                                progress = null
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Navy),
-                    ) { Text(if (result == null) "Créer le fichier" else "Recréer le fichier", fontWeight = FontWeight.Bold) }
-                    if (totalMb > LIMIT_MB) Text("Trop lourd : décoche des applis (max $LIMIT_MB Mo)", color = Red, fontSize = 12.sp)
+        // Grille de tuiles
+        Column(Modifier.weight(1.4f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(Modifier.weight(1.3f), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                Tile(Modifier.weight(1f), "GPS", if (nav == Targets.MAPS) "Google Maps" else "Waze", Icons.Filled.Place, accent = true) {
+                    go(listOf(nav, Targets.WAZE, Targets.MAPS), "Le GPS")
                 }
+                Tile(Modifier.weight(1f), "Musique", "Deezer", Icons.Filled.PlayArrow, accent = true) { go(Targets.MUSIC, "Deezer") }
+            }
+            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                Tile(Modifier.weight(1f), "Voiture", "Car Info", Icons.Filled.Info) { go(Targets.CAR_INFO, "Car Info") }
+                Tile(Modifier.weight(1f), "Diagnostic", "Car Scanner", Icons.Filled.Build) { go(Targets.OBD, "Car Scanner") }
+                Tile(Modifier.weight(1f), "Téléphone", "Bluetooth", Icons.Filled.Phone) { go(Targets.PHONE, "Le téléphone") }
+            }
+            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                Tile(Modifier.weight(1f), "Radio", "FM / DAB", null, glyph = "FM") { go(Targets.RADIO + "com.ex.dabplayer.pad", "La radio") }
+                Tile(Modifier.weight(2f), "Toutes les applis", null, Icons.Filled.List, onClick = onApps)
+            }
+        }
+    }
+}
 
-                result?.let { f ->
-                    Spacer(Modifier.height(14.dp))
-                    Text("2. Le récupérer sur le S25", color = Yellow, fontWeight = FontWeight.Black, fontSize = 17.sp)
-                    Text("Fichier prêt : ${f.length() / 1_048_576} Mo", color = Color.White, fontSize = 13.sp)
+@Composable
+fun Tile(
+    modifier: Modifier,
+    title: String,
+    subtitle: String?,
+    icon: ImageVector?,
+    accent: Boolean = false,
+    glyph: String? = null,
+    onClick: () -> Unit,
+) {
+    val bg = if (accent) CardHi else Card
+    Box(
+        modifier.fillMaxHeight().clip(RoundedCornerShape(20.dp)).background(bg)
+            .border(1.dp, if (accent) Yellow.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.06f), RoundedCornerShape(20.dp))
+            .clickable(onClick = onClick).padding(16.dp)
+    ) {
+        Box(
+            Modifier.size(46.dp).clip(CircleShape).background(if (accent) Yellow else Navy),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (icon != null) Icon(icon, null, tint = if (accent) Navy else Yellow, modifier = Modifier.size(26.dp))
+            else Text(glyph ?: "", color = Yellow, fontWeight = FontWeight.Black, fontSize = 15.sp)
+        }
+        Column(Modifier.align(Alignment.BottomStart)) {
+            Text(title, color = Color.White, fontSize = if (accent) 24.sp else 18.sp, fontWeight = FontWeight.Black, maxLines = 1)
+            if (subtitle != null) Text(subtitle, color = Muted, fontSize = 13.sp, maxLines = 1)
+        }
+    }
+}
+
+@Composable
+fun RoundButton(icon: ImageVector, onClick: () -> Unit) {
+    Box(
+        Modifier.size(52.dp).clip(CircleShape).background(Card).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { Icon(icon, null, tint = Yellow, modifier = Modifier.size(26.dp)) }
+}
+
+@Composable
+fun Header(title: String, onBack: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        RoundButton(Icons.Filled.ArrowBack, onBack)
+        Spacer(Modifier.width(16.dp))
+        Text(title, color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Black)
+    }
+}
+
+@Composable
+fun AppDrawer(onBack: () -> Unit) {
+    val ctx = LocalContext.current
+    val apps = remember { mutableStateListOf<LaunchApp>() }
+    LaunchedEffect(Unit) { apps.addAll(withContext(Dispatchers.IO) { Apps.list(ctx) }) }
+    Column(Modifier.fillMaxSize()) {
+        Header("Applis", onBack)
+        LazyVerticalGrid(
+            GridCells.Adaptive(110.dp),
+            Modifier.fillMaxSize().padding(horizontal = 12.dp),
+        ) {
+            items(apps, key = { it.pkg + "/" + it.activity }) { a ->
+                Column(
+                    Modifier.clip(RoundedCornerShape(14.dp)).clickable { Apps.open(ctx, a) }.padding(10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    if (a.icon != null) Image(a.icon.asImageBitmap(), null, Modifier.size(56.dp))
+                    else Box(Modifier.size(56.dp).clip(RoundedCornerShape(14.dp)).background(Card))
                     Spacer(Modifier.height(6.dp))
-                    if (url != null) {
-                        Text("Sur le S25, ouvre Firefox à cette adresse :", color = Color.White, fontSize = 13.sp)
-                        Box(Modifier.fillMaxWidth().padding(vertical = 6.dp).clip(RoundedCornerShape(8.dp)).background(Navy).padding(10.dp)) {
-                            Text(url!!, color = Yellow, fontSize = 22.sp, fontWeight = FontWeight.Black)
-                        }
-                        Text("Garde Koackpit ouvert pendant le téléchargement.", color = Muted, fontSize = 12.sp)
-                    } else {
-                        Text("Pas de Wi-Fi : active le partage de connexion du S25.", color = Red, fontSize = 13.sp)
-                    }
-                    savedAt?.let { Text("Copie aussi dans : $it", color = Muted, fontSize = 12.sp) }
-                    Spacer(Modifier.height(8.dp))
-                    Button(
-                        onClick = {
-                            runCatching {
-                                val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.files", f)
-                                ctx.startActivity(
-                                    Intent.createChooser(
-                                        Intent(Intent.ACTION_SEND).setType("application/zip").putExtra(Intent.EXTRA_STREAM, uri)
-                                            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
-                                        "Envoyer le diagnostic",
-                                    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                )
-                            }.onFailure { toast(ctx, "Partage impossible") }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Navy, contentColor = Yellow),
-                    ) { Text("Ou partager…") }
+                    Text(a.label, color = Color.White, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
     }
+}
+
+@Composable
+fun SettingsScreen(onBack: () -> Unit) {
+    val ctx = LocalContext.current
+    var nav by remember { mutableStateOf(Prefs.nav(ctx)) }
+    Column(Modifier.fillMaxSize()) {
+        Header("Réglages", onBack)
+        Row(Modifier.fillMaxSize().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(Card).padding(16.dp)) {
+                Text("GPS par défaut", color = Yellow, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                Spacer(Modifier.height(10.dp))
+                for ((pkg, name) in listOf(Targets.WAZE to "Waze", Targets.MAPS to "Google Maps")) {
+                    val ok = Apps.installed(ctx, pkg)
+                    val on = nav == pkg
+                    Row(
+                        Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(12.dp))
+                            .background(if (on) Yellow else Navy)
+                            .clickable { nav = pkg; Prefs.setNav(ctx, pkg) }.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(name, color = if (on) Navy else Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        if (!ok) Text("non installé", color = if (on) Navy else Muted, fontSize = 12.sp)
+                    }
+                }
+            }
+            Column(Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(Card).padding(16.dp)) {
+                Text("Écran d'accueil", color = Yellow, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                Text("Pour que le bouton maison ouvre Koackpit, choisis-le comme appli d'accueil par défaut.", color = Color.White, fontSize = 13.sp)
+                Spacer(Modifier.height(8.dp))
+                SettingButton("Choisir l'appli d'accueil") {
+                    runCatching { ctx.startActivity(Intent(Settings.ACTION_HOME_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                        .onFailure { toast(ctx, "Réglage indisponible : appuie sur le bouton maison et choisis Koackpit") }
+                }
+                Spacer(Modifier.height(16.dp))
+                Text("Outils", color = Yellow, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                Spacer(Modifier.height(8.dp))
+                SettingButton("Outil de diagnostic") { ctx.startActivity(Intent(ctx, DiagActivity::class.java)) }
+                Spacer(Modifier.height(16.dp))
+                Text("Koackpit ${BuildConfig.VERSION_NAME}", color = Muted, fontSize = 13.sp)
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingButton(label: String, onClick: () -> Unit) {
+    Box(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Navy).clickable(onClick = onClick).padding(14.dp)
+    ) { Text(label, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold) }
 }

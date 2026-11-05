@@ -31,7 +31,7 @@ object Diag {
 
     /** Préfixes des applis Android/Google standard : inutiles pour trouver le canal CAN du fabricant. */
     private val STANDARD = listOf(
-        "com.android.", "com.google.", "android.", "com.qualcomm.", "com.svox.",
+        "com.android.", "com.google.", "android.ext.", "android.auto_generated", "com.qualcomm.", "com.svox.",
         "org.chromium.", "com.koala.", "com.breel.", "com.example.android.",
     )
 
@@ -45,7 +45,7 @@ object Diag {
             val apks = listOfNotNull(ai.sourceDir) + (ai.splitSourceDirs?.toList() ?: emptyList())
             val size = apks.sumOf { File(it).length() }
             val flat = (label + " " + ai.packageName).lowercase().replace(" ", "")
-            val car = "carinfo" in flat
+            val car = "carinfo" in flat || "canbus" in flat
             AppEntry(ai.packageName, label, sys, apks, size, car, sys && !isStandard(ai.packageName))
         }.sortedWith(
             compareByDescending<AppEntry> { it.carInfo }.thenByDescending { it.vendor }.thenBy { it.pkg }
