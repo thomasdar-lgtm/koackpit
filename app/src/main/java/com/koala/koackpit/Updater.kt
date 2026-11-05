@@ -115,11 +115,18 @@ object Updater {
     }
 
     fun install(ctx: Context, file: File) {
+        // L'installateur ne doit jamais s'ouvrir dans l'écran partagé (il y resterait bloqué)
+        val wasOpen = MusicActivity.isOpen()
+        MusicActivity.closeIfOpen()
         val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.files", file)
-        ctx.startActivity(
-            Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive")
-                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-        )
+        val go = Runnable {
+            ctx.startActivity(
+                Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive")
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        }
+        // Laisse le temps à Android de refermer l'écran partagé
+        if (wasOpen) android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(go, 1000) else go.run()
     }
 }
 

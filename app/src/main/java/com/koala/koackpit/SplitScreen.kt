@@ -16,7 +16,6 @@ import java.lang.reflect.Method
  */
 object SplitScreen {
     private const val SPLIT_PRIMARY = 3          // WINDOWING_MODE_SPLIT_SCREEN_PRIMARY
-    private const val CREATE_MODE_LEFT = 0       // SPLIT_SCREEN_CREATE_MODE_TOP_OR_LEFT
 
     /** Accès aux méthodes cachées (contournement valable jusqu'à Android 10). */
     private fun hidden(cls: Class<*>, name: String, vararg types: Class<*>): Method {
@@ -40,43 +39,51 @@ object SplitScreen {
         ).joinToString("\n")
     }
 
-    /** Lance le GPS en écran partagé puis la musique à côté. Renvoie le compte rendu. */
-    fun launch(ctx: Context, navPkgs: List<String>, side: Intent, done: (String) -> Unit) {
+    private const val CREATE_MODE_RIGHT = 1      // SPLIT_SCREEN_CREATE_MODE_BOTTOM_OR_RIGHT
+    private val BT_MAIN = android.content.ComponentName("android.car.app.bt", "android.car.app.bt.BtMain")
+
+    /**
+     * Mode conduite. Le lecteur Koackpit est la fenêtre principale de l'écran partagé et le GPS se met
+     * à côté : quand le lecteur se ferme, Android referme tout seul l'écran partagé.
+     */
+    fun launch(ctx: Context, navPkgs: List<String>, done: (String) -> Unit) {
         val log = StringBuilder()
-        val pm = ctx.packageManager
-        val nav = navPkgs.firstNotNullOfOrNull { pm.getLaunchIntentForPackage(it) }
-        val music = side
+        val nav = navPkgs.firstNotNullOfOrNull { ctx.packageManager.getLaunchIntentForPackage(it) }
         if (nav == null) { done("GPS introuvable"); return }
+        if (MusicActivity.isOpen()) { done("Conduite déjà ouverte"); return }
+        val h = Handler(Looper.getMainLooper())
 
-        val opts = ActivityOptions.makeBasic()
+        // 1. Source audio Bluetooth : l'autoradio l'active quand sa page BtMain s'affiche
         runCatching {
-            hidden(ActivityOptions::class.java, "setLaunchWindowingMode", Int::class.javaPrimitiveType!!)
-                .invoke(opts, SPLIT_PRIMARY)
-            log.append("1. Mode écran partagé demandé : OK\n")
-        }.onFailure { log.append("1. Mode écran partagé refusé : ${it.cause ?: it}\n") }
-        runCatching {
-            hidden(ActivityOptions::class.java, "setSplitScreenCreateMode", Int::class.javaPrimitiveType!!)
-                .invoke(opts, CREATE_MODE_LEFT)
-            log.append("2. GPS à gauche : OK\n")
-        }.onFailure { log.append("2. Position gauche refusée : ${it.cause ?: it}\n") }
+            ctx.startActivity(Intent().setComponent(BT_MAIN).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            log.append("1. Source BT demandée\n")
+        }.onFailure { log.append("1. BtMain refusée : $it\n") }
 
-        runCatching {
-            ctx.startActivity(nav.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), opts.toBundle())
-            log.append("3. GPS lancé\n")
-        }.onFailure {
-            log.append("3. Lancement GPS échoué : $it\n")
-            done(log.toString()); return
-        }
-
-        // La musique s'ouvre dans l'autre moitié, après l'ouverture du GPS
-        Handler(Looper.getMainLooper()).postDelayed({
+        // 2. Lecteur en fenêtre principale, à droite
+        h.postDelayed({
+            val opts = ActivityOptions.makeBasic()
+            runCatching {
+                hidden(ActivityOptions::class.java, "setLaunchWindowingMode", Int::class.javaPrimitiveType!!).invoke(opts, SPLIT_PRIMARY)
+                hidden(ActivityOptions::class.java, "setSplitScreenCreateMode", Int::class.javaPrimitiveType!!).invoke(opts, CREATE_MODE_RIGHT)
+                log.append("2. Écran partagé demandé\n")
+            }.onFailure { log.append("2. Écran partagé refusé : ${it.cause ?: it}\n") }
             runCatching {
                 ctx.startActivity(
-                    music.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT)
+                    Intent(ctx, MusicActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        .putExtra(MusicActivity.EXTRA_INFO, "Source BT activée"),
+                    opts.toBundle(),
                 )
-                log.append("4. Lecteur Bluetooth lancé à côté\n")
-            }.onFailure { log.append("4. Lancement musique échoué : $it\n") }
-            done(log.toString())
-        }, 1500)
+                log.append("3. Lecteur lancé\n")
+            }.onFailure { log.append("3. Lecteur échoué : $it\n"); done(log.toString()); return@postDelayed }
+
+            // 3. GPS dans l'autre moitié
+            h.postDelayed({
+                runCatching {
+                    ctx.startActivity(nav.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT))
+                    log.append("4. GPS lancé à côté\n")
+                }.onFailure { log.append("4. GPS échoué : $it\n") }
+                done(log.toString())
+            }, 1500)
+        }, 1200)
     }
 }

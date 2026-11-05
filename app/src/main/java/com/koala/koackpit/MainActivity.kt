@@ -82,7 +82,10 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         // Bouton maison : retour à l'accueil
-        if (intent.hasCategory(Intent.CATEGORY_HOME)) screen.value = Screen.HOME
+        if (intent.hasCategory(Intent.CATEGORY_HOME)) {
+            screen.value = Screen.HOME
+            MusicActivity.closeIfOpen()
+        }
     }
 }
 
@@ -248,12 +251,12 @@ fun SettingsScreen(onBack: () -> Unit) {
                     }
                 }
                 Spacer(Modifier.height(16.dp))
-                Text("Conduite (test écran partagé)", color = Yellow, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                Text("Conduite (GPS + lecteur BT)", color = Yellow, fontSize = 18.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.height(8.dp))
-                SettingButton("Lancer GPS + lecteur Bluetooth") {
+                SettingButton("Lancer la conduite") {
                     Prefs.setSplitLog(ctx, "Test en cours…")
                     splitLog = "Test en cours…"
-                    SplitScreen.launch(ctx, listOf(nav, Targets.WAZE, Targets.MAPS), Intent(ctx, MusicActivity::class.java)) { r ->
+                    SplitScreen.launch(ctx, listOf(nav, Targets.WAZE, Targets.MAPS)) { r ->
                         val full = r + "\n" + SplitScreen.systemInfo(ctx)
                         Prefs.setSplitLog(ctx, full)
                         splitLog = full

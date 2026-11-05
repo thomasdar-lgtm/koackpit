@@ -57,6 +57,14 @@ class MediaListener : NotificationListenerService()
 
 /** Lecteur Bluetooth : affiche ce que joue le téléphone et le pilote. */
 class MusicActivity : ComponentActivity() {
+    companion object {
+        const val EXTRA_INFO = "info"
+        private var current: java.lang.ref.WeakReference<MusicActivity>? = null
+
+        /** Ferme la conduite si elle est ouverte (avant une mise à jour, retour à l'accueil…). */
+        fun closeIfOpen() { current?.get()?.quit() }
+        fun isOpen() = current?.get()?.isFinishing == false
+    }
     private val title = mutableStateOf("")
     private val artist = mutableStateOf("")
     private val art = mutableStateOf<Bitmap?>(null)
@@ -76,9 +84,17 @@ class MusicActivity : ComponentActivity() {
     }
     private val sessionsChanged = MediaSessionManager.OnActiveSessionsChangedListener { pick(it) }
 
+    private var createdAt = 0L
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (savedInstanceState == null) wakeBtAudio()
+        createdAt = SystemClock.uptimeMillis()
+        current = java.lang.ref.WeakReference(this)
+        btInfo.value = intent.getStringExtra(EXTRA_INFO) ?: ""
+        // Bouton retour = quitter la conduite (ferme l'écran partagé)
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() = quit()
+        })
         setContent {
             Player(
                 title.value, artist.value, art.value, playing.value,
@@ -87,6 +103,7 @@ class MusicActivity : ComponentActivity() {
                 onPrev = { control(KeyEvent.KEYCODE_MEDIA_PREVIOUS) },
                 onPlay = { control(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) },
                 onNext = { control(KeyEvent.KEYCODE_MEDIA_NEXT) },
+                onClose = ::quit,
             )
         }
     }
@@ -101,27 +118,30 @@ class MusicActivity : ComponentActivity() {
         }.onFailure { source.value = "Accès refusé : $it" }
     }
 
+    /** Écran d'accueil appuyé : la fenêtre du lecteur est réduite à une bande → on quitte. */
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (settled() && newConfig.screenWidthDp in 1..159) quit()
+    }
+
+    /** Lecteur masqué par une autre appli : on quitte pour ne pas laisser l'écran partagé actif. */
+    override fun onStop() {
+        super.onStop()
+        if (settled() && !isFinishing && !isChangingConfigurations) quit()
+    }
+
+    private fun settled() = SystemClock.uptimeMillis() - createdAt > 4000
+
+    /** Ferme le lecteur et sa tâche : Android referme alors l'écran partagé. */
+    fun quit() {
+        if (!isFinishing) finishAndRemoveTask()
+    }
+
     override fun onDestroy() {
+        if (current?.get() === this) current = null
         runCatching { msm?.removeOnActiveSessionsChangedListener(sessionsChanged) }
         attach(null)
         super.onDestroy()
-    }
-
-    /**
-     * Le son Bluetooth ne sort que si l'appli Bluetooth d'origine bascule l'autoradio sur la source BT.
-     * On ouvre sa page musique un instant, puis on revient sur le lecteur Koackpit.
-     */
-    private fun wakeBtAudio() {
-        // Le service de l'autoradio associe la source Bluetooth (65537) à cette page précise
-        val bt = ComponentName("android.car.app.bt", "android.car.app.bt.BtMain")
-        runCatching {
-            startActivity(Intent().setComponent(bt).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            btInfo.value = "Source BT activée"
-            android.os.Handler(mainLooper).postDelayed({
-                startActivity(Intent(this, MusicActivity::class.java)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
-            }, 1200)
-        }.onFailure { btInfo.value = "Ouverture BtMain refusée : $it" }
     }
 
     /** Choisit la session en cours de lecture, sinon la première (Bluetooth en priorité). */
@@ -179,8 +199,9 @@ class MusicActivity : ComponentActivity() {
 @Composable
 fun Player(
     title: String, artist: String, art: Bitmap?, playing: Boolean, source: String, allowed: Boolean,
-    onAllow: () -> Unit, onPrev: () -> Unit, onPlay: () -> Unit, onNext: () -> Unit,
+    onAllow: () -> Unit, onPrev: () -> Unit, onPlay: () -> Unit, onNext: () -> Unit, onClose: () -> Unit,
 ) {
+  Box(Modifier.fillMaxSize().background(Navy)) {
     Column(
         Modifier.fillMaxSize().background(Navy).padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -216,6 +237,18 @@ fun Player(
             ) { Text("Autoriser l'accès aux notifications pour afficher le titre", color = Color.White, fontSize = 13.sp, textAlign = TextAlign.Center) }
         } else Text(source, color = Muted, fontSize = 11.sp, maxLines = 4, textAlign = TextAlign.Center)
     }
+    // Quitter la conduite
+    Box(
+        Modifier.align(Alignment.TopEnd).padding(10.dp).size(48.dp).clip(CircleShape).background(Card).clickable(onClick = onClose),
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.size(18.dp)) {
+            val w = size.width
+            drawLine(Yellow, Offset(0f, 0f), Offset(w, w), strokeWidth = w * 0.16f)
+            drawLine(Yellow, Offset(w, 0f), Offset(0f, w), strokeWidth = w * 0.16f)
+        }
+    }
+  }
 }
 
 enum class Glyph { PREV, PLAY, PAUSE, NEXT }
