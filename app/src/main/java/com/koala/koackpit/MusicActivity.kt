@@ -63,6 +63,7 @@ class MusicActivity : ComponentActivity() {
     private val playing = mutableStateOf(false)
     private val source = mutableStateOf("")
     private val allowed = mutableStateOf(false)
+    private val btInfo = mutableStateOf("")
 
     private var msm: MediaSessionManager? = null
     private var ctrl: MediaController? = null
@@ -77,9 +78,11 @@ class MusicActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (savedInstanceState == null) wakeBtAudio()
         setContent {
             Player(
-                title.value, artist.value, art.value, playing.value, source.value, allowed.value,
+                title.value, artist.value, art.value, playing.value,
+                listOf(source.value, btInfo.value).filter { it.isNotEmpty() }.joinToString("\n"), allowed.value,
                 onAllow = ::openAccess,
                 onPrev = { control(KeyEvent.KEYCODE_MEDIA_PREVIOUS) },
                 onPlay = { control(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) },
@@ -102,6 +105,32 @@ class MusicActivity : ComponentActivity() {
         runCatching { msm?.removeOnActiveSessionsChangedListener(sessionsChanged) }
         attach(null)
         super.onDestroy()
+    }
+
+    /**
+     * Le son Bluetooth ne sort que si l'appli Bluetooth d'origine bascule l'autoradio sur la source BT.
+     * On ouvre sa page musique un instant, puis on revient sur le lecteur Koackpit.
+     */
+    private fun wakeBtAudio() {
+        val pkg = Targets.PHONE.first()
+        val acts = runCatching {
+            packageManager.getPackageInfo(pkg, android.content.pm.PackageManager.GET_ACTIVITIES).activities.orEmpty()
+                .map { it.name }
+        }.getOrDefault(emptyList())
+        if (acts.isEmpty()) { btInfo.value = "Appli Bluetooth d'origine introuvable"; return }
+        val music = acts.firstOrNull { n -> listOf("music", "a2dp", "media", "audio").any { n.contains(it, true) } }
+        if (music == null) {
+            btInfo.value = "Pages BT : " + acts.joinToString(", ") { it.substringAfterLast('.') }
+            return
+        }
+        runCatching {
+            startActivity(Intent().setClassName(pkg, music).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            btInfo.value = "Source BT : " + music.substringAfterLast('.')
+            android.os.Handler(mainLooper).postDelayed({
+                startActivity(Intent(this, MusicActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
+            }, 1200)
+        }.onFailure { btInfo.value = "Ouverture ${music.substringAfterLast('.')} refusée : $it" }
     }
 
     /** Choisit la session en cours de lecture, sinon la première (Bluetooth en priorité). */
@@ -194,7 +223,7 @@ fun Player(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(CardHi).clickable(onClick = onAllow).padding(12.dp),
                 contentAlignment = Alignment.Center,
             ) { Text("Autoriser l'accès aux notifications pour afficher le titre", color = Color.White, fontSize = 13.sp, textAlign = TextAlign.Center) }
-        } else Text(source, color = Muted, fontSize = 11.sp, maxLines = 1)
+        } else Text(source, color = Muted, fontSize = 11.sp, maxLines = 4, textAlign = TextAlign.Center)
     }
 }
 
