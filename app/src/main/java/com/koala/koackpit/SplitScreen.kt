@@ -56,7 +56,7 @@ object SplitScreen {
         // 1. Source audio Bluetooth : l'autoradio l'active quand sa page BtMain s'affiche
         runCatching {
             ctx.startActivity(Intent().setComponent(BT_MAIN).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            log.append("1. Source BT demandée\n")
+            log.append("1. Source BT demandée (BtMain)\n")
         }.onFailure { log.append("1. BtMain refusée : $it\n") }
 
         // 2. Lecteur en fenêtre principale, à droite

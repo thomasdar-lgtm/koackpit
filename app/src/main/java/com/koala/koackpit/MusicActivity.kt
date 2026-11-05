@@ -72,6 +72,12 @@ class MusicActivity : ComponentActivity() {
     private val source = mutableStateOf("")
     private val allowed = mutableStateOf(false)
     private val btInfo = mutableStateOf("")
+    private val carStatus = mutableStateOf("")
+    private val srcIsBt = mutableStateOf(true)
+    private val poll = android.os.Handler(android.os.Looper.getMainLooper())
+    private val tick = object : Runnable {
+        override fun run() { readCar(); poll.postDelayed(this, 1000) }
+    }
 
     private var msm: MediaSessionManager? = null
     private var ctrl: MediaController? = null
@@ -98,14 +104,48 @@ class MusicActivity : ComponentActivity() {
         setContent {
             Player(
                 title.value, artist.value, art.value, playing.value,
-                listOf(source.value, btInfo.value).filter { it.isNotEmpty() }.joinToString("\n"), allowed.value,
+                listOf(carStatus.value, source.value).filter { it.isNotEmpty() }.joinToString("\n"), allowed.value || CarLink.available(),
                 onAllow = ::openAccess,
                 onPrev = { control(KeyEvent.KEYCODE_MEDIA_PREVIOUS) },
                 onPlay = { control(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) },
                 onNext = { control(KeyEvent.KEYCODE_MEDIA_NEXT) },
                 onClose = ::quit,
+                onBtSource = if (srcIsBt.value) null else ::forceBtSource,
             )
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        poll.post(tick)
+    }
+
+    /** Lit l'état réel de l'autoradio : source audio, lecture BT, titre. */
+    private fun readCar() {
+        if (!CarLink.available()) { carStatus.value = "Service autoradio injoignable"; return }
+        val src = CarLink.currentSource()
+        val st = CarLink.a2dpState()
+        srcIsBt.value = src == CarLink.SRC_BT
+        val stName = when (st) { 0 -> "repos"; 1 -> "lecture"; 2 -> "pause"; 3 -> "arrêt"; else -> "?" }
+        carStatus.value = "Source : ${CarLink.sourceName(src)} · BT : $stName"
+        if (st != null) playing.value = st == 1
+        CarLink.avrcpInfo()?.let { a ->
+            if (a.isNotEmpty() && a[0].isNotBlank()) title.value = a[0]
+            if (a.size > 1) artist.value = a[1]
+        }
+    }
+
+    /**
+     * Demande la source BT au service de l'autoradio. Il peut ouvrir sa page Bluetooth par-dessus :
+     * on ne quitte pas la conduite pendant ce temps, et on remet le lecteur devant.
+     */
+    private fun forceBtSource() {
+        createdAt = SystemClock.uptimeMillis()
+        CarLink.enterSource(CarLink.SRC_BT)
+        poll.postDelayed({
+            startActivity(Intent(this, MusicActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
+        }, 1500)
     }
 
     override fun onResume() {
@@ -127,6 +167,7 @@ class MusicActivity : ComponentActivity() {
     /** Lecteur masqué par une autre appli : on quitte pour ne pas laisser l'écran partagé actif. */
     override fun onStop() {
         super.onStop()
+        poll.removeCallbacks(tick)
         if (settled() && !isFinishing && !isChangingConfigurations) quit()
     }
 
@@ -174,6 +215,14 @@ class MusicActivity : ComponentActivity() {
 
     /** Commandes : via la session si connue, sinon touche média système (part en Bluetooth). */
     private fun control(key: Int) {
+        if (CarLink.available()) {
+            when (key) {
+                KeyEvent.KEYCODE_MEDIA_PREVIOUS -> CarLink.prev()
+                KeyEvent.KEYCODE_MEDIA_NEXT -> CarLink.next()
+                else -> CarLink.playPause()
+            }
+            return
+        }
         val c = ctrl
         if (c != null) {
             val t = c.transportControls
@@ -200,6 +249,7 @@ class MusicActivity : ComponentActivity() {
 fun Player(
     title: String, artist: String, art: Bitmap?, playing: Boolean, source: String, allowed: Boolean,
     onAllow: () -> Unit, onPrev: () -> Unit, onPlay: () -> Unit, onNext: () -> Unit, onClose: () -> Unit,
+    onBtSource: (() -> Unit)? = null,
 ) {
   Box(Modifier.fillMaxSize().background(Navy)) {
     Column(
@@ -230,6 +280,13 @@ fun Player(
             CtrlButton(Glyph.NEXT, 60, false, onNext)
         }
         Spacer(Modifier.height(10.dp))
+        if (onBtSource != null) {
+            Box(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Yellow).clickable(onClick = onBtSource).padding(12.dp),
+                contentAlignment = Alignment.Center,
+            ) { Text("Activer la source Bluetooth", color = Navy, fontSize = 15.sp, fontWeight = FontWeight.Black) }
+            Spacer(Modifier.height(6.dp))
+        }
         if (!allowed) {
             Box(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(CardHi).clickable(onClick = onAllow).padding(12.dp),
