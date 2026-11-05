@@ -25,6 +25,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -225,6 +227,7 @@ fun AppDrawer(onBack: () -> Unit) {
 fun SettingsScreen(onBack: () -> Unit) {
     val ctx = LocalContext.current
     var nav by remember { mutableStateOf(Prefs.nav(ctx)) }
+    var splitLog by remember { mutableStateOf(Prefs.splitLog(ctx)) }
     Column(Modifier.fillMaxSize()) {
         Header("Réglages", onBack)
         Row(Modifier.fillMaxSize().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -243,6 +246,23 @@ fun SettingsScreen(onBack: () -> Unit) {
                         Text(name, color = if (on) Navy else Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                         if (!ok) Text("non installé", color = if (on) Navy else Muted, fontSize = 12.sp)
                     }
+                }
+                Spacer(Modifier.height(16.dp))
+                Text("Conduite (test écran partagé)", color = Yellow, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                Spacer(Modifier.height(8.dp))
+                SettingButton("Lancer GPS + Deezer côte à côte") {
+                    Prefs.setSplitLog(ctx, "Test en cours…")
+                    splitLog = "Test en cours…"
+                    SplitScreen.launch(ctx, listOf(nav, Targets.WAZE, Targets.MAPS), Targets.MUSIC) { r ->
+                        val full = r + "\n" + SplitScreen.systemInfo(ctx)
+                        Prefs.setSplitLog(ctx, full)
+                        splitLog = full
+                    }
+                }
+                if (splitLog.isNotEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(splitLog, color = Color.White, fontSize = 12.sp, lineHeight = 15.sp,
+                        modifier = Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()))
                 }
             }
             Column(Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(Card).padding(16.dp)) {
