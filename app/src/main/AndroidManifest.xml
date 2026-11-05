@@ -39,6 +39,24 @@
             android:exported="false"
             android:label="Diagnostic Koackpit"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden" />
+        <!-- Lecteur Bluetooth : tâche séparée pour s'ouvrir dans l'autre moitié de l'écran -->
+        <activity
+            android:name=".MusicActivity"
+            android:exported="false"
+            android:label="Musique"
+            android:taskAffinity="com.koala.koackpit.music"
+            android:launchMode="singleTask"
+            android:resizeableActivity="true"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden" />
+        <service
+            android:name=".MediaListener"
+            android:exported="true"
+            android:label="Koackpit musique"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.files"

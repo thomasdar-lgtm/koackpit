@@ -41,13 +41,12 @@ object SplitScreen {
     }
 
     /** Lance le GPS en écran partagé puis la musique à côté. Renvoie le compte rendu. */
-    fun launch(ctx: Context, navPkgs: List<String>, musicPkgs: List<String>, done: (String) -> Unit) {
+    fun launch(ctx: Context, navPkgs: List<String>, side: Intent, done: (String) -> Unit) {
         val log = StringBuilder()
         val pm = ctx.packageManager
         val nav = navPkgs.firstNotNullOfOrNull { pm.getLaunchIntentForPackage(it) }
-        val music = musicPkgs.firstNotNullOfOrNull { pm.getLaunchIntentForPackage(it) }
+        val music = side
         if (nav == null) { done("GPS introuvable"); return }
-        if (music == null) { done("Appli musique introuvable"); return }
 
         val opts = ActivityOptions.makeBasic()
         runCatching {
@@ -75,7 +74,7 @@ object SplitScreen {
                 ctx.startActivity(
                     music.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT)
                 )
-                log.append("4. Musique lancée à côté\n")
+                log.append("4. Lecteur Bluetooth lancé à côté\n")
             }.onFailure { log.append("4. Lancement musique échoué : $it\n") }
             done(log.toString())
         }, 1500)

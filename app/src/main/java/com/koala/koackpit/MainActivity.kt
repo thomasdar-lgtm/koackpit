@@ -250,10 +250,10 @@ fun SettingsScreen(onBack: () -> Unit) {
                 Spacer(Modifier.height(16.dp))
                 Text("Conduite (test écran partagé)", color = Yellow, fontSize = 18.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.height(8.dp))
-                SettingButton("Lancer GPS + Deezer côte à côte") {
+                SettingButton("Lancer GPS + lecteur Bluetooth") {
                     Prefs.setSplitLog(ctx, "Test en cours…")
                     splitLog = "Test en cours…"
-                    SplitScreen.launch(ctx, listOf(nav, Targets.WAZE, Targets.MAPS), Targets.MUSIC) { r ->
+                    SplitScreen.launch(ctx, listOf(nav, Targets.WAZE, Targets.MAPS), Intent(ctx, MusicActivity::class.java)) { r ->
                         val full = r + "\n" + SplitScreen.systemInfo(ctx)
                         Prefs.setSplitLog(ctx, full)
                         splitLog = full
