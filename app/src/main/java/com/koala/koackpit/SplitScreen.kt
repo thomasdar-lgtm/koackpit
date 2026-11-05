@@ -53,11 +53,15 @@ object SplitScreen {
         if (MusicActivity.isOpen()) { done("Conduite déjà ouverte"); return }
         val h = Handler(Looper.getMainLooper())
 
-        // 1. Source audio Bluetooth : l'autoradio l'active quand sa page BtMain s'affiche
-        runCatching {
+        // 1. Source audio Bluetooth. L'autoradio la mémorise : on ne passe par sa page BtMain
+        //    (seul moyen de basculer l'ampli) que si une autre source est active.
+        val src = CarLink.currentSource()
+        val needBt = src != null && src != CarLink.SRC_BT
+        if (needBt) runCatching {
             ctx.startActivity(Intent().setComponent(BT_MAIN).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            log.append("1. Source BT demandée (BtMain)\n")
+            log.append("1. Source ${CarLink.sourceName(src)} → Bluetooth\n")
         }.onFailure { log.append("1. BtMain refusée : $it\n") }
+        else log.append("1. Source déjà ${CarLink.sourceName(src)}\n")
 
         // 2. Lecteur en fenêtre principale, à droite
         h.postDelayed({
@@ -82,7 +86,7 @@ object SplitScreen {
                     log.append("4. GPS lancé à côté\n")
                 }.onFailure { log.append("4. GPS échoué : $it\n") }
                 done(log.toString())
-            }, 1500)
-        }, 1200)
+            }, 800)
+        }, if (needBt) 900L else 0L)
     }
 }
