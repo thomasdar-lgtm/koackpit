@@ -112,25 +112,16 @@ class MusicActivity : ComponentActivity() {
      * On ouvre sa page musique un instant, puis on revient sur le lecteur Koackpit.
      */
     private fun wakeBtAudio() {
-        val pkg = Targets.PHONE.first()
-        val acts = runCatching {
-            packageManager.getPackageInfo(pkg, android.content.pm.PackageManager.GET_ACTIVITIES).activities.orEmpty()
-                .map { it.name }
-        }.getOrDefault(emptyList())
-        if (acts.isEmpty()) { btInfo.value = "Appli Bluetooth d'origine introuvable"; return }
-        val music = acts.firstOrNull { n -> listOf("music", "a2dp", "media", "audio").any { n.contains(it, true) } }
-        if (music == null) {
-            btInfo.value = "Pages BT : " + acts.joinToString(", ") { it.substringAfterLast('.') }
-            return
-        }
+        // Le service de l'autoradio associe la source Bluetooth (65537) à cette page précise
+        val bt = ComponentName("android.car.app.bt", "android.car.app.bt.BtMain")
         runCatching {
-            startActivity(Intent().setClassName(pkg, music).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            btInfo.value = "Source BT : " + music.substringAfterLast('.')
+            startActivity(Intent().setComponent(bt).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            btInfo.value = "Source BT activée"
             android.os.Handler(mainLooper).postDelayed({
                 startActivity(Intent(this, MusicActivity::class.java)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
             }, 1200)
-        }.onFailure { btInfo.value = "Ouverture ${music.substringAfterLast('.')} refusée : $it" }
+        }.onFailure { btInfo.value = "Ouverture BtMain refusée : $it" }
     }
 
     /** Choisit la session en cours de lecture, sinon la première (Bluetooth en priorité). */
