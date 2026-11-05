@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -69,6 +70,8 @@ enum class Screen { HOME, APPS, SETTINGS }
 
 class MainActivity : ComponentActivity() {
     private val screen = mutableStateOf(Screen.HOME)
+    private val upd = UpdateState()
+    private val resumes = mutableStateOf(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -76,7 +79,13 @@ class MainActivity : ComponentActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { screen.value = Screen.HOME }
         })
-        setContent { Koackpit(screen) }
+        setContent { Koackpit(screen, upd, resumes.value) }
+    }
+
+    /** Chaque retour sur Koackpit relance la recherche de mise à jour (au plus une fois par minute). */
+    override fun onResume() {
+        super.onResume()
+        resumes.value++
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -90,15 +99,14 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun Koackpit(screen: androidx.compose.runtime.MutableState<Screen>) {
-    val upd = remember { UpdateState() }
-    LaunchedEffect(Unit) { runCatching { upd.info = Updater.check() } }
+fun Koackpit(screen: androidx.compose.runtime.MutableState<Screen>, upd: UpdateState, resumes: Int) {
+    LaunchedEffect(resumes) { Updater.refresh(upd, force = false) }
     Column(Modifier.fillMaxSize().background(Navy)) {
         UpdateBanner(upd)
         when (screen.value) {
             Screen.HOME -> Home(onApps = { screen.value = Screen.APPS }, onSettings = { screen.value = Screen.SETTINGS })
             Screen.APPS -> AppDrawer(onBack = { screen.value = Screen.HOME })
-            Screen.SETTINGS -> SettingsScreen(onBack = { screen.value = Screen.HOME })
+            Screen.SETTINGS -> SettingsScreen(upd, onBack = { screen.value = Screen.HOME })
         }
     }
 }
@@ -227,8 +235,9 @@ fun AppDrawer(onBack: () -> Unit) {
 }
 
 @Composable
-fun SettingsScreen(onBack: () -> Unit) {
+fun SettingsScreen(upd: UpdateState, onBack: () -> Unit) {
     val ctx = LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     var nav by remember { mutableStateOf(Prefs.nav(ctx)) }
     var splitLog by remember { mutableStateOf(Prefs.splitLog(ctx)) }
     Column(Modifier.fillMaxSize()) {
@@ -280,6 +289,16 @@ fun SettingsScreen(onBack: () -> Unit) {
                 Text("Outils", color = Yellow, fontSize = 18.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.height(8.dp))
                 SettingButton("Outil de diagnostic") { ctx.startActivity(Intent(ctx, DiagActivity::class.java)) }
+                Spacer(Modifier.height(8.dp))
+                SettingButton("Rechercher une mise à jour") {
+                    scope.launch {
+                        when (Updater.refresh(upd, force = true)) {
+                            null -> toast(ctx, "Pas de connexion à GitHub, vérifie le partage de connexion")
+                            false -> toast(ctx, "Koackpit est à jour (${BuildConfig.VERSION_NAME})")
+                            true -> toast(ctx, "Mise à jour trouvée : appuie sur Installer dans le bandeau jaune")
+                        }
+                    }
+                }
                 Spacer(Modifier.height(16.dp))
                 Text("Koackpit ${BuildConfig.VERSION_NAME}", color = Muted, fontSize = 13.sp)
             }

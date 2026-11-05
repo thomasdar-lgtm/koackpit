@@ -82,6 +82,7 @@ class MusicActivity : ComponentActivity() {
                 onPlay = { CarLink.playPause() },
                 onNext = { CarLink.next() },
                 onClose = ::quit,
+                onHome = ::goHome,
                 onBtSource = if (srcIsBt.value) null else ::forceBtSource,
             )
         }
@@ -131,6 +132,15 @@ class MusicActivity : ComponentActivity() {
         if (settled() && !isFinishing && !isChangingConfigurations) quit()
     }
 
+    /** Quitte la conduite et rouvre l'accueil Koackpit. */
+    private fun goHome() {
+        val app = applicationContext
+        Handler(Looper.getMainLooper()).postDelayed({
+            app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }, 700)
+        quit()
+    }
+
     private fun settled() = SystemClock.uptimeMillis() - createdAt > 4000
 
     /** Ferme le lecteur et sa tâche : Android referme alors l'écran partagé. */
@@ -148,7 +158,7 @@ class MusicActivity : ComponentActivity() {
 @Composable
 fun Player(
     title: String, artist: String, art: Bitmap?, playing: Boolean, warning: String,
-    onPrev: () -> Unit, onPlay: () -> Unit, onNext: () -> Unit, onClose: () -> Unit,
+    onPrev: () -> Unit, onPlay: () -> Unit, onNext: () -> Unit, onClose: () -> Unit, onHome: () -> Unit,
     onBtSource: (() -> Unit)? = null,
 ) {
   Box(Modifier.fillMaxSize().background(Navy)) {
@@ -188,6 +198,18 @@ fun Player(
             Spacer(Modifier.height(6.dp))
         }
         if (warning.isNotEmpty()) Text(warning, color = Red, fontSize = 13.sp, textAlign = TextAlign.Center)
+    }
+    // Retour à l'accueil Koackpit
+    Box(
+        Modifier.align(Alignment.TopStart).padding(10.dp).size(48.dp).clip(CircleShape).background(Card).clickable(onClick = onHome),
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.size(20.dp)) {
+            val w = size.width; val h = size.height
+            drawPath(Path().apply { moveTo(w / 2, 0f); lineTo(w, h * 0.45f); lineTo(0f, h * 0.45f); close() }, Yellow)
+            drawRect(Yellow, Offset(w * 0.18f, h * 0.45f), Size(w * 0.64f, h * 0.55f))
+            drawRect(Card, Offset(w * 0.4f, h * 0.65f), Size(w * 0.2f, h * 0.35f))
+        }
     }
     // Quitter la conduite
     Box(

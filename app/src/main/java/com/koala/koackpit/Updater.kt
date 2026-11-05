@@ -105,6 +105,22 @@ object Updater {
         }
     }
 
+    private var lastCheck = 0L
+
+    /**
+     * Recherche une mise à jour et remplit le bandeau. Renvoie true si une version plus récente existe,
+     * false si Koackpit est à jour, null si GitHub est injoignable.
+     */
+    suspend fun refresh(upd: UpdateState, force: Boolean): Boolean? {
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (!force && lastCheck != 0L && now - lastCheck < 60_000) return upd.info != null
+        if (upd.progress != null) return true   // téléchargement en cours : on ne touche à rien
+        return runCatching { check() }.fold(
+            onSuccess = { lastCheck = now; upd.info = it; it != null },
+            onFailure = { null },
+        )
+    }
+
     fun canInstall(ctx: Context) = ctx.packageManager.canRequestPackageInstalls()
 
     fun askInstallPermission(ctx: Context) {
