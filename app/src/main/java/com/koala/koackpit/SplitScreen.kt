@@ -21,7 +21,7 @@ object SplitScreen {
     /** Accès aux méthodes cachées (contournement valable jusqu'à Android 10). */
     private fun hidden(cls: Class<*>, name: String, vararg types: Class<*>): Method {
         val gdm = Class::class.java.getMethod(
-            "getDeclaredMethod", String::class.java, Array<Class<*>>::class.java
+            "getDeclaredMethod", String::class.java, arrayOf<Class<*>>().javaClass
         )
         return (gdm.invoke(cls, name, types) as Method).apply { isAccessible = true }
     }
