@@ -69,8 +69,7 @@ object SplitScreen {
             }.onFailure { log.append("2. Écran partagé refusé : ${it.cause ?: it}\n") }
             runCatching {
                 ctx.startActivity(
-                    Intent(ctx, MusicActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        .putExtra(MusicActivity.EXTRA_INFO, "Source BT activée"),
+                    Intent(ctx, MusicActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                     opts.toBundle(),
                 )
                 log.append("3. Lecteur lancé\n")

@@ -1,20 +1,13 @@
 package com.koala.koackpit
 
-import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
-import android.media.AudioManager
-import android.media.MediaMetadata
-import android.media.session.MediaController
-import android.media.session.MediaSessionManager
-import android.media.session.PlaybackState
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
-import android.provider.Settings
-import android.service.notification.NotificationListenerService
-import android.view.KeyEvent
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -50,65 +43,44 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.app.NotificationManagerCompat
+import java.lang.ref.WeakReference
 
-/** Nécessaire pour lire les infos de lecture (titre, artiste) des autres applis. */
-class MediaListener : NotificationListenerService()
-
-/** Lecteur Bluetooth : affiche ce que joue le téléphone et le pilote. */
+/** Lecteur Bluetooth : affiche ce que joue le téléphone et le pilote, via le service de l'autoradio. */
 class MusicActivity : ComponentActivity() {
     companion object {
-        const val EXTRA_INFO = "info"
-        private var current: java.lang.ref.WeakReference<MusicActivity>? = null
+        private var current: WeakReference<MusicActivity>? = null
 
         /** Ferme la conduite si elle est ouverte (avant une mise à jour, retour à l'accueil…). */
         fun closeIfOpen() { current?.get()?.quit() }
         fun isOpen() = current?.get()?.isFinishing == false
     }
+
     private val title = mutableStateOf("")
     private val artist = mutableStateOf("")
-    private val art = mutableStateOf<Bitmap?>(null)
+    private val art = mutableStateOf<Bitmap?>(null)   // pochette : viendra de l'appli compagnon
     private val playing = mutableStateOf(false)
-    private val source = mutableStateOf("")
-    private val allowed = mutableStateOf(false)
-    private val btInfo = mutableStateOf("")
-    private val carStatus = mutableStateOf("")
+    private val warning = mutableStateOf("")
     private val srcIsBt = mutableStateOf(true)
-    private val poll = android.os.Handler(android.os.Looper.getMainLooper())
+    private val poll = Handler(Looper.getMainLooper())
     private val tick = object : Runnable {
         override fun run() { readCar(); poll.postDelayed(this, 1000) }
     }
-
-    private var msm: MediaSessionManager? = null
-    private var ctrl: MediaController? = null
-    private val listener = ComponentName("com.koala.koackpit", MediaListener::class.java.name)
-
-    private val cb = object : MediaController.Callback() {
-        override fun onMetadataChanged(m: MediaMetadata?) = readMeta(m)
-        override fun onPlaybackStateChanged(s: PlaybackState?) { playing.value = s?.state == PlaybackState.STATE_PLAYING }
-        override fun onSessionDestroyed() { attach(null) }
-    }
-    private val sessionsChanged = MediaSessionManager.OnActiveSessionsChangedListener { pick(it) }
-
     private var createdAt = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         createdAt = SystemClock.uptimeMillis()
-        current = java.lang.ref.WeakReference(this)
-        btInfo.value = intent.getStringExtra(EXTRA_INFO) ?: ""
+        current = WeakReference(this)
         // Bouton retour = quitter la conduite (ferme l'écran partagé)
-        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() = quit()
         })
         setContent {
             Player(
-                title.value, artist.value, art.value, playing.value,
-                listOf(carStatus.value, source.value).filter { it.isNotEmpty() }.joinToString("\n"), allowed.value || CarLink.available(),
-                onAllow = ::openAccess,
-                onPrev = { control(KeyEvent.KEYCODE_MEDIA_PREVIOUS) },
-                onPlay = { control(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) },
-                onNext = { control(KeyEvent.KEYCODE_MEDIA_NEXT) },
+                title.value, artist.value, art.value, playing.value, warning.value,
+                onPrev = { CarLink.prev() },
+                onPlay = { CarLink.playPause() },
+                onNext = { CarLink.next() },
                 onClose = ::quit,
                 onBtSource = if (srcIsBt.value) null else ::forceBtSource,
             )
@@ -122,16 +94,14 @@ class MusicActivity : ComponentActivity() {
 
     /** Lit l'état réel de l'autoradio : source audio, lecture BT, titre. */
     private fun readCar() {
-        if (!CarLink.available()) { carStatus.value = "Service autoradio injoignable"; return }
+        if (!CarLink.available()) { warning.value = "Service de l'autoradio injoignable"; return }
+        warning.value = ""
         val src = CarLink.currentSource()
-        val st = CarLink.a2dpState()
-        srcIsBt.value = src == CarLink.SRC_BT
-        val stName = when (st) { 0 -> "repos"; 1 -> "lecture"; 2 -> "pause"; 3 -> "arrêt"; else -> "?" }
-        carStatus.value = "Source : ${CarLink.sourceName(src)} · BT : $stName"
-        if (st != null) playing.value = st == 1
+        srcIsBt.value = src == null || src == CarLink.SRC_BT
+        CarLink.a2dpState()?.let { playing.value = it == 1 }
         CarLink.avrcpInfo()?.let { a ->
-            if (a.isNotEmpty() && a[0].isNotBlank()) title.value = a[0]
-            if (a.size > 1) artist.value = a[1]
+            title.value = a.getOrNull(0)?.trim().orEmpty()
+            artist.value = a.getOrNull(1)?.trim().orEmpty()
         }
     }
 
@@ -146,16 +116,6 @@ class MusicActivity : ComponentActivity() {
             startActivity(Intent(this, MusicActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
         }, 1500)
-    }
-
-    override fun onResume() {
-        super.onResume()
-        allowed.value = NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)
-        if (allowed.value && msm == null) runCatching {
-            msm = getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
-            msm!!.addOnActiveSessionsChangedListener(sessionsChanged, listener)
-            pick(msm!!.getActiveSessions(listener))
-        }.onFailure { source.value = "Accès refusé : $it" }
     }
 
     /** Écran d'accueil appuyé : la fenêtre du lecteur est réduite à une bande → on quitte. */
@@ -180,75 +140,15 @@ class MusicActivity : ComponentActivity() {
 
     override fun onDestroy() {
         if (current?.get() === this) current = null
-        runCatching { msm?.removeOnActiveSessionsChangedListener(sessionsChanged) }
-        attach(null)
+        poll.removeCallbacksAndMessages(null)
         super.onDestroy()
-    }
-
-    /** Choisit la session en cours de lecture, sinon la première (Bluetooth en priorité). */
-    private fun pick(list: List<MediaController>?) {
-        val l = list.orEmpty()
-        val best = l.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
-            ?: l.firstOrNull { it.packageName.contains("bt", true) || it.packageName.contains("bluetooth", true) }
-            ?: l.firstOrNull()
-        if (best?.sessionToken != ctrl?.sessionToken) attach(best)
-        if (l.isEmpty()) source.value = "Aucune source active"
-    }
-
-    private fun attach(c: MediaController?) {
-        ctrl?.unregisterCallback(cb)
-        ctrl = c
-        c?.registerCallback(cb)
-        source.value = c?.packageName ?: ""
-        readMeta(c?.metadata)
-        playing.value = c?.playbackState?.state == PlaybackState.STATE_PLAYING
-    }
-
-    private fun readMeta(m: MediaMetadata?) {
-        title.value = m?.getString(MediaMetadata.METADATA_KEY_TITLE) ?: ""
-        artist.value = m?.getString(MediaMetadata.METADATA_KEY_ARTIST)
-            ?: m?.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST) ?: ""
-        art.value = m?.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
-            ?: m?.getBitmap(MediaMetadata.METADATA_KEY_ART)
-            ?: m?.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
-    }
-
-    /** Commandes : via la session si connue, sinon touche média système (part en Bluetooth). */
-    private fun control(key: Int) {
-        if (CarLink.available()) {
-            when (key) {
-                KeyEvent.KEYCODE_MEDIA_PREVIOUS -> CarLink.prev()
-                KeyEvent.KEYCODE_MEDIA_NEXT -> CarLink.next()
-                else -> CarLink.playPause()
-            }
-            return
-        }
-        val c = ctrl
-        if (c != null) {
-            val t = c.transportControls
-            when (key) {
-                KeyEvent.KEYCODE_MEDIA_PREVIOUS -> t.skipToPrevious()
-                KeyEvent.KEYCODE_MEDIA_NEXT -> t.skipToNext()
-                else -> if (playing.value) t.pause() else t.play()
-            }
-            return
-        }
-        val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        val now = SystemClock.uptimeMillis()
-        am.dispatchMediaKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, key, 0))
-        am.dispatchMediaKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, key, 0))
-    }
-
-    private fun openAccess() {
-        runCatching { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
-            .onFailure { toast(this, "Réglage indisponible sur cet autoradio") }
     }
 }
 
 @Composable
 fun Player(
-    title: String, artist: String, art: Bitmap?, playing: Boolean, source: String, allowed: Boolean,
-    onAllow: () -> Unit, onPrev: () -> Unit, onPlay: () -> Unit, onNext: () -> Unit, onClose: () -> Unit,
+    title: String, artist: String, art: Bitmap?, playing: Boolean, warning: String,
+    onPrev: () -> Unit, onPlay: () -> Unit, onNext: () -> Unit, onClose: () -> Unit,
     onBtSource: (() -> Unit)? = null,
 ) {
   Box(Modifier.fillMaxSize().background(Navy)) {
@@ -287,12 +187,7 @@ fun Player(
             ) { Text("Activer la source Bluetooth", color = Navy, fontSize = 15.sp, fontWeight = FontWeight.Black) }
             Spacer(Modifier.height(6.dp))
         }
-        if (!allowed) {
-            Box(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(CardHi).clickable(onClick = onAllow).padding(12.dp),
-                contentAlignment = Alignment.Center,
-            ) { Text("Autoriser l'accès aux notifications pour afficher le titre", color = Color.White, fontSize = 13.sp, textAlign = TextAlign.Center) }
-        } else Text(source, color = Muted, fontSize = 11.sp, maxLines = 4, textAlign = TextAlign.Center)
+        if (warning.isNotEmpty()) Text(warning, color = Red, fontSize = 13.sp, textAlign = TextAlign.Center)
     }
     // Quitter la conduite
     Box(
