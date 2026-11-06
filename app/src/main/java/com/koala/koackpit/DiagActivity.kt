@@ -80,6 +80,7 @@ fun DiagScreen(server: FileServer, onZip: (File) -> Unit) {
     var result by remember { mutableStateOf<File?>(null) }
     var savedAt by remember { mutableStateOf<String?>(null) }
     var url by remember { mutableStateOf<String?>(null) }
+    var rootLog by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         val list = withContext(Dispatchers.IO) { Diag.apps(ctx) }
@@ -98,6 +99,21 @@ fun DiagScreen(server: FileServer, onZip: (File) -> Unit) {
             Text("Koackpit", color = Yellow, fontSize = 26.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.width(12.dp))
             Text("Diagnostic ${BuildConfig.VERSION_NAME}", color = Muted, fontSize = 15.sp)
+            Spacer(Modifier.weight(1f))
+            Button(
+                onClick = {
+                    rootLog = "Test en cours (10 s max)…"
+                    scope.launch { rootLog = withContext(Dispatchers.IO) { RootAccess.test(ctx) } }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Navy),
+            ) { Text("Tester l'accès système", fontWeight = FontWeight.Black) }
+        }
+        if (rootLog.isNotEmpty()) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                rootLog, color = Color.White, fontSize = 13.sp, lineHeight = 17.sp,
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Card).padding(10.dp),
+            )
         }
         Spacer(Modifier.height(10.dp))
 
