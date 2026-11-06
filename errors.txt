@@ -1,0 +1,5 @@
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/Diag.kt:95:90 'field protectionLevel: Int' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/Diag.kt:100:101 'fun get(p0: String!): Any?' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/MainActivity.kt:159:83 'val Icons.Filled.List: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.List.
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/MainActivity.kt:206:34 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+BUILD SUCCESSFUL in 1m 4s
