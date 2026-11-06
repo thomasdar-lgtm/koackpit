@@ -295,7 +295,7 @@ fun SettingsScreen(upd: UpdateState, onBack: () -> Unit) {
                         when (Updater.refresh(upd, force = true)) {
                             null -> toast(ctx, "Pas de connexion à GitHub, vérifie le partage de connexion")
                             false -> toast(ctx, "Koackpit est à jour (${BuildConfig.VERSION_NAME})")
-                            true -> toast(ctx, "Mise à jour trouvée : appuie sur Installer dans le bandeau jaune")
+                            true -> toast(ctx, "Nouvelle version disponible : installe-la par clé USB")
                         }
                     }
                 }

@@ -160,28 +160,9 @@ fun UpdateBanner(upd: UpdateState) {
                 Text("Nouvelle version disponible", color = Navy, fontWeight = FontWeight.Black, fontSize = 15.sp)
                 Text("Koackpit ${info.version}", color = Navy, fontSize = 13.sp)
             }
-            val p = upd.progress
-            if (p == null) {
-                Button(
-                    onClick = {
-                        if (!Updater.canInstall(ctx)) {
-                            toast(ctx, "Autorise Koackpit à installer des applis, puis reviens appuyer sur Installer")
-                            Updater.askInstallPermission(ctx)
-                            return@Button
-                        }
-                        upd.progress = 0f
-                        scope.launch {
-                            val f = runCatching { Updater.download(ctx, info.url) { upd.progress = it } }.getOrNull()
-                            upd.progress = null
-                            if (f == null) toast(ctx, "Téléchargement impossible, vérifie ta connexion")
-                            else runCatching { Updater.install(ctx, f) }.onFailure { toast(ctx, "Installation impossible") }
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Navy, contentColor = Yellow),
-                ) { Text("Installer", fontWeight = FontWeight.Bold) }
-            } else {
-                Text("${(p * 100).toInt()} %", color = Navy, fontWeight = FontWeight.Bold)
-            }
+            // L'installateur d'Android se fige sur cet autoradio : l'installation intégrée est coupée
+            // jusqu'à la mise à jour silencieuse (accès système). Le bandeau sert seulement à prévenir.
+            Text("À installer par clé USB", color = Navy, fontWeight = FontWeight.Black, fontSize = 14.sp)
         }
         upd.progress?.let {
             Spacer(Modifier.height(10.dp))
