@@ -44,7 +44,7 @@ object RootAccess {
     }
 
     /** Referme adb réseau : adb reste disponible uniquement en USB, comme à l'origine. */
-    private fun closeAdb(ctx: Context) {
+    fun closeAdb(ctx: Context) {
         setProp(ctx, "service.adb.tcp.port", "-1")
         setProp(ctx, "ctl.restart", "adbd")
     }
@@ -107,6 +107,37 @@ object RootAccess {
         } finally {
             closeAdb(ctx)
         }
+    }
+
+    /**
+     * Mise à jour silencieuse : pm install exécuté par adb (processus indépendant de Koackpit, qui sera
+     * remplacé pendant l'opération), puis relance de Koackpit et fermeture d'adb réseau par la même commande.
+     */
+    fun silentInstall(ctx: Context, apk: File) {
+        apk.setReadable(true, false)
+        apk.parentFile?.setExecutable(true, false)
+        ctx.cacheDir.setExecutable(true, false)
+        val tmp = "/data/local/tmp/koackpit-update.apk"
+        val script = "cp '${apk.absolutePath}' $tmp && pm install -r $tmp > /data/local/tmp/koackpit-install.log 2>&1; " +
+            "rm -f $tmp; am start -n ${ctx.packageName}/.MainActivity; " +
+            "setprop service.adb.tcp.port -1; setprop ctl.restart adbd"
+        openAdb(ctx)
+        var ok = false
+        try {
+            repeat(10) {
+                Thread.sleep(700)
+                try { adbShell("nohup sh -c \"$script\" > /dev/null 2>&1 &"); ok = true; return } catch (e: java.net.ConnectException) {}
+            }
+            throw IllegalStateException("accès système indisponible")
+        } finally {
+            if (!ok) closeAdb(ctx)
+        }
+    }
+
+    /** Sécurité : si adb réseau est resté ouvert (coupure pendant une opération), on le referme. */
+    fun ensureClosed(ctx: Context) {
+        val p = prop("service.adb.tcp.port")
+        if (p.isNotEmpty() && p != "-1" && p != "?") closeAdb(ctx)
     }
 
     /** Test complet, sans rien modifier : renvoie un compte rendu lisible. */

@@ -42,6 +42,7 @@ data class UpdateInfo(val version: String, val url: String)
 class UpdateState {
     var info by mutableStateOf<UpdateInfo?>(null)
     var progress by mutableStateOf<Float?>(null)
+    var status by mutableStateOf("")
 }
 
 object Updater {
@@ -160,9 +161,26 @@ fun UpdateBanner(upd: UpdateState) {
                 Text("Nouvelle version disponible", color = Navy, fontWeight = FontWeight.Black, fontSize = 15.sp)
                 Text("Koackpit ${info.version}", color = Navy, fontSize = 13.sp)
             }
-            // L'installateur d'Android se fige sur cet autoradio : l'installation intégrée est coupée
-            // jusqu'à la mise à jour silencieuse (accès système). Le bandeau sert seulement à prévenir.
-            Text("À installer par clé USB", color = Navy, fontWeight = FontWeight.Black, fontSize = 14.sp)
+            // Installation silencieuse via l'accès système : jamais d'écran d'installation Android
+            val p = upd.progress
+            when {
+                upd.status.isNotEmpty() -> Text(upd.status, color = Navy, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                p == null -> Button(
+                    onClick = {
+                        upd.progress = 0f
+                        scope.launch {
+                            val f = runCatching { Updater.download(ctx, info.url) { upd.progress = it } }.getOrNull()
+                            upd.progress = null
+                            if (f == null) { toast(ctx, "Téléchargement impossible, vérifie ta connexion"); return@launch }
+                            upd.status = "Installation… Koackpit va redémarrer"
+                            val r = withContext(Dispatchers.IO) { runCatching { RootAccess.silentInstall(ctx, f) } }
+                            if (r.isFailure) upd.status = "Échec : installe par clé USB"
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Navy, contentColor = Yellow),
+                ) { Text("Installer", fontWeight = FontWeight.Bold) }
+                else -> Text("${(p * 100).toInt()} %", color = Navy, fontWeight = FontWeight.Bold)
+            }
         }
         upd.progress?.let {
             Spacer(Modifier.height(10.dp))

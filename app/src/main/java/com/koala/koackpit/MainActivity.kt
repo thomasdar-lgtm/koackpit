@@ -75,6 +75,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        RootAccess.ensureClosed(this)
         // Écran d'accueil : le bouton retour ramène à l'accueil sans fermer l'appli
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { screen.value = Screen.HOME }
