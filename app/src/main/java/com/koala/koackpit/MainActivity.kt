@@ -69,6 +69,7 @@ import java.util.Locale
 enum class Screen { HOME, APPS, SETTINGS }
 
 class MainActivity : ComponentActivity() {
+    companion object { @Volatile var visible = false }
     private val screen = mutableStateOf(Screen.HOME)
     private val upd = UpdateState()
     private val resumes = mutableStateOf(0)
@@ -84,8 +85,14 @@ class MainActivity : ComponentActivity() {
     }
 
     /** Chaque retour sur Koackpit relance la recherche de mise à jour (au plus une fois par minute). */
+    override fun onPause() {
+        super.onPause()
+        visible = false
+    }
+
     override fun onResume() {
         super.onResume()
+        visible = true
         resumes.value++
     }
 
