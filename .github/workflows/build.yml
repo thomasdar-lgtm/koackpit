@@ -31,18 +31,24 @@ jobs:
           VERSION=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           cp app/build/outputs/apk/release/app-release.apk Koackpit.apk
+          # Appli compagnon : extension .bin pour que les anciennes versions ne la prennent pas pour Koackpit
+          cp updater/build/outputs/apk/release/updater-release.apk KoackpitUpdater.bin
 
       - uses: actions/upload-artifact@v4
         with:
           name: Koackpit-${{ env.VERSION }}
-          path: Koackpit.apk
+          path: |
+            Koackpit.apk
+            KoackpitUpdater.bin
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.VERSION }}
           name: Koackpit ${{ env.VERSION }}
-          files: Koackpit.apk
+          files: |
+            Koackpit.apk
+            KoackpitUpdater.bin
           make_latest: true
 
       - name: Report

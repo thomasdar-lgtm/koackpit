@@ -71,7 +71,7 @@ object Updater {
             var url: String? = null
             for (i in 0 until assets.length()) {
                 val a = assets.getJSONObject(i)
-                if (a.getString("name").endsWith(".apk")) url = a.getString("browser_download_url")
+                if (a.getString("name") == "Koackpit.apk") url = a.getString("browser_download_url")
             }
             if (url != null && newer(v, BuildConfig.VERSION_NAME)) UpdateInfo(v, url) else null
         } finally {
@@ -190,6 +190,8 @@ fun UpdateBanner(upd: UpdateState) {
                                 upd.status = "Échec : ${e.javaClass.simpleName} ${e.message?.take(60) ?: ""}"
                                 return@launch
                             }
+                            // Appli compagnon présente : elle affiche l'écran de mise à jour et installe
+                            if (UpdaterApp.handOff(ctx, f)) return@launch
                             upd.status = "Installation… Koackpit va redémarrer"
                             val r = withContext(Dispatchers.IO) {
                                 runCatching { RootAccess.silentInstall(ctx, f) { st -> upd.status = "Installation : $st" } }

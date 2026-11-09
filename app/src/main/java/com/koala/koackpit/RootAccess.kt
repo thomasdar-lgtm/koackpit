@@ -106,13 +106,13 @@ object RootAccess {
     }
 
     /** Ouvre adb, attend qu'il réponde, exécute, referme. Toujours refermé, même en cas d'échec. */
-    fun run(ctx: Context, cmd: String): String {
+    fun run(ctx: Context, cmd: String, timeoutMs: Int = 8000): String {
         openAdb(ctx)
         try {
             var last: Exception? = null
             repeat(10) {
                 Thread.sleep(700)
-                try { return adbShell(cmd) } catch (e: NotReady) { last = e }
+                try { return adbShell(cmd, timeoutMs) } catch (e: NotReady) { last = e }
             }
             throw IllegalStateException("adb réseau ne s'est pas ouvert (${last?.message})")
         } finally {

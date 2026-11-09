@@ -77,6 +77,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         RootAccess.ensureClosed(this)
+        // Installe l'appli compagnon de mise à jour si elle manque (après 20 s, pour ne pas gêner un
+        // redémarrage en cours après mise à jour)
+        if (!UpdaterApp.ready(this)) {
+            val app = applicationContext
+            Thread { Thread.sleep(20_000); UpdaterApp.ensureInstalled(app) }.start()
+        }
         // Écran d'accueil : le bouton retour ramène à l'accueil sans fermer l'appli
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { screen.value = Screen.HOME }

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Aucune icône dans la liste des applis : lancée uniquement par Koackpit -->
+    <application
+        android:label="Koackpit Mise à jour"
+        android:allowBackup="false">
+        <activity
+            android:name=".UpdateActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:taskAffinity="com.koala.koackpit.updater"
+            android:screenOrientation="landscape"
+            android:theme="@android:style/Theme.Material.NoActionBar.Fullscreen" />
+    </application>
+</manifest>
