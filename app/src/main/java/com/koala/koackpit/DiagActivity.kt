@@ -81,6 +81,7 @@ fun DiagScreen(server: FileServer, onZip: (File) -> Unit) {
     var savedAt by remember { mutableStateOf<String?>(null) }
     var url by remember { mutableStateOf<String?>(null) }
     var rootLog by remember { mutableStateOf("") }
+    var activeTool by remember { mutableStateOf(0) }   // 1 = test d'accès, 2 = journal : bouton surligné
 
     LaunchedEffect(Unit) {
         val list = withContext(Dispatchers.IO) { Diag.apps(ctx) }
@@ -102,18 +103,20 @@ fun DiagScreen(server: FileServer, onZip: (File) -> Unit) {
             Spacer(Modifier.weight(1f))
             Button(
                 onClick = {
+                    activeTool = 1
                     rootLog = "Test en cours (10 s max)…"
                     scope.launch { rootLog = withContext(Dispatchers.IO) { RootAccess.test(ctx) } }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Navy),
+                colors = toolColors(activeTool != 2),
             ) { Text("Tester l'accès système", fontWeight = FontWeight.Black) }
             Spacer(Modifier.width(8.dp))
             Button(
                 onClick = {
+                    activeTool = 2
                     rootLog = "Lecture du journal…"
                     scope.launch { rootLog = withContext(Dispatchers.IO) { RootAccess.lastInstallLog(ctx) } }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Card, contentColor = Yellow),
+                colors = toolColors(activeTool == 2),
             ) { Text("Journal mise à jour", fontWeight = FontWeight.Black) }
         }
         if (rootLog.isNotEmpty()) {
@@ -240,3 +243,9 @@ fun DiagScreen(server: FileServer, onZip: (File) -> Unit) {
         }
     }
 }
+
+/** Bouton d'outil : jaune quand c'est son résultat qui est affiché, sombre sinon. */
+@Composable
+private fun toolColors(active: Boolean) =
+    if (active) ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Navy)
+    else ButtonDefaults.buttonColors(containerColor = Card, contentColor = Yellow)

@@ -70,17 +70,28 @@ object RootAccess {
         return Msg(cmd, a0, a1, data)
     }
 
+    /** adb pas encore prêt (redémarrage en cours) : on peut réessayer sans risque, rien n'a été exécuté. */
+    private class NotReady(cause: Exception) : Exception(cause.javaClass.simpleName, cause)
+
     /** Exécute une commande en administrateur. Renvoie sa sortie, ou lève une exception explicite. */
     private fun adbShell(cmd: String, timeoutMs: Int = 8000): String {
         Socket().use { s ->
-            s.connect(InetSocketAddress("127.0.0.1", PORT), 3000)
+            val out: OutputStream
+            val inp: DataInputStream
+            try {
+                s.connect(InetSocketAddress("127.0.0.1", PORT), 3000)
+                s.soTimeout = 5000
+                out = s.getOutputStream()
+                inp = DataInputStream(s.getInputStream().buffered())
+                send(out, A_CNXN, 0x01000000, 4096, "host::\u0000".toByteArray())
+                val hello = read(inp)
+                if (hello.cmd == A_AUTH) throw IllegalStateException("adb demande une clé (accès verrouillé)")
+                if (hello.cmd != A_CNXN) throw IllegalStateException("réponse adb inattendue")
+            } catch (e: java.io.IOException) {
+                throw NotReady(e)
+            }
             s.soTimeout = timeoutMs
-            val out = s.getOutputStream()
-            val inp = DataInputStream(s.getInputStream().buffered())
-            send(out, A_CNXN, 0x01000000, 4096, "host::\u0000".toByteArray())
-            var m = read(inp)
-            if (m.cmd == A_AUTH) throw IllegalStateException("adb demande une clé (accès verrouillé)")
-            if (m.cmd != A_CNXN) throw IllegalStateException("réponse adb inattendue")
+            var m: Msg
             send(out, A_OPEN, 1, 0, "shell:$cmd\u0000".toByteArray())
             val sb = StringBuilder()
             while (true) {
@@ -101,7 +112,7 @@ object RootAccess {
             var last: Exception? = null
             repeat(10) {
                 Thread.sleep(700)
-                try { return adbShell(cmd) } catch (e: java.net.ConnectException) { last = e }
+                try { return adbShell(cmd) } catch (e: NotReady) { last = e }
             }
             throw IllegalStateException("adb réseau ne s'est pas ouvert (${last?.message})")
         } finally {
@@ -113,7 +124,7 @@ object RootAccess {
     private fun shellRetry(cmd: String, timeoutMs: Int = 8000): String {
         var last: Exception? = null
         repeat(10) {
-            try { return adbShell(cmd, timeoutMs) } catch (e: java.net.ConnectException) { last = e; Thread.sleep(700) }
+            try { return adbShell(cmd, timeoutMs) } catch (e: NotReady) { last = e; Thread.sleep(700) }
         }
         throw IllegalStateException("accès système indisponible (${last?.message})")
     }
