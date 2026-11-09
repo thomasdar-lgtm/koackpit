@@ -79,11 +79,23 @@ object Updater {
         }
     }
 
-    suspend fun download(ctx: Context, url: String, onProgress: (Float) -> Unit): File = withContext(Dispatchers.IO) {
+    /** Téléchargement avec 3 essais (Wi-Fi de l'autoradio instable). Lève l'erreur du dernier essai. */
+    suspend fun download(ctx: Context, url: String, onProgress: (Float) -> Unit): File {
+        var last: Exception? = null
+        repeat(3) { i ->
+            try { return downloadOnce(ctx, url, onProgress) } catch (e: Exception) {
+                last = e
+                kotlinx.coroutines.delay(2000L * (i + 1))
+            }
+        }
+        throw last ?: IllegalStateException("échec")
+    }
+
+    private suspend fun downloadOnce(ctx: Context, url: String, onProgress: (Float) -> Unit): File = withContext(Dispatchers.IO) {
         val dir = File(ctx.cacheDir, "updates").apply { mkdirs() }
         val f = File(dir, "Koackpit.apk")
         val c = URL(url).openConnection() as HttpURLConnection
-        c.connectTimeout = 15000; c.readTimeout = 30000
+        c.connectTimeout = 20000; c.readTimeout = 60000
         try {
             if (c.responseCode != 200) throw IllegalStateException("HTTP ${c.responseCode}")
             val total = c.contentLengthLong
@@ -160,18 +172,24 @@ fun UpdateBanner(upd: UpdateState) {
             Column(Modifier.weight(1f)) {
                 Text("Nouvelle version disponible", color = Navy, fontWeight = FontWeight.Black, fontSize = 15.sp)
                 Text("Koackpit ${info.version}", color = Navy, fontSize = 13.sp)
+                if (upd.status.startsWith("Échec")) Text(upd.status, color = Red, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
             // Installation silencieuse via l'accès système : jamais d'écran d'installation Android
             val p = upd.progress
             when {
-                upd.status.isNotEmpty() -> Text(upd.status, color = Navy, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                upd.status.startsWith("Installation") -> Text(upd.status, color = Navy, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 p == null -> Button(
                     onClick = {
+                        upd.status = ""
                         upd.progress = 0f
                         scope.launch {
-                            val f = runCatching { Updater.download(ctx, info.url) { upd.progress = it } }.getOrNull()
+                            val d = runCatching { Updater.download(ctx, info.url) { upd.progress = it } }
                             upd.progress = null
-                            if (f == null) { toast(ctx, "Téléchargement impossible, vérifie ta connexion"); return@launch }
+                            val f = d.getOrElse { e ->
+                                // Message précis pour comprendre l'échec (réseau, certificat, délai…)
+                                upd.status = "Échec : ${e.javaClass.simpleName} ${e.message?.take(60) ?: ""}"
+                                return@launch
+                            }
                             upd.status = "Installation… Koackpit va redémarrer"
                             val r = withContext(Dispatchers.IO) { runCatching { RootAccess.silentInstall(ctx, f) } }
                             if (r.isFailure) upd.status = "Échec : installe par clé USB"
