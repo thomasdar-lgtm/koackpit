@@ -137,21 +137,28 @@ object RootAccess {
             if (!ls.contains("koackpit-update.apk") || ls.contains("No such")) throw IllegalStateException("copie impossible : ${ls.take(80)}")
 
             onStep("Installation…")
+            // En cas d'échec, adb reste ouvert 30 s pour que Koackpit puisse lire le journal, puis se referme.
+            val close = "setprop service.adb.tcp.port -1; setprop ctl.restart adbd"
             val job = "pm install -r $tmp > $log 2>&1; echo FIN >> $log; rm -f $tmp; " +
-                "am start -n ${ctx.packageName}/.MainActivity; setprop service.adb.tcp.port -1; setprop ctl.restart adbd"
+                "if grep -q Success $log; then am start -n ${ctx.packageName}/.MainActivity; $close; " +
+                "else sleep 30; $close; fi"
             val started = shellRetry("rm -f $log; setsid nohup sh -c '$job' < /dev/null > /dev/null 2>&1 & echo LANCE")
             if (!started.contains("LANCE")) throw IllegalStateException("lancement impossible : ${started.take(80)}")
             detached = true
 
             // Suivi : si l'installation réussit, Koackpit est arrêté par Android pendant cette attente.
+            var lastOut = ""
+            var readErr = ""
             repeat(60) {
                 Thread.sleep(1500)
-                val out = runCatching { adbShell("cat $log 2>&1") }.getOrDefault("")
-                if (out.contains("Failure") || (out.contains("FIN") && !out.contains("Success"))) {
-                    throw IllegalStateException("pm : ${out.replace("FIN", "").trim().take(100)}")
+                runCatching { adbShell("cat $log 2>&1") }
+                    .onSuccess { lastOut = it }
+                    .onFailure { readErr = it.javaClass.simpleName }
+                if (lastOut.contains("Failure") || (lastOut.contains("FIN") && !lastOut.contains("Success"))) {
+                    throw IllegalStateException("pm : ${lastOut.replace("FIN", "").trim().take(160)}")
                 }
             }
-            throw IllegalStateException("pas de réponse de l'installation après 90 s")
+            throw IllegalStateException("pas de fin après 90 s. Journal : «${lastOut.take(120)}» $readErr")
         } catch (e: Exception) {
             if (detached) closeAdb(ctx)   // le script referme aussi, mais on s'en assure
             throw e
@@ -159,6 +166,12 @@ object RootAccess {
             if (!detached) closeAdb(ctx)
         }
     }
+
+    /** Journal de la dernière tentative d'installation (pour le diagnostic). */
+    fun lastInstallLog(ctx: Context): String = try {
+        run(ctx, "echo '--- journal :'; cat /data/local/tmp/koackpit-install.log 2>&1; " +
+            "echo '--- tmp :'; ls -l /data/local/tmp 2>&1; echo '--- prop :'; getprop ro.rk.install_non_market_apps")
+    } catch (e: Exception) { "Lecture impossible : ${e.message}" }
 
     /** Sécurité : si adb réseau est resté ouvert (coupure pendant une opération), on le referme. */
     fun ensureClosed(ctx: Context) {

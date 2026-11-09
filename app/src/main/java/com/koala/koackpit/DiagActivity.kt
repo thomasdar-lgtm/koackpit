@@ -107,6 +107,14 @@ fun DiagScreen(server: FileServer, onZip: (File) -> Unit) {
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Navy),
             ) { Text("Tester l'accès système", fontWeight = FontWeight.Black) }
+            Spacer(Modifier.width(8.dp))
+            Button(
+                onClick = {
+                    rootLog = "Lecture du journal…"
+                    scope.launch { rootLog = withContext(Dispatchers.IO) { RootAccess.lastInstallLog(ctx) } }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Card, contentColor = Yellow),
+            ) { Text("Journal mise à jour", fontWeight = FontWeight.Black) }
         }
         if (rootLog.isNotEmpty()) {
             Spacer(Modifier.height(6.dp))
