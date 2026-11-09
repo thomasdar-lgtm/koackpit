@@ -134,7 +134,12 @@ object RootAccess {
             if (!ls.contains("koackpit-update.apk") || ls.contains("No such")) throw IllegalStateException("copie impossible : ${ls.take(80)}")
 
             onStep("en cours (jusqu'à 1 min)…")
-            val out = shellRetry("pm install -r $tmp 2>&1; rm -f $tmp", timeoutMs = 180_000)
+            // Ferme un éventuel installateur Android resté ouvert (ancienne mise à jour figée) :
+            // sinon il réapparaît avec « Application installée – Ouvrir / OK » quand Koackpit est remplacé.
+            val out = shellRetry(
+                "am force-stop com.android.packageinstaller; logcat -c; pm install -r $tmp 2>&1; rm -f $tmp",
+                timeoutMs = 180_000,
+            )
             if (!out.contains("Success")) throw IllegalStateException("pm : ${out.trim().take(160)}")
             onStep("terminée, redémarrage…")
         } finally {
@@ -144,8 +149,10 @@ object RootAccess {
 
     /** Journal de la dernière tentative d'installation (pour le diagnostic). */
     fun lastInstallLog(ctx: Context): String = try {
-        run(ctx, "echo '--- tmp :'; ls -l /data/local/tmp 2>&1; echo '--- pm :'; pm path ${ctx.packageName} 2>&1; " +
-            "dumpsys package ${ctx.packageName} | grep -m2 -E 'versionName|lastUpdateTime'")
+        "--- Écrans pendant la dernière mise à jour :\n" +
+            (runCatching { File(ctx.filesDir, "update-trace.txt").readText() }.getOrNull() ?: "aucune trace") +
+            "\n--- Système :\n" +
+            run(ctx, "dumpsys package ${ctx.packageName} | grep -m2 -E 'versionName|lastUpdateTime'")
     } catch (e: Exception) { "Lecture impossible : ${e.message}" }
 
     /** Sécurité : si adb réseau est resté ouvert (coupure pendant une opération), on le referme. */
