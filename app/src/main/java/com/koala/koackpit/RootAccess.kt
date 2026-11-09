@@ -109,28 +109,54 @@ object RootAccess {
         }
     }
 
+    /** Exécute une commande en réessayant tant qu'adb réseau n'est pas encore prêt. */
+    private fun shellRetry(cmd: String): String {
+        var last: Exception? = null
+        repeat(10) {
+            try { return adbShell(cmd) } catch (e: java.net.ConnectException) { last = e; Thread.sleep(700) }
+        }
+        throw IllegalStateException("accès système indisponible (${last?.message})")
+    }
+
     /**
-     * Mise à jour silencieuse : pm install exécuté par adb (processus indépendant de Koackpit, qui sera
-     * remplacé pendant l'opération), puis relance de Koackpit et fermeture d'adb réseau par la même commande.
+     * Mise à jour silencieuse, étape par étape, avec compte rendu :
+     * 1. copie de l'APK vers /data/local/tmp (vérifiée) ;
+     * 2. lancement de pm install dans une session détachée (indépendante de Koackpit, qui va être remplacé),
+     *    qui relance Koackpit puis referme adb réseau ;
+     * 3. lecture du journal d'installation : en cas d'échec, le message exact de pm est renvoyé.
+     * Ne revient qu'en cas d'échec (exception) : en cas de succès, Koackpit est remplacé et relancé.
      */
-    fun silentInstall(ctx: Context, apk: File) {
-        apk.setReadable(true, false)
-        apk.parentFile?.setExecutable(true, false)
-        ctx.cacheDir.setExecutable(true, false)
+    fun silentInstall(ctx: Context, apk: File, onStep: (String) -> Unit) {
         val tmp = "/data/local/tmp/koackpit-update.apk"
-        val script = "cp '${apk.absolutePath}' $tmp && pm install -r $tmp > /data/local/tmp/koackpit-install.log 2>&1; " +
-            "rm -f $tmp; am start -n ${ctx.packageName}/.MainActivity; " +
-            "setprop service.adb.tcp.port -1; setprop ctl.restart adbd"
+        val log = "/data/local/tmp/koackpit-install.log"
         openAdb(ctx)
-        var ok = false
+        var detached = false
         try {
-            repeat(10) {
-                Thread.sleep(700)
-                try { adbShell("nohup sh -c \"$script\" > /dev/null 2>&1 &"); ok = true; return } catch (e: java.net.ConnectException) {}
+            onStep("Copie…")
+            val ls = shellRetry("cp '${apk.absolutePath}' $tmp && chmod 644 $tmp && ls -l $tmp 2>&1")
+            if (!ls.contains("koackpit-update.apk") || ls.contains("No such")) throw IllegalStateException("copie impossible : ${ls.take(80)}")
+
+            onStep("Installation…")
+            val job = "pm install -r $tmp > $log 2>&1; echo FIN >> $log; rm -f $tmp; " +
+                "am start -n ${ctx.packageName}/.MainActivity; setprop service.adb.tcp.port -1; setprop ctl.restart adbd"
+            val started = shellRetry("rm -f $log; setsid nohup sh -c '$job' < /dev/null > /dev/null 2>&1 & echo LANCE")
+            if (!started.contains("LANCE")) throw IllegalStateException("lancement impossible : ${started.take(80)}")
+            detached = true
+
+            // Suivi : si l'installation réussit, Koackpit est arrêté par Android pendant cette attente.
+            repeat(60) {
+                Thread.sleep(1500)
+                val out = runCatching { adbShell("cat $log 2>&1") }.getOrDefault("")
+                if (out.contains("Failure") || (out.contains("FIN") && !out.contains("Success"))) {
+                    throw IllegalStateException("pm : ${out.replace("FIN", "").trim().take(100)}")
+                }
             }
-            throw IllegalStateException("accès système indisponible")
+            throw IllegalStateException("pas de réponse de l'installation après 90 s")
+        } catch (e: Exception) {
+            if (detached) closeAdb(ctx)   // le script referme aussi, mais on s'en assure
+            throw e
         } finally {
-            if (!ok) closeAdb(ctx)
+            if (!detached) closeAdb(ctx)
         }
     }
 

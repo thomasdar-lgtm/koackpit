@@ -191,8 +191,10 @@ fun UpdateBanner(upd: UpdateState) {
                                 return@launch
                             }
                             upd.status = "Installation… Koackpit va redémarrer"
-                            val r = withContext(Dispatchers.IO) { runCatching { RootAccess.silentInstall(ctx, f) } }
-                            if (r.isFailure) upd.status = "Échec : installe par clé USB"
+                            val r = withContext(Dispatchers.IO) {
+                                runCatching { RootAccess.silentInstall(ctx, f) { st -> upd.status = "Installation : $st" } }
+                            }
+                            r.exceptionOrNull()?.let { upd.status = "Échec : ${it.message ?: it.javaClass.simpleName}" }
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Navy, contentColor = Yellow),
