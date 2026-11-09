@@ -108,7 +108,14 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun Koackpit(screen: androidx.compose.runtime.MutableState<Screen>, upd: UpdateState, resumes: Int) {
-    LaunchedEffect(resumes) { Updater.refresh(upd, force = false) }
+    // Vérification au retour sur Koackpit, puis toutes les 10 min tant que l'écran reste affiché
+    LaunchedEffect(resumes) {
+        Updater.refresh(upd, force = false)
+        while (true) {
+            delay(10 * 60_000L)
+            if (MainActivity.visible) Updater.refresh(upd, force = true)
+        }
+    }
     Column(Modifier.fillMaxSize().background(Navy)) {
         UpdateBanner(upd)
         when (screen.value) {

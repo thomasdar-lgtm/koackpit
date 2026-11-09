@@ -126,7 +126,7 @@ object Updater {
      */
     suspend fun refresh(upd: UpdateState, force: Boolean): Boolean? {
         val now = android.os.SystemClock.elapsedRealtime()
-        if (!force && lastCheck != 0L && now - lastCheck < 60_000) return upd.info != null
+        if (!force && lastCheck != 0L && now - lastCheck < 20_000) return upd.info != null
         if (upd.progress != null) return true   // téléchargement en cours : on ne touche à rien
         return runCatching { check() }.fold(
             onSuccess = { lastCheck = now; upd.info = it; it != null },
