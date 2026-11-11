@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Nécessaire pour dialoguer avec le service système local (127.0.0.1) -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <!-- Aucune icône dans la liste des applis : lancée uniquement par Koackpit -->
     <application
         android:label="Koackpit Mise à jour"

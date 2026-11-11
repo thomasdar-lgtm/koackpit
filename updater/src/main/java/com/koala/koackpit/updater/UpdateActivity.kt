@@ -34,6 +34,7 @@ class UpdateActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var spinner: ProgressBar
     private lateinit var back: Button
+    private lateinit var hint: TextView
     private val main = Handler(Looper.getMainLooper())
     private var running = false
 
@@ -62,10 +63,11 @@ class UpdateActivity : Activity() {
             setPadding((40 * d).toInt(), 0, (40 * d).toInt(), 0)
         }
         col.addView(status)
-        col.addView(TextView(this).apply {
+        hint = TextView(this).apply {
             text = "Koackpit redémarre tout seul"; setTextColor(MUTED); textSize = 14f; gravity = Gravity.CENTER
             setPadding(0, (8 * d).toInt(), 0, 0)
-        })
+        }
+        col.addView(hint)
         back = Button(this).apply {
             text = "Revenir à Koackpit"; setTextColor(NAVY); textSize = 16f; typeface = Typeface.DEFAULT_BOLD
             isAllCaps = false; visibility = View.GONE
@@ -122,6 +124,7 @@ class UpdateActivity : Activity() {
 
     private fun fail(msg: String) {
         spinner.visibility = View.GONE
+        hint.visibility = View.GONE
         status.text = msg
         status.setTextColor(RED)
         back.visibility = View.VISIBLE

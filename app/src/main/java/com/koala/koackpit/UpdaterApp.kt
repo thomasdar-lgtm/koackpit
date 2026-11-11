@@ -15,7 +15,7 @@ import java.net.URL
 object UpdaterApp {
     private const val PKG = "com.koala.koackpit.updater"
     private const val ACTIVITY = "$PKG.UpdateActivity"
-    private const val MIN_VERSION = 1L
+    private const val MIN_VERSION = 2L   // 2 : permission réseau local corrigée
     private const val ASSET = "KoackpitUpdater.bin"
     private const val API = "https://api.github.com/repos/thomasdar-lgtm/koackpit/releases/latest"
     const val HANDOFF_MARKER = "updater-handoff"
@@ -30,13 +30,17 @@ object UpdaterApp {
     /** Confie l'installation à l'appli compagnon. Renvoie false si elle n'est pas disponible. */
     fun handOff(ctx: Context, apk: File): Boolean {
         if (!ready(ctx)) return false
+        // Marqueur encore présent = la dernière mise à jour confiée à l'appli compagnon n'a pas abouti
+        // (sinon Koackpit aurait été remplacé et le marqueur effacé) : on installe directement cette fois.
+        val marker = File(ctx.filesDir, HANDOFF_MARKER)
+        if (marker.exists()) { marker.delete(); return false }
         return runCatching {
-            File(ctx.filesDir, HANDOFF_MARKER).writeText("1")
+            marker.writeText("1")
             ctx.startActivity(
                 Intent().setClassName(PKG, ACTIVITY).putExtra("apk", apk.absolutePath)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             )
-        }.onFailure { File(ctx.filesDir, HANDOFF_MARKER).delete() }.isSuccess
+        }.onFailure { marker.delete() }.isSuccess
     }
 
     /** Installe ou met à jour l'appli compagnon si besoin (en arrière-plan, sans écran). */
