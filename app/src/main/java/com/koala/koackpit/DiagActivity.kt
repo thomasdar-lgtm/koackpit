@@ -117,7 +117,7 @@ fun DiagScreen(server: FileServer, onZip: (File) -> Unit) {
                     scope.launch { rootLog = withContext(Dispatchers.IO) { RootAccess.lastInstallLog(ctx) } }
                 },
                 colors = toolColors(activeTool == 2),
-            ) { Text("Journal mise à jour", fontWeight = FontWeight.Black) }
+            ) { Text("Journaux", fontWeight = FontWeight.Black) }
         }
         if (rootLog.isNotEmpty()) {
             Spacer(Modifier.height(6.dp))

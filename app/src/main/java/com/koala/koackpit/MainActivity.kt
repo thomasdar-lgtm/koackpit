@@ -123,8 +123,11 @@ fun Koackpit(screen: androidx.compose.runtime.MutableState<Screen>, upd: UpdateS
             if (MainActivity.visible) Updater.refresh(upd, force = true)
         }
     }
+    val ctx = LocalContext.current
+    val keepAlive = remember(resumes) { KeepAlive.active(ctx) }
     Column(Modifier.fillMaxSize().background(Navy)) {
         UpdateBanner(upd)
+        if (!keepAlive) KeepAliveBanner { KeepAlive.request(ctx) }
         when (screen.value) {
             Screen.HOME -> Home(onApps = { screen.value = Screen.APPS }, onSettings = { screen.value = Screen.SETTINGS })
             Screen.APPS -> AppDrawer(onBack = { screen.value = Screen.HOME })
@@ -333,4 +336,25 @@ fun SettingButton(label: String, onClick: () -> Unit) {
     Box(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Navy).clickable(onClick = onClick).padding(14.dp)
     ) { Text(label, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+}
+
+/** Tant que le fond d'écran Koackpit n'est pas choisi, l'autoradio arrête Koackpit en veille. */
+@Composable
+fun KeepAliveBanner(onActivate: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).clip(RoundedCornerShape(14.dp))
+            .background(CardHi).padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("Retour automatique au démarrage", color = Yellow, fontWeight = FontWeight.Black, fontSize = 15.sp)
+            Text("Choisis le fond d'écran Koackpit : sinon l'autoradio ferme Koackpit pendant la veille",
+                color = Color.White, fontSize = 13.sp)
+        }
+        Spacer(Modifier.width(12.dp))
+        Box(
+            Modifier.clip(RoundedCornerShape(20.dp)).background(Yellow).clickable(onClick = onActivate)
+                .padding(horizontal = 18.dp, vertical = 10.dp),
+        ) { Text("Activer", color = Navy, fontWeight = FontWeight.Black, fontSize = 15.sp) }
+    }
 }

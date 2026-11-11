@@ -41,9 +41,12 @@ class WakeService : Service() {
             val h = Handler(Looper.getMainLooper())
             for (delay in longArrayOf(800, 2500, 5000)) {
                 h.postDelayed({
-                    if (!MainActivity.visible && !MusicActivity.isOpen()) runCatching {
-                        app.startActivity(Intent(app, MainActivity::class.java)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
+                    if (!MainActivity.visible && !MusicActivity.isOpen()) {
+                        val r = runCatching {
+                            app.startActivity(Intent(app, MainActivity::class.java)
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
+                        }
+                        WakeLog.add(app, "Retour au premier plan (+${delay} ms) : " + (r.exceptionOrNull()?.message ?: "demandé"))
                     }
                 }, delay)
             }
@@ -53,7 +56,9 @@ class WakeService : Service() {
     private val accReceiver = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
             if (isInitialStickyBroadcast) return            // ancienne valeur, pas un vrai démarrage
-            if (i.getIntExtra("arg_int", 0) != 0) bringToFront(c)
+            val v = i.getIntExtra("arg_int", -1)
+            WakeLog.add(c, "Signal contact (ACC) = $v")
+            if (v != 0) bringToFront(c)
         }
     }
 
@@ -67,6 +72,8 @@ class WakeService : Service() {
             .setOngoing(true)
             .build()
         startForeground(1, n)
+        WakeLog.add(this, "Service démarré (fond d'écran Koackpit : ${if (KeepAlive.active(this)) "oui" else "NON"}, " +
+            "affichage par-dessus : ${if (Settings.canDrawOverlays(this)) "oui" else "non"})")
         registerReceiver(accReceiver, IntentFilter(ACTION_ACC))
         // Android 10 n'autorise une appli en arrière-plan à ouvrir un écran que si elle a le droit
         // « afficher par-dessus les autres applis » : on se l'accorde une fois via l'accès système.
@@ -94,6 +101,7 @@ class WakeService : Service() {
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED && intent.action != Intent.ACTION_LOCKED_BOOT_COMPLETED) return
+        WakeLog.add(ctx, "Démarrage complet de l'autoradio")
         WakeService.start(ctx)
         WakeService.bringToFront(ctx)
     }

@@ -160,7 +160,8 @@ object RootAccess {
 
     /** Journal de la dernière tentative d'installation (pour le diagnostic). */
     fun lastInstallLog(ctx: Context): String = try {
-        "--- Écrans pendant la dernière mise à jour :\n" +
+        "--- Démarrages :\n" + WakeLog.read(ctx) +
+            "\n--- Écrans pendant la dernière mise à jour :\n" +
             (runCatching { File(ctx.filesDir, "update-trace.txt").readText() }.getOrNull() ?: "aucune trace") +
             "\n--- Système :\n" +
             run(ctx, "dumpsys package ${ctx.packageName} | grep -m2 -E 'versionName|lastUpdateTime'")
