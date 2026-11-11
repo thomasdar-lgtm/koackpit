@@ -9,6 +9,7 @@ class PackageReplacedReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
         val app = ctx.applicationContext
+        WakeService.start(app)   // le service est arrêté par la mise à jour : on le relance
         // Mise à jour faite par l'appli compagnon : c'est elle qui rouvre Koackpit, on ne touche à rien
         val marker = java.io.File(app.filesDir, UpdaterApp.HANDOFF_MARKER)
         if (marker.exists()) { marker.delete(); return }

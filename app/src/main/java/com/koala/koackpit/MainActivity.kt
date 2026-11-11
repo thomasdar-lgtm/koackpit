@@ -77,6 +77,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         RootAccess.ensureClosed(this)
+        WakeService.start(this)
         // Installe l'appli compagnon de mise à jour si elle manque (après 20 s, pour ne pas gêner un
         // redémarrage en cours après mise à jour)
         if (!UpdaterApp.ready(this)) {
