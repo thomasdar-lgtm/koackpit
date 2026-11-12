@@ -22,7 +22,7 @@ import org.robolectric.annotation.GraphicsMode
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [34], qualifiers = "w1024dp-h600dp-land-mdpi")
+@Config(sdk = [34], qualifiers = "w683dp-h372dp-land-hdpi")
 class Screenshots {
     private val media = MediaInfo("Chandelier", "Sia", playing = true)
 
@@ -41,7 +41,7 @@ class Screenshots {
     fun conduite() = captureRoboImage("build/screens/conduite.png") {
         Row(Modifier.fillMaxSize()) {
             Box(Modifier.weight(2f).fillMaxHeight().background(Color(0xFF2A3F5C)))
-            Box(Modifier.width(340.dp).fillMaxHeight()) {
+            Box(Modifier.width(228.dp).fillMaxHeight()) {
                 DrivePanel("17:42", media, {}, {}, {}, {}, {}, {}, {}, {}, null)
             }
         }

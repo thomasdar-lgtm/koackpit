@@ -118,8 +118,8 @@ class MusicActivity : ComponentActivity() {
         srcIsBt.value = src == null || src == CarLink.SRC_BT
         CarLink.a2dpState()?.let { playing.value = it == 1 }
         CarLink.avrcpInfo()?.let { a ->
-            title.value = a.getOrNull(0)?.trim().orEmpty()
-            artist.value = a.getOrNull(1)?.trim().orEmpty()
+            title.value = cleanTag(a.getOrNull(0))
+            artist.value = cleanTag(a.getOrNull(1))
         }
     }
 
@@ -294,8 +294,8 @@ fun rememberMedia(): MediaInfo {
                 runCatching {
                     val a = CarLink.avrcpInfo()
                     MediaInfo(
-                        title = a?.getOrNull(0)?.trim().orEmpty(),
-                        artist = a?.getOrNull(1)?.trim().orEmpty(),
+                        title = cleanTag(a?.getOrNull(0)),
+                        artist = cleanTag(a?.getOrNull(1)),
                         playing = CarLink.a2dpState() == 1,
                     )
                 }.getOrDefault(MediaInfo())
@@ -304,4 +304,10 @@ fun rememberMedia(): MediaInfo {
         }
     }
     return m
+}
+
+/** Le Bluetooth envoie « Not Provided » / « Unknown » quand le téléphone ne donne pas l'info. */
+fun cleanTag(v: String?): String {
+    val t = v?.trim().orEmpty()
+    return if (t.equals("Not Provided", true) || t.equals("Unknown", true) || t.startsWith("<unknown", true)) "" else t
 }
