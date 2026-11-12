@@ -87,6 +87,9 @@ object CarLink {
     /** État A2DP : 0 repos, 1 lecture, 2 pause, 3 arrêt. */
     fun a2dpState(): Int? = value("state.bt.a2dp_state", TYPE_INT)?.takeIf { it.containsKey("value") }?.getInt("value")
 
+    /** Caméra de recul affichée (marche arrière) : clé gérée par le service de l'autoradio. */
+    fun inBackCar(): Boolean? = value("state.app.in_backcar", TYPE_INT)?.takeIf { it.containsKey("value") }?.getInt("value")?.let { it == 1 }
+
     /** Titre et artiste reçus du téléphone (AVRCP). */
     fun avrcpInfo(): Array<String>? = value("state.bt.avrcp_info", TYPE_STRING_ARRAY)?.getStringArray("value")
 

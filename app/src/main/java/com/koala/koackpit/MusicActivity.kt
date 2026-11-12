@@ -53,6 +53,10 @@ class MusicActivity : ComponentActivity() {
         /** Ferme la conduite si elle est ouverte (avant une mise à jour, retour à l'accueil…). */
         fun closeIfOpen() { current?.get()?.quit() }
         fun isOpen() = current?.get()?.isFinishing == false
+        @Volatile var shown = false   // lecteur réellement à l'écran
+
+        /** Ferme le lecteur sans arrêter la conduite : elle est relancée proprement (onDestroy). */
+        fun restart() { current?.get()?.let { if (!it.isFinishing) it.finishAndRemoveTask() } }
     }
 
     private val title = mutableStateOf("")
@@ -125,13 +129,20 @@ class MusicActivity : ComponentActivity() {
         if (settled() && awake() && newConfig.screenWidthDp in 1..159) quit()
     }
 
-    /** Lecteur masqué par une autre appli : on quitte pour ne pas laisser l'écran partagé actif. */
+    /**
+     * Lecteur masqué (caméra de recul, appel, appli du fabricant, veille) : on ne ferme JAMAIS la conduite
+     * ici. Seuls ✕, retour et les boutons accueil la ferment. Android rétablit l'écran partagé quand
+     * l'appli qui recouvrait se ferme ; sinon WakeService le rétablit.
+     */
     override fun onStop() {
         super.onStop()
         poll.removeCallbacks(tick)
-        // Écran éteint par la coupure du contact : on ne quitte pas, la conduite reprend au réveil
-        if (!awake()) { WakeLog.add(this, "Veille : conduite conservée"); return }
-        if (settled() && !isFinishing && !isChangingConfigurations) quit()
+        shown = false
+    }
+
+    override fun onResume() {
+        super.onResume()
+        shown = true
     }
 
     /** Quitte la conduite et rouvre l'accueil Koackpit. */
@@ -156,6 +167,12 @@ class MusicActivity : ComponentActivity() {
 
     override fun onDestroy() {
         if (current?.get() === this) current = null
+        shown = false
+        // Fermé sans demande de l'utilisateur (arrêt par le système, rétablissement) : on relance la conduite
+        if (Prefs.driving(this) && awake() && !isChangingConfigurations) {
+            WakeLog.add(this, "Lecteur fermé par le système : conduite relancée")
+            WakeService.relaunchDriving(applicationContext, 1500)
+        }
         poll.removeCallbacksAndMessages(null)
         super.onDestroy()
     }

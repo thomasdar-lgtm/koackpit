@@ -36,6 +36,25 @@ class WakeService : Service() {
          * Affiche l'accueil Koackpit. L'autoradio remet son propre écran au réveil : on repasse devant
          * plusieurs fois pendant les premières secondes.
          */
+        /** Relance la conduite (GPS + lecteur) après un délai, si elle n'est pas déjà ouverte. */
+        private val relaunches = ArrayDeque<Long>()
+
+        fun relaunchDriving(ctx: Context, delay: Long) {
+            val app = ctx.applicationContext
+            // Garde-fou : au plus 3 relances par minute (jamais de boucle si Android refuse l'écran partagé)
+            val now = android.os.SystemClock.elapsedRealtime()
+            while (relaunches.isNotEmpty() && now - relaunches.first() > 60_000) relaunches.removeFirst()
+            if (relaunches.size >= 3) { WakeLog.add(app, "Relance abandonnée (trop de tentatives)"); return }
+            relaunches.addLast(now)
+            Handler(Looper.getMainLooper()).postDelayed({
+                if (!MusicActivity.isOpen() && Prefs.driving(app)) {
+                    SplitScreen.launch(app, listOf(Prefs.nav(app), Targets.WAZE, Targets.MAPS)) { r ->
+                        WakeLog.add(app, "Relance : " + r.lines().filter { it.isNotBlank() }.joinToString(" / "))
+                    }
+                }
+            }, delay)
+        }
+
         fun bringToFront(ctx: Context) {
             val app = ctx.applicationContext
             val h = Handler(Looper.getMainLooper())
@@ -91,6 +110,7 @@ class WakeService : Service() {
         WakeLog.add(this, "Service démarré (fond d'écran Koackpit : ${if (KeepAlive.active(this)) "oui" else "NON"}, " +
             "affichage par-dessus : ${if (Settings.canDrawOverlays(this)) "oui" else "non"})")
         registerReceiver(accReceiver, IntentFilter(ACTION_ACC))
+        main.postDelayed(reverseWatch, 3000)
         // Android 10 n'autorise une appli en arrière-plan à ouvrir un écran que si elle a le droit
         // « afficher par-dessus les autres applis » : on se l'accorde une fois via l'accès système.
         if (!Settings.canDrawOverlays(this)) {
@@ -103,10 +123,43 @@ class WakeService : Service() {
         }
     }
 
+    /**
+     * Surveillance de la caméra de recul pendant la conduite (1 lecture par seconde, uniquement écran
+     * allumé et conduite active). À la fin de la marche arrière, si l'écran partagé n'est pas revenu
+     * en 3 s, on le rétablit.
+     */
+    private val main = Handler(Looper.getMainLooper())
+    private var lastBack = false
+    private val reverseWatch = object : Runnable {
+        override fun run() {
+            val pm = getSystemService(POWER_SERVICE) as android.os.PowerManager
+            if (Prefs.driving(this@WakeService) && pm.isInteractive) {
+                Thread {
+                    val back = CarLink.inBackCar() ?: false
+                    main.post {
+                        if (back != lastBack) {
+                            WakeLog.add(this@WakeService, if (back) "Marche arrière : caméra" else "Fin de marche arrière")
+                            if (!back) main.postDelayed({
+                                if (Prefs.driving(this@WakeService) && !MusicActivity.shown) {
+                                    WakeLog.add(this@WakeService, "Écran partagé non revenu : rétablissement")
+                                    if (MusicActivity.isOpen()) MusicActivity.restart()   // onDestroy relance
+                                    else relaunchDriving(this@WakeService, 0)
+                                }
+                            }, 3000)
+                        }
+                        lastBack = back
+                    }
+                }.start()
+            }
+            main.postDelayed(this, 1000)
+        }
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int) = START_STICKY
 
     override fun onDestroy() {
         runCatching { unregisterReceiver(accReceiver) }
+        main.removeCallbacks(reverseWatch)
         super.onDestroy()
     }
 
