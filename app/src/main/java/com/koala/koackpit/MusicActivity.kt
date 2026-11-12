@@ -268,7 +268,7 @@ enum class Glyph { PREV, PLAY, PAUSE, NEXT }
 fun CtrlButton(g: Glyph, size: Int, main: Boolean, onClick: () -> Unit) {
     val ink = if (main) Navy else Yellow
     Box(
-        Modifier.size(size.dp).clip(CircleShape).background(if (main) Yellow else Card).clickable(onClick = onClick),
+        Modifier.size(size.dp).clip(CircleShape).background(if (main) Yellow else CardHi).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Canvas(Modifier.size((size * 0.42f).dp)) {
