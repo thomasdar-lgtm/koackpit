@@ -84,6 +84,7 @@ object SplitScreen {
                 runCatching {
                     ctx.startActivity(nav.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT))
                     log.append("4. GPS lancé à côté\n")
+                    Prefs.setDriving(ctx, true)
                 }.onFailure { log.append("4. GPS échoué : $it\n") }
                 done(log.toString())
             }, 800)

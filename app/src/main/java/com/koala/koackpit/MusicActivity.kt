@@ -122,13 +122,15 @@ class MusicActivity : ComponentActivity() {
     /** Écran d'accueil appuyé : la fenêtre du lecteur est réduite à une bande → on quitte. */
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
-        if (settled() && newConfig.screenWidthDp in 1..159) quit()
+        if (settled() && awake() && newConfig.screenWidthDp in 1..159) quit()
     }
 
     /** Lecteur masqué par une autre appli : on quitte pour ne pas laisser l'écran partagé actif. */
     override fun onStop() {
         super.onStop()
         poll.removeCallbacks(tick)
+        // Écran éteint par la coupure du contact : on ne quitte pas, la conduite reprend au réveil
+        if (!awake()) { WakeLog.add(this, "Veille : conduite conservée"); return }
         if (settled() && !isFinishing && !isChangingConfigurations) quit()
     }
 
@@ -144,7 +146,11 @@ class MusicActivity : ComponentActivity() {
     private fun settled() = SystemClock.uptimeMillis() - createdAt > 4000
 
     /** Ferme le lecteur et sa tâche : Android referme alors l'écran partagé. */
+    private fun awake() = (getSystemService(POWER_SERVICE) as android.os.PowerManager).isInteractive
+
+    /** Fermeture voulue par l'utilisateur : la conduite ne sera pas rétablie au réveil. */
     fun quit() {
+        Prefs.setDriving(this, false)
         if (!isFinishing) finishAndRemoveTask()
     }
 

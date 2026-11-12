@@ -23,6 +23,9 @@ object Prefs {
     private fun sp(ctx: Context) = ctx.getSharedPreferences("koackpit", Context.MODE_PRIVATE)
     fun nav(ctx: Context): String = sp(ctx).getString("nav", Targets.WAZE) ?: Targets.WAZE
     fun setNav(ctx: Context, pkg: String) = sp(ctx).edit().putString("nav", pkg).apply()
+    /** Mode conduite actif : à rétablir au réveil de l'autoradio s'il a été fermé par la veille. */
+    fun driving(ctx: Context) = sp(ctx).getBoolean("driving", false)
+    fun setDriving(ctx: Context, on: Boolean) = sp(ctx).edit().putBoolean("driving", on).apply()
     fun splitLog(ctx: Context): String = sp(ctx).getString("splitLog", "") ?: ""
     fun setSplitLog(ctx: Context, s: String) = sp(ctx).edit().putString("splitLog", s).apply()
 }

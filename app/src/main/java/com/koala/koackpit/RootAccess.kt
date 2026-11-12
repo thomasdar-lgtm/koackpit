@@ -161,6 +161,10 @@ object RootAccess {
     /** Journal de la dernière tentative d'installation (pour le diagnostic). */
     fun lastInstallLog(ctx: Context): String = try {
         "--- Démarrages :\n" + WakeLog.read(ctx) +
+            "\n--- Veille du processeur (batterie) :\n" +
+            run(ctx, "[ -f /sys/kernel/debug/suspend_stats ] || mount -t debugfs none /sys/kernel/debug 2>/dev/null; " +
+                "head -n 12 /sys/kernel/debug/suspend_stats 2>&1; " +
+                "echo '- Réveils :'; cat /sys/kernel/debug/wakeup_sources 2>/dev/null | sort -k6 -n -r | head -n 6 | awk '{print \$1, \$6}'") +
             "\n--- Écrans pendant la dernière mise à jour :\n" +
             (runCatching { File(ctx.filesDir, "update-trace.txt").readText() }.getOrNull() ?: "aucune trace") +
             "\n--- Système :\n" +
