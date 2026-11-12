@@ -146,44 +146,25 @@ fun Home(onApps: () -> Unit, onSettings: () -> Unit) {
         SimpleDateFormat("EEEE d MMMM", Locale.FRANCE).format(now).replaceFirstChar { it.uppercase() }
     }
     val nav = Prefs.nav(ctx)
+    val media = rememberMedia()
 
     fun go(pkgs: List<String>, name: String) {
         if (!Apps.open(ctx, pkgs)) toast(ctx, "$name n'est pas installé")
     }
 
-    Row(Modifier.fillMaxSize().padding(20.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-        // Colonne gauche : heure, date
-        Column(Modifier.weight(0.8f).fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
-            Column {
-                Text(time, color = Color.White, fontSize = 88.sp, fontWeight = FontWeight.Black, lineHeight = 88.sp)
-                Text(date, color = Yellow, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Koackpit", color = Muted, fontSize = 16.sp, fontWeight = FontWeight.Black)
-                Spacer(Modifier.weight(1f))
-                RoundButton(Icons.Filled.Settings, onSettings)
-            }
-        }
-
-        // Grille de tuiles
-        Column(Modifier.weight(1.4f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Row(Modifier.weight(1.3f), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Tile(Modifier.weight(1f), "GPS", if (nav == Targets.MAPS) "Google Maps" else "Waze", Icons.Filled.Place, accent = true) {
-                    go(listOf(nav, Targets.WAZE, Targets.MAPS), "Le GPS")
-                }
-                Tile(Modifier.weight(1f), "Musique", "Deezer", Icons.Filled.PlayArrow, accent = true) { go(Targets.MUSIC, "Deezer") }
-            }
-            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Tile(Modifier.weight(1f), "Voiture", "Car Info", Icons.Filled.Info) { go(Targets.CAR_INFO, "Car Info") }
-                Tile(Modifier.weight(1f), "Diagnostic", "Car Scanner", Icons.Filled.Build) { go(Targets.OBD, "Car Scanner") }
-                Tile(Modifier.weight(1f), "Téléphone", "Bluetooth", Icons.Filled.Phone) { go(Targets.PHONE, "Le téléphone") }
-            }
-            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Tile(Modifier.weight(1f), "Radio", "FM / DAB", null, glyph = "FM") { go(Targets.RADIO + "com.ex.dabplayer.pad", "La radio") }
-                Tile(Modifier.weight(2f), "Toutes les applis", null, Icons.Filled.List, onClick = onApps)
-            }
-        }
-    }
+    HomeContent(
+        time = time, date = date, navName = if (nav == Targets.MAPS) "Google Maps" else "Waze", media = media,
+        rail = RailActions(
+            onDrive = { SplitScreen.launch(ctx, listOf(nav, Targets.WAZE, Targets.MAPS)) {} },
+            onMusic = { ctx.startActivity(Intent(ctx, MusicActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) },
+            onPhone = { go(Targets.PHONE, "Le téléphone") },
+            onCar = { go(Targets.CAR_INFO, "Car Info") },
+            onApps = onApps,
+            onSettings = onSettings,
+        ),
+        onGpsOnly = { go(listOf(nav, Targets.WAZE, Targets.MAPS), "Le GPS") },
+        onPrev = { CarLink.prev() }, onPlay = { CarLink.playPause() }, onNext = { CarLink.next() },
+    )
 }
 
 @Composable

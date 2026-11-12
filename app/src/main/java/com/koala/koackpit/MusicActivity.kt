@@ -44,6 +44,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.lang.ref.WeakReference
+import java.util.Locale
+import java.util.Date
+import java.text.SimpleDateFormat
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 
 /** Lecteur Bluetooth : affiche ce que joue le téléphone et le pilote, via le service de l'autoradio. */
 class MusicActivity : ComponentActivity() {
@@ -80,13 +87,19 @@ class MusicActivity : ComponentActivity() {
             override fun handleOnBackPressed() = quit()
         })
         setContent {
-            Player(
-                title.value, artist.value, art.value, playing.value, warning.value,
+            var now by remember { mutableStateOf(Date()) }
+            LaunchedEffect(Unit) { while (true) { now = Date(); kotlinx.coroutines.delay(5_000) } }
+            DrivePanel(
+                time = SimpleDateFormat("HH:mm", Locale.FRANCE).format(now),
+                media = MediaInfo(title.value, artist.value, playing.value, srcIsBt.value, warning.value),
                 onPrev = { CarLink.prev() },
                 onPlay = { CarLink.playPause() },
                 onNext = { CarLink.next() },
-                onClose = ::quit,
                 onHome = ::goHome,
+                onClose = ::quit,
+                onPhone = { Apps.open(this, Targets.PHONE) },
+                onCar = { Apps.open(this, Targets.CAR_INFO) },
+                onApps = ::goHome,
                 onBtSource = if (srcIsBt.value) null else ::forceBtSource,
             )
         }
@@ -269,4 +282,26 @@ fun CtrlButton(g: Glyph, size: Int, main: Boolean, onClick: () -> Unit) {
             }
         }
     }
+}
+
+/** État musique lu dans le service de l'autoradio, rafraîchi chaque seconde (pour l'accueil). */
+@Composable
+fun rememberMedia(): MediaInfo {
+    var m by remember { mutableStateOf(MediaInfo()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            m = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching {
+                    val a = CarLink.avrcpInfo()
+                    MediaInfo(
+                        title = a?.getOrNull(0)?.trim().orEmpty(),
+                        artist = a?.getOrNull(1)?.trim().orEmpty(),
+                        playing = CarLink.a2dpState() == 1,
+                    )
+                }.getOrDefault(MediaInfo())
+            }
+            kotlinx.coroutines.delay(1000)
+        }
+    }
+    return m
 }
