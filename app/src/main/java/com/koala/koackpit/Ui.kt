@@ -298,7 +298,9 @@ fun DrivePanel(
                     verticalArrangement = Arrangement.SpaceEvenly,
                 ) {
                     Caption("Bluetooth")
-                    Artwork(Modifier.size(if (narrow) 84.dp else 110.dp))
+                    // Pochette plus petite si un bouton ou un message doit aussi tenir dans la carte
+                    val extra = onBtSource != null || media.warning.isNotEmpty()
+                    Artwork(Modifier.size(if (narrow || extra) 72.dp else 110.dp))
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(media.title.ifEmpty { "Rien en lecture" }, color = Color.White, fontSize = 16.sp,
                             fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
