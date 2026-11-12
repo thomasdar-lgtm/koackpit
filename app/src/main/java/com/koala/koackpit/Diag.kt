@@ -128,6 +128,30 @@ object Diag {
         section("PAQUETS (${apps.size})", b.toString())
     }
 
+    /**
+     * Rapport obtenu avec l'accès système : de quoi préparer l'écran partagé, les boutons physiques,
+     * le plein écran, l'allègement et les performances, sans tâtonner dans la voiture.
+     */
+    fun advanced(ctx: Context): String = buildString {
+        val snap = File(ctx.filesDir, "driving-snapshot.txt")
+        appendLine("=== Fenêtres pendant la dernière conduite")
+        appendLine(if (snap.exists()) snap.readText() else "aucune (lance la conduite une fois avant de créer le fichier)")
+        val cmds = listOf(
+            "Commandes am stack/task" to "am help 2>&1 | grep -A3 -E '^  (stack|task) ' | head -n 120",
+            "Fenêtres actuelles" to "am stack list 2>&1 | head -n 60",
+            "Écran" to "wm size; wm density; settings get global policy_control",
+            "Animations" to "settings get global window_animation_scale; settings get global transition_animation_scale; settings get global animator_duration_scale",
+            "Appli accueil" to "cmd package resolve-activity -c android.intent.category.HOME -a android.intent.action.MAIN 2>&1 | head -n 8",
+            "Boutons (périphériques entrée)" to "getevent -pl 2>&1 | head -n 200",
+            "Applis désactivées" to "pm list packages -d",
+            "Mémoire" to "dumpsys meminfo 2>&1 | sed -n '1,45p'",
+            "Processeur" to "cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor 2>&1 | sort | uniq -c; top -b -n 1 -m 15 2>&1 | head -n 25",
+            "Service car" to "dumpsys car 2>&1 | head -n 150",
+        )
+        val script = cmds.joinToString("; ") { (t, c) -> "echo; echo '=== $t'; $c" }
+        append(runCatching { RootAccess.run(ctx, script, 60_000) }.getOrElse { "Accès système indisponible : ${it.message}" })
+    }
+
     /** Crée le zip (rapport + APK choisis) dans le cache de l'appli. */
     fun build(ctx: Context, apps: List<AppEntry>, selected: Set<String>, onProgress: (Float, String) -> Unit): File {
         onProgress(0f, "Rapport système…")
@@ -140,6 +164,10 @@ object Diag {
         ZipOutputStream(out.outputStream().buffered()).use { z ->
             z.putNextEntry(ZipEntry("rapport.txt"))
             z.write(rep.toByteArray())
+            z.closeEntry()
+            onProgress(0.05f, "Rapport avancé (accès système)…")
+            z.putNextEntry(ZipEntry("systeme-avance.txt"))
+            z.write(advanced(ctx).toByteArray())
             z.closeEntry()
             val buf = ByteArray(128 * 1024)
             for (a in chosen) {

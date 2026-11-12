@@ -85,9 +85,23 @@ object SplitScreen {
                     ctx.startActivity(nav.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT))
                     log.append("4. GPS lancé à côté\n")
                     Prefs.setDriving(ctx, true)
+                    snapshot(ctx)
                 }.onFailure { log.append("4. GPS échoué : $it\n") }
                 done(log.toString())
             }, 800)
         }, if (needBt) 900L else 0L)
+    }
+
+    /** Relevé des fenêtres 5 s après le lancement de la conduite (pour régler l'écran partagé). */
+    private fun snapshot(ctx: Context) {
+        val app = ctx.applicationContext
+        Thread {
+            Thread.sleep(5000)
+            val r = runCatching {
+                RootAccess.run(app, "am stack list 2>&1 | head -n 40; echo '---'; " +
+                    "dumpsys activity activities 2>&1 | grep -E 'Stack #|mResumedActivity|mBounds=|windowingMode=' | head -n 60", 20_000)
+            }.getOrElse { "indisponible : ${it.message}" }
+            runCatching { java.io.File(app.filesDir, "driving-snapshot.txt").writeText(r) }
+        }.start()
     }
 }

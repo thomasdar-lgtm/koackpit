@@ -86,7 +86,6 @@ fun DiagScreen(server: FileServer, onZip: (File) -> Unit) {
     LaunchedEffect(Unit) {
         val list = withContext(Dispatchers.IO) { Diag.apps(ctx) }
         apps.addAll(list)
-        selected.addAll(list.filter { it.carInfo || it.vendor }.map { it.pkg })
         loading = false
         runCatching { upd.info = Updater.check() }
     }
@@ -172,7 +171,7 @@ fun DiagScreen(server: FileServer, onZip: (File) -> Unit) {
             Column(Modifier.weight(0.9f).fillMaxHeight().clip(RoundedCornerShape(12.dp)).background(Card).padding(16.dp)) {
                 Text("1. Créer le fichier", color = Yellow, fontWeight = FontWeight.Black, fontSize = 17.sp)
                 Text(
-                    "Les applis du fabricant sont déjà cochées. Rien n'est modifié sur l'autoradio : on fait juste une copie.",
+                    "Rapport système seul par défaut (fichier léger). Coche une appli seulement si Claude le demande. Rien n'est modifié sur l'autoradio.",
                     color = Color.White, fontSize = 13.sp,
                 )
                 Spacer(Modifier.height(10.dp))
@@ -182,7 +181,7 @@ fun DiagScreen(server: FileServer, onZip: (File) -> Unit) {
                     Text("${(p * 100).toInt()} % — $step", color = Muted, fontSize = 12.sp)
                 } else {
                     Button(
-                        enabled = !loading && selected.isNotEmpty() && totalMb <= LIMIT_MB,
+                        enabled = !loading && totalMb <= LIMIT_MB,
                         onClick = {
                             progress = 0f
                             result = null
