@@ -39,11 +39,13 @@ class WakeService : Service() {
         fun bringToFront(ctx: Context) {
             val app = ctx.applicationContext
             val h = Handler(Looper.getMainLooper())
-            // Conduite en cours avant la veille : on la rétablit (lecteur + GPS) plutôt que l'accueil.
-            if (Prefs.driving(app)) {
+            // Conduite au démarrage (réglage, activé par défaut) ou conduite en cours avant la veille :
+            // on ouvre le GPS + lecteur côte à côte plutôt que l'accueil.
+            val wantDrive = Prefs.autoDrive(app) || Prefs.driving(app)
+            if (wantDrive) {
                 for (delay in longArrayOf(2500, 7000)) {
                     h.postDelayed({
-                        if (!MusicActivity.isOpen() && Prefs.driving(app)) {
+                        if (!MusicActivity.isOpen()) {
                             WakeLog.add(app, "Reprise de la conduite (+${delay} ms)")
                             SplitScreen.launch(app, listOf(Prefs.nav(app), Targets.WAZE, Targets.MAPS)) { r ->
                                 WakeLog.add(app, r.lines().filter { it.isNotBlank() }.joinToString(" / "))

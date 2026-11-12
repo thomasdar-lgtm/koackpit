@@ -287,6 +287,14 @@ fun SettingsScreen(upd: UpdateState, onBack: () -> Unit) {
                 Spacer(Modifier.height(16.dp))
                 Text("Conduite (GPS + lecteur BT)", color = Yellow, fontSize = 18.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.height(8.dp))
+                var autoDrive by remember { mutableStateOf(Prefs.autoDrive(ctx)) }
+                SettingButton(
+                    if (autoDrive) "Au démarrage de la voiture : conduite ✓" else "Au démarrage de la voiture : accueil Koackpit"
+                ) {
+                    autoDrive = !autoDrive
+                    Prefs.setAutoDrive(ctx, autoDrive)
+                }
+                Spacer(Modifier.height(8.dp))
                 SettingButton("Lancer la conduite") {
                     Prefs.setSplitLog(ctx, "Test en cours…")
                     splitLog = "Test en cours…"
