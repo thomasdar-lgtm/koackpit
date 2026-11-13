@@ -244,7 +244,7 @@ fun NavCard(
             }
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Pill(if (guidance != null) "Voir la carte" else "Démarrer la conduite", Yellow, Navy, onDrive)
+                Pill(if (guidance != null) "Voir la carte" else "Conduite", Yellow, Navy, onDrive)
                 if (guidance == null && onHomeAddr != null) Pill("Maison", Card.copy(alpha = 0.92f), Color.White, onHomeAddr)
                 if (guidance == null && onWorkAddr != null) Pill("Travail", Card.copy(alpha = 0.92f), Color.White, onWorkAddr)
             }
