@@ -15,7 +15,7 @@ import java.net.URL
 object UpdaterApp {
     private const val PKG = "com.koala.koackpit.updater"
     private const val ACTIVITY = "$PKG.UpdateActivity"
-    private const val MIN_VERSION = 3L   // 3 : Koackpit prépare l'accès système avant de passer la main
+    private const val MIN_VERSION = 4L   // 4 : vérifie la mise à jour même si la connexion est coupée
     private const val ASSET = "KoackpitUpdater.bin"
     private const val API = "https://api.github.com/repos/thomasdar-lgtm/koackpit/releases/latest"
     const val HANDOFF_MARKER = "updater-handoff"

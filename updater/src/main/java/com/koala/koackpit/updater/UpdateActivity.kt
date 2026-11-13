@@ -97,6 +97,7 @@ class UpdateActivity : Activity() {
         // Koackpit a déjà ouvert l'accès système et copié l'APK à cet emplacement fixe
         if (i?.getStringExtra("tmp") != TMP) { fail("Fichier de mise à jour invalide"); return }
         running = true
+        val startedAt = System.currentTimeMillis()
         Thread {
             try {
                 // Accès déjà ouvert par Koackpit : connexion directe ; sinon on l'ouvre nous-mêmes
@@ -115,7 +116,15 @@ class UpdateActivity : Activity() {
                 main.postDelayed({ running = false; finishAndRemoveTask() }, 1500)
             } catch (e: Exception) {
                 RootShell.close(this)
-                main.post { running = false; fail("Échec : ${e.message ?: e.javaClass.simpleName}") }
+                // Connexion coupée pendant ou après l'installation : on vérifie si Koackpit a bien été mis à jour
+                val updated = runCatching {
+                    packageManager.getPackageInfo(KOACKPIT, 0).lastUpdateTime >= startedAt - 5_000
+                }.getOrDefault(false)
+                if (updated) main.post {
+                    status.text = "Redémarrage de Koackpit…"
+                    openKoackpit()
+                    main.postDelayed({ running = false; finishAndRemoveTask() }, 1500)
+                } else main.post { running = false; fail("Échec : ${e.message ?: e.javaClass.simpleName}") }
             }
         }.start()
     }

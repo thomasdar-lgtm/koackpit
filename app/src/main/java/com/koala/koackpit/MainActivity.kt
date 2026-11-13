@@ -76,7 +76,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        RootAccess.ensureClosed(this)
+        // Sécurité accès système : vérifiée après 20 s seulement. Juste après une mise à jour, l'appli
+        // compagnon l'utilise encore pour rouvrir Koackpit : le fermer tout de suite coupait sa connexion
+        // (erreur EOFException).
+        run {
+            val app = applicationContext
+            Thread { Thread.sleep(20_000); RootAccess.ensureClosed(app) }.start()
+        }
         WakeService.start(this)
         // Installe l'appli compagnon de mise à jour si elle manque (après 20 s, pour ne pas gêner un
         // redémarrage en cours après mise à jour)
