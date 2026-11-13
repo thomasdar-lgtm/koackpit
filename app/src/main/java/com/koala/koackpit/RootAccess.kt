@@ -106,7 +106,12 @@ object RootAccess {
     }
 
     /** Ouvre adb, attend qu'il réponde, exécute, referme. Toujours refermé, même en cas d'échec. */
-    fun run(ctx: Context, cmd: String, timeoutMs: Int = 8000): String {
+    private val lock = Any()
+
+    /** Une seule opération système à la fois : deux ouvertures simultanées se couperaient mutuellement. */
+    fun run(ctx: Context, cmd: String, timeoutMs: Int = 8000): String = synchronized(lock) { runLocked(ctx, cmd, timeoutMs) }
+
+    private fun runLocked(ctx: Context, cmd: String, timeoutMs: Int): String {
         openAdb(ctx)
         try {
             var last: Exception? = null

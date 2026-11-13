@@ -7,6 +7,9 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -122,7 +125,9 @@ fun DiagScreen(server: FileServer, onZip: (File) -> Unit) {
             Spacer(Modifier.height(6.dp))
             Text(
                 rootLog, color = Color.White, fontSize = 13.sp, lineHeight = 17.sp,
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Card).padding(10.dp),
+                // Zone défilante : le journal peut être long
+                modifier = Modifier.fillMaxWidth().heightIn(max = 260.dp).clip(RoundedCornerShape(10.dp)).background(Card)
+                    .verticalScroll(rememberScrollState()).padding(10.dp),
             )
         }
         Spacer(Modifier.height(10.dp))

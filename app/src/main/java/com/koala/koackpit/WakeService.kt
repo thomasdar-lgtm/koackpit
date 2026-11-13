@@ -68,6 +68,7 @@ class WakeService : Service() {
                             WakeLog.add(app, "Reprise de la conduite (+${delay} ms)")
                             SplitScreen.launch(app, listOf(Prefs.nav(app), Targets.WAZE, Targets.MAPS)) { r ->
                                 WakeLog.add(app, r.lines().filter { it.isNotBlank() }.joinToString(" / "))
+                                h.postDelayed({ WakeLog.addWindows(app, "après reprise") }, 3000)
                             }
                         }
                     }, delay)
@@ -93,6 +94,7 @@ class WakeService : Service() {
             if (isInitialStickyBroadcast) return            // ancienne valeur, pas un vrai démarrage
             val v = i.getIntExtra("arg_int", -1)
             WakeLog.add(c, "Signal contact (ACC) = $v")
+            if (v != 0) Handler(Looper.getMainLooper()).postDelayed({ WakeLog.addWindows(c, "réveil +1 s") }, 1000)
             if (v != 0) bringToFront(c)
         }
     }

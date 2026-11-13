@@ -59,10 +59,23 @@ object WakeLog {
     fun add(ctx: Context, msg: String) {
         runCatching {
             val f = File(ctx.filesDir, FILE)
-            val lines = (if (f.exists()) f.readLines() else emptyList()).takeLast(40)
+            val lines = (if (f.exists()) f.readLines() else emptyList()).takeLast(120)
             val t = SimpleDateFormat("dd/MM HH:mm:ss", Locale.FRANCE).format(Date())
             f.writeText((lines + "$t  $msg").joinToString("\n"))
         }
     }
-    fun read(ctx: Context): String = runCatching { File(ctx.filesDir, FILE).readText() }.getOrNull() ?: "vide"
+    /** Plus récent en premier. */
+    fun read(ctx: Context): String =
+        runCatching { File(ctx.filesDir, FILE).readLines().reversed().joinToString("\n") }.getOrNull() ?: "vide"
+
+    /** Ajoute l'état des fenêtres (relevé système) au journal, pour comprendre ce qui s'affiche. */
+    fun addWindows(ctx: Context, label: String) {
+        val app = ctx.applicationContext
+        Thread {
+            val r = runCatching {
+                RootAccess.run(app, "am stack list 2>&1 | grep -E 'Stack id|taskId' | head -n 12", 20_000)
+            }.getOrElse { "indisponible : ${it.message}" }
+            add(app, "Fenêtres ($label) : " + r.lines().map { it.trim() }.filter { it.isNotEmpty() }.joinToString(" | "))
+        }.start()
+    }
 }
