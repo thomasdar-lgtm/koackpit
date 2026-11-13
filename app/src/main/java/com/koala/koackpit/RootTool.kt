@@ -16,8 +16,35 @@ object RootTool {
     private const val WINDOWING_MODE_SPLIT_SCREEN_SECONDARY = 4
     private const val CREATE_MODE_RIGHT = 1   // SPLIT_SCREEN_CREATE_MODE_BOTTOM_OR_RIGHT
 
+    /** Nom de la porte d'entrée trouvée (pour le journal). */
+    private var source = "?"
+
+    /**
+     * Gestionnaire de fenêtres. Cet autoradio n'a pas la classe ActivityTaskManager (constaté : ClassNotFound) :
+     * on essaie donc toutes les portes d'entrée connues d'Android 9/10 et on garde la première qui sait
+     * gérer l'écran partagé.
+     */
     private val atm: Any by lazy {
-        Class.forName("android.app.ActivityTaskManager").getMethod("getService").invoke(null)!!
+        fun sm(name: String, stub: String): Any? {
+            val b = Class.forName("android.os.ServiceManager").getMethod("getService", String::class.java).invoke(null, name)
+                ?: return null
+            return Class.forName(stub).getMethod("asInterface", android.os.IBinder::class.java).invoke(null, b)
+        }
+        val candidates: List<Pair<String, () -> Any?>> = listOf(
+            "ActivityTaskManager" to { Class.forName("android.app.ActivityTaskManager").getMethod("getService").invoke(null) },
+            "activity_task" to { sm("activity_task", "android.app.IActivityTaskManager\$Stub") },
+            "ActivityManager" to { Class.forName("android.app.ActivityManager").getMethod("getService").invoke(null) },
+            "ActivityManagerNative" to { Class.forName("android.app.ActivityManagerNative").getMethod("getDefault").invoke(null) },
+            "activity" to { sm("activity", "android.app.IActivityManager\$Stub") },
+        )
+        val tried = StringBuilder()
+        for ((name, get) in candidates) {
+            val s = runCatching { get() }.getOrNull()
+            if (s == null) { tried.append("$name:absent "); continue }
+            if (s.javaClass.methods.any { it.name == "setTaskWindowingModeSplitScreenPrimary" }) { source = name; return@lazy s }
+            tried.append("$name:incomplet ")
+        }
+        throw IllegalStateException("aucun gestionnaire utilisable ($tried)")
     }
 
     /** Appel par nom et nombre de paramètres (résiste aux petites variations du fabricant). */
@@ -66,7 +93,7 @@ object RootTool {
                         .let { it!!.javaClass.getMethod("getDisplayMetrics").invoke(it) as android.util.DisplayMetrics }
                     val w = maxOf(dm.widthPixels, dm.heightPixels); val h = minOf(dm.widthPixels, dm.heightPixels)
                     call("resizeDockedStack", Rect(w - panelW, 0, w, h), null, null, null, null)
-                    println("OK " + stacks())
+                    println("OK [$source] " + stacks())
                 }
                 "dismiss" -> { call("dismissSplitScreenMode", false); println("OK") }
                 "stacks" -> println(stacks())
