@@ -18,12 +18,12 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * Captures des écrans au format de l'autoradio (1024×600), générées sur GitHub sans la voiture.
+ * Captures des écrans au format réel de l'autoradio (1280×720 à 240 dpi), générées sur GitHub sans la voiture.
  * Elles servent à vérifier le rendu avant chaque livraison visuelle.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [34], qualifiers = "w683dp-h372dp-land-hdpi")
+@Config(sdk = [34], qualifiers = "w853dp-h440dp-land-hdpi")
 class Screenshots {
     private val media = MediaInfo("Chandelier", "Sia", playing = true)
 
@@ -56,7 +56,7 @@ class Screenshots {
     fun conduite() = captureRoboImage("build/screens/conduite.png") {
         Row(Modifier.fillMaxSize()) {
             Box(Modifier.weight(2f).fillMaxHeight().background(Color(0xFF2A3F5C)))
-            Box(Modifier.width(228.dp).fillMaxHeight()) {
+            Box(Modifier.width(285.dp).fillMaxHeight()) {
                 DrivePanel("17:42", media, {}, {}, {}, {}, {}, {}, {}, {}, null)
             }
         }

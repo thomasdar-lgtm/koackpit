@@ -86,11 +86,30 @@ object SplitScreen {
                     ctx.startActivity(nav.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT))
                     log.append("4. GPS lancé à côté\n")
                     Prefs.setDriving(ctx, true)
-                    snapshot(ctx)
+                    arrange(ctx, nav.component?.packageName ?: nav.`package` ?: navPkgs.first())
                 }.onFailure { log.append("4. GPS échoué : $it\n") }
                 done(log.toString())
             }, 800)
         }, if (needBt) 900L else 0L)
+    }
+
+    /** Panneau Koackpit : un tiers de la largeur, à droite ; le GPS a les deux tiers à gauche. */
+    private const val PANEL_FRACTION = 3
+
+    /**
+     * Mise en place définitive par l'outil administrateur : GPS à gauche sur les 2/3, panneau à droite.
+     * Si l'outil échoue, l'écran partagé d'Android reste tel quel (moitié-moitié) : rien n'est cassé.
+     */
+    private fun arrange(ctx: Context, navPkg: String) {
+        val app = ctx.applicationContext
+        Thread {
+            Thread.sleep(1200)
+            val w = app.resources.displayMetrics.let { maxOf(it.widthPixels, it.heightPixels) }
+            val r = runCatching {
+                RootAccess.run(app, RootTool.command(app.packageName, "layout", app.packageName, navPkg, (w / PANEL_FRACTION).toString()), 20_000)
+            }.getOrElse { "ERREUR ${it.message}" }
+            WakeLog.add(app, "Disposition conduite : ${r.trim().take(300)}")
+        }.start()
     }
 
     /** Relevé des fenêtres 5 s après le lancement de la conduite (pour régler l'écran partagé). */
