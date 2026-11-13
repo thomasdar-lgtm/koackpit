@@ -94,7 +94,7 @@ class MainActivity : ComponentActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { screen.value = Screen.HOME }
         })
-        setContent { Koackpit(screen, upd, resumes.value) }
+        setContent { Scaled { Koackpit(screen, upd, resumes.value) } }
     }
 
     /** Chaque retour sur Koackpit relance la recherche de mise à jour (au plus une fois par minute). */

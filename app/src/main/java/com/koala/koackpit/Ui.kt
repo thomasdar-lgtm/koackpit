@@ -370,3 +370,18 @@ fun SmallRound(icon: ImageVector, onClick: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) { Icon(icon, null, tint = Yellow, modifier = Modifier.size(20.dp)) }
 }
+
+/**
+ * Échelle de l'interface : elle est dessinée pour 683×372 dp puis agrandie pour remplir l'écran réel
+ * (1280×720 à 240 dpi = 853×440 dp sur l'autoradio). Même rendu quelle que soit la taille de la fenêtre.
+ */
+@Composable
+fun Scaled(content: @Composable () -> Unit) {
+    val conf = androidx.compose.ui.platform.LocalConfiguration.current
+    val d = androidx.compose.ui.platform.LocalDensity.current
+    // Basé sur la hauteur : identique en plein écran et dans le panneau de conduite (fenêtre étroite)
+    val f = (conf.screenHeightDp / 372f).coerceIn(1f, 1.4f)
+    androidx.compose.runtime.CompositionLocalProvider(
+        androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(d.density * f, d.fontScale),
+    ) { content() }
+}

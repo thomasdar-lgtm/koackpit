@@ -28,47 +28,47 @@ class Screenshots {
     private val media = MediaInfo("Chandelier", "Sia", playing = true)
 
     @Test
-    fun accueil() = captureRoboImage("build/screens/accueil.png") {
+    fun accueil() = captureRoboImage("build/screens/accueil.png") { Scaled {
         HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {}, speedKmh = 0, onHomeAddr = {}, onWorkAddr = {})
-    }
+    } }
 
     @Test
-    fun accueil_mise_a_jour() = captureRoboImage("build/screens/accueil-maj.png") {
+    fun accueil_mise_a_jour() = captureRoboImage("build/screens/accueil-maj.png") { Scaled {
         Box(Modifier.fillMaxSize()) {
             HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {})
             UpdateChip(Modifier.align(androidx.compose.ui.Alignment.BottomEnd).padding(end = 20.dp, bottom = 20.dp), "0.6.7", null, "") {}
         }
-    }
+    } }
 
     @Test
-    fun accueil_guidage() = captureRoboImage("build/screens/accueil-guidage.png") {
+    fun accueil_guidage() = captureRoboImage("build/screens/accueil-guidage.png") { Scaled {
         HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {},
             guidance = Guidance("350 m", "Tourner à droite · Avenue du Maréchal Foch", "Arrivée 18:04 · 12 km"), speedKmh = 48)
-    }
+    } }
 
     @Test
-    fun accueil_sans_musique() = captureRoboImage("build/screens/accueil-vide.png") {
+    fun accueil_sans_musique() = captureRoboImage("build/screens/accueil-vide.png") { Scaled {
         HomeContent("17:42", "Jeudi 12 novembre", "Google Maps", MediaInfo(), RailActions(), {}, {}, {}, {})
-    }
+    } }
 
     /** Conduite : GPS (simulé en gris) à gauche sur les 2/3, panneau Koackpit à droite. */
     @Test
-    fun conduite() = captureRoboImage("build/screens/conduite.png") {
+    fun conduite() = captureRoboImage("build/screens/conduite.png") { Scaled {
         Row(Modifier.fillMaxSize()) {
             Box(Modifier.weight(2f).fillMaxHeight().background(Color(0xFF2A3F5C)))
             Box(Modifier.width(285.dp).fillMaxHeight()) {
                 DrivePanel("17:42", media, {}, {}, {}, {}, {}, {}, {}, {}, null)
             }
         }
-    }
+    } }
 
     @Test
-    fun conduite_moitie() = captureRoboImage("build/screens/conduite-moitie.png") {
+    fun conduite_moitie() = captureRoboImage("build/screens/conduite-moitie.png") { Scaled {
         Row(Modifier.fillMaxSize()) {
             Box(Modifier.weight(1f).fillMaxHeight().background(Color(0xFF2A3F5C)))
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 DrivePanel("17:42", media.copy(sourceIsBt = false), {}, {}, {}, {}, {}, {}, {}, {}, {})
             }
         }
-    }
+    } }
 }

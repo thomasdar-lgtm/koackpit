@@ -86,7 +86,7 @@ class MusicActivity : ComponentActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() = goHome()
         })
-        setContent {
+        setContent { Scaled {
             var now by remember { mutableStateOf(Date()) }
             LaunchedEffect(Unit) { while (true) { now = Date(); kotlinx.coroutines.delay(5_000) } }
             DrivePanel(
@@ -103,7 +103,7 @@ class MusicActivity : ComponentActivity() {
                 onApps = ::goHome,
                 onBtSource = if (srcIsBt.value) null else ::forceBtSource,
             )
-        }
+        } }
     }
 
     override fun onStart() {
