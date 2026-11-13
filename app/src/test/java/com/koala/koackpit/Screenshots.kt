@@ -36,7 +36,7 @@ class Screenshots {
     fun accueil_mise_a_jour() = captureRoboImage("build/screens/accueil-maj.png") {
         Box(Modifier.fillMaxSize()) {
             HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {})
-            UpdateChip(Modifier.align(androidx.compose.ui.Alignment.BottomEnd).padding(14.dp), "0.6.7", null, "") {}
+            UpdateChip(Modifier.align(androidx.compose.ui.Alignment.BottomEnd).padding(end = 20.dp, bottom = 20.dp), "0.6.7", null, "") {}
         }
     }
 

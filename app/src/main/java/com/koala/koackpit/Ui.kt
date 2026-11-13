@@ -240,7 +240,8 @@ fun Pill(text: String, bg: Color, ink: Color, onClick: () -> Unit) {
 @Composable
 fun TodayCard(modifier: Modifier, time: String, date: String, onSettings: () -> Unit) {
     CardBox(modifier) {
-        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
+        // En haut à gauche : le bas de la carte reste libre pour la carte « mise à jour »
+        Column(Modifier.fillMaxSize().padding(top = 6.dp)) {
             Text(time, color = Color.White, fontSize = 42.sp, fontWeight = FontWeight.Black, lineHeight = 42.sp)
             Text(date, color = Yellow, fontSize = 14.sp, fontWeight = FontWeight.Bold)
         }

@@ -141,7 +141,7 @@ fun Koackpit(screen: androidx.compose.runtime.MutableState<Screen>, upd: UpdateS
             }
         }
         // Mise à jour : petite carte en bas à droite, par-dessus l'écran
-        UpdateBanner(upd, Modifier.align(Alignment.BottomEnd).padding(14.dp))
+        UpdateBanner(upd, Modifier.align(Alignment.BottomEnd).padding(end = 20.dp, bottom = 20.dp))
     }
 }
 

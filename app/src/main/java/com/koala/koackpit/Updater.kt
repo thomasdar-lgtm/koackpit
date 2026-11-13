@@ -201,36 +201,31 @@ fun UpdateBanner(upd: UpdateState, modifier: Modifier = Modifier) {
 /** Petite carte « mise à jour » (en bas à droite de l'accueil) : symbole, version, bouton Installer. */
 @Composable
 fun UpdateChip(modifier: Modifier, version: String, progress: Float?, status: String, onInstall: () -> Unit) {
-    Column(
-        modifier.width(176.dp).clip(RoundedCornerShape(18.dp)).background(CardHi)
-            .border(1.5.dp, Yellow.copy(alpha = 0.7f), RoundedCornerShape(18.dp)).padding(10.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+    Row(
+        modifier.clip(RoundedCornerShape(16.dp)).background(CardHi)
+            .border(1.5.dp, Yellow.copy(alpha = 0.7f), RoundedCornerShape(16.dp)).padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(34.dp).clip(CircleShape).background(Yellow), contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.Refresh, null, tint = Navy, modifier = Modifier.size(20.dp))
-            }
-            Spacer(Modifier.width(8.dp))
-            Column {
-                Text("Mise à jour", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                Text(version, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Black)
+        Box(Modifier.size(30.dp).clip(CircleShape).background(Yellow), contentAlignment = Alignment.Center) {
+            Icon(Icons.Filled.Refresh, null, tint = Navy, modifier = Modifier.size(18.dp))
+        }
+        Spacer(Modifier.width(8.dp))
+        Column(Modifier.width(if (status.startsWith("Échec") || status.startsWith("Installation")) 120.dp else 64.dp)) {
+            Text("Mise à jour", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            when {
+                status.isNotEmpty() && progress == null ->
+                    Text(status, color = if (status.startsWith("Échec")) Red else Yellow, fontSize = 10.sp, maxLines = 3, lineHeight = 12.sp)
+                else -> Text(version, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Black)
             }
         }
+        Spacer(Modifier.width(8.dp))
         when {
-            progress != null -> {
-                LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
-                    color = Yellow, trackColor = Navy)
-                Text("Téléchargement ${(progress * 100).toInt()} %", color = Color.White, fontSize = 11.sp)
-            }
-            status.startsWith("Installation") -> Text(status, color = Yellow, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 2)
-            else -> {
-                if (status.startsWith("Échec")) Text(status, color = Red, fontSize = 11.sp, maxLines = 3)
-                Box(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Yellow).clickable(onClick = onInstall)
-                        .padding(vertical = 9.dp),
-                    contentAlignment = Alignment.Center,
-                ) { Text(if (status.startsWith("Échec")) "Réessayer" else "Installer", color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Black) }
-            }
+            progress != null -> Text("${(progress * 100).toInt()} %", color = Yellow, fontSize = 14.sp, fontWeight = FontWeight.Black)
+            status.startsWith("Installation") -> {}
+            else -> Box(
+                Modifier.clip(RoundedCornerShape(12.dp)).background(Yellow).clickable(onClick = onInstall)
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            ) { Text(if (status.startsWith("Échec")) "Réessayer" else "Installer", color = Navy, fontSize = 13.sp, fontWeight = FontWeight.Black) }
         }
     }
 }
