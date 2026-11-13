@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.Modifier
@@ -29,6 +30,14 @@ class Screenshots {
     @Test
     fun accueil() = captureRoboImage("build/screens/accueil.png") {
         HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {})
+    }
+
+    @Test
+    fun accueil_mise_a_jour() = captureRoboImage("build/screens/accueil-maj.png") {
+        Box(Modifier.fillMaxSize()) {
+            HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {})
+            UpdateChip(Modifier.align(androidx.compose.ui.Alignment.BottomEnd).padding(14.dp), "0.6.7", null, "") {}
+        }
     }
 
     @Test

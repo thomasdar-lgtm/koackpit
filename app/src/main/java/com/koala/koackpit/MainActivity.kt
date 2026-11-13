@@ -131,14 +131,17 @@ fun Koackpit(screen: androidx.compose.runtime.MutableState<Screen>, upd: UpdateS
     }
     val ctx = LocalContext.current
     val keepAlive = remember(resumes) { KeepAlive.active(ctx) }
-    Column(Modifier.fillMaxSize().background(Navy)) {
-        UpdateBanner(upd)
-        if (!keepAlive) KeepAliveBanner { KeepAlive.request(ctx) }
-        when (screen.value) {
-            Screen.HOME -> Home(onApps = { screen.value = Screen.APPS }, onSettings = { screen.value = Screen.SETTINGS })
-            Screen.APPS -> AppDrawer(onBack = { screen.value = Screen.HOME })
-            Screen.SETTINGS -> SettingsScreen(upd, onBack = { screen.value = Screen.HOME })
+    Box(Modifier.fillMaxSize().background(Navy)) {
+        Column(Modifier.fillMaxSize()) {
+            if (!keepAlive) KeepAliveBanner { KeepAlive.request(ctx) }
+            when (screen.value) {
+                Screen.HOME -> Home(onApps = { screen.value = Screen.APPS }, onSettings = { screen.value = Screen.SETTINGS })
+                Screen.APPS -> AppDrawer(onBack = { screen.value = Screen.HOME })
+                Screen.SETTINGS -> SettingsScreen(upd, onBack = { screen.value = Screen.HOME })
+            }
         }
+        // Mise à jour : petite carte en bas à droite, par-dessus l'écran
+        UpdateBanner(upd, Modifier.align(Alignment.BottomEnd).padding(14.dp))
     }
 }
 

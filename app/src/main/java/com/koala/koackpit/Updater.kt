@@ -1,5 +1,16 @@
 package com.koala.koackpit
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -160,53 +171,66 @@ object Updater {
 }
 
 @Composable
-fun UpdateBanner(upd: UpdateState) {
+fun UpdateBanner(upd: UpdateState, modifier: Modifier = Modifier) {
     val info = upd.info ?: return
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
+    UpdateChip(modifier, info.version, upd.progress, upd.status) {
+        upd.status = ""
+        upd.progress = 0f
+        scope.launch {
+            val d = runCatching { Updater.download(ctx, info.url) { upd.progress = it } }
+            upd.progress = null
+            val f = d.getOrElse { e ->
+                // Message précis pour comprendre l'échec (réseau, certificat, délai…)
+                upd.status = "Échec : ${e.javaClass.simpleName} ${e.message?.take(60) ?: ""}"
+                return@launch
+            }
+            // Appli compagnon présente : elle affiche l'écran de mise à jour et installe
+            if (UpdaterApp.handOff(ctx, f)) return@launch
+            upd.status = "Installation…"
+            val r = withContext(Dispatchers.IO) {
+                // Installation silencieuse via l'accès système : jamais d'écran d'installation Android
+                runCatching { RootAccess.silentInstall(ctx, f) { st -> upd.status = "Installation : $st" } }
+            }
+            r.exceptionOrNull()?.let { upd.status = "Échec : ${it.message ?: it.javaClass.simpleName}" }
+        }
+    }
+}
+
+/** Petite carte « mise à jour » (en bas à droite de l'accueil) : symbole, version, bouton Installer. */
+@Composable
+fun UpdateChip(modifier: Modifier, version: String, progress: Float?, status: String, onInstall: () -> Unit) {
     Column(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
-            .clip(RoundedCornerShape(14.dp)).background(Yellow).padding(14.dp)
+        modifier.width(176.dp).clip(RoundedCornerShape(18.dp)).background(CardHi)
+            .border(1.5.dp, Yellow.copy(alpha = 0.7f), RoundedCornerShape(18.dp)).padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Nouvelle version disponible", color = Navy, fontWeight = FontWeight.Black, fontSize = 15.sp)
-                Text("Koackpit ${info.version}", color = Navy, fontSize = 13.sp)
-                if (upd.status.startsWith("Échec")) Text(upd.status, color = Red, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            Box(Modifier.size(34.dp).clip(CircleShape).background(Yellow), contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.Refresh, null, tint = Navy, modifier = Modifier.size(20.dp))
             }
-            // Installation silencieuse via l'accès système : jamais d'écran d'installation Android
-            val p = upd.progress
-            when {
-                upd.status.startsWith("Installation") -> Text(upd.status, color = Navy, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                p == null -> Button(
-                    onClick = {
-                        upd.status = ""
-                        upd.progress = 0f
-                        scope.launch {
-                            val d = runCatching { Updater.download(ctx, info.url) { upd.progress = it } }
-                            upd.progress = null
-                            val f = d.getOrElse { e ->
-                                // Message précis pour comprendre l'échec (réseau, certificat, délai…)
-                                upd.status = "Échec : ${e.javaClass.simpleName} ${e.message?.take(60) ?: ""}"
-                                return@launch
-                            }
-                            // Appli compagnon présente : elle affiche l'écran de mise à jour et installe
-                            if (UpdaterApp.handOff(ctx, f)) return@launch
-                            upd.status = "Installation… Koackpit va redémarrer"
-                            val r = withContext(Dispatchers.IO) {
-                                runCatching { RootAccess.silentInstall(ctx, f) { st -> upd.status = "Installation : $st" } }
-                            }
-                            r.exceptionOrNull()?.let { upd.status = "Échec : ${it.message ?: it.javaClass.simpleName}" }
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Navy, contentColor = Yellow),
-                ) { Text("Installer", fontWeight = FontWeight.Bold) }
-                else -> Text("${(p * 100).toInt()} %", color = Navy, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.width(8.dp))
+            Column {
+                Text("Mise à jour", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text(version, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Black)
             }
         }
-        upd.progress?.let {
-            Spacer(Modifier.height(10.dp))
-            LinearProgressIndicator(progress = { it }, modifier = Modifier.fillMaxWidth(), color = Navy, trackColor = Navy.copy(alpha = 0.2f))
+        when {
+            progress != null -> {
+                LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                    color = Yellow, trackColor = Navy)
+                Text("Téléchargement ${(progress * 100).toInt()} %", color = Color.White, fontSize = 11.sp)
+            }
+            status.startsWith("Installation") -> Text(status, color = Yellow, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 2)
+            else -> {
+                if (status.startsWith("Échec")) Text(status, color = Red, fontSize = 11.sp, maxLines = 3)
+                Box(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Yellow).clickable(onClick = onInstall)
+                        .padding(vertical = 9.dp),
+                    contentAlignment = Alignment.Center,
+                ) { Text(if (status.startsWith("Échec")) "Réessayer" else "Installer", color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Black) }
+            }
         }
     }
 }
