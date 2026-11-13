@@ -39,12 +39,13 @@ object SplitScreen {
         ).joinToString("\n")
     }
 
-    private const val CREATE_MODE_RIGHT = 1      // SPLIT_SCREEN_CREATE_MODE_BOTTOM_OR_RIGHT
+    private const val CREATE_MODE_LEFT = 0       // SPLIT_SCREEN_CREATE_MODE_TOP_OR_LEFT
     private val BT_MAIN = android.content.ComponentName("android.car.app.bt", "android.car.app.bt.BtMain")
 
     /**
-     * Mode conduite. Le lecteur Koackpit est la fenêtre principale de l'écran partagé et le GPS se met
-     * à côté : quand le lecteur se ferme, Android referme tout seul l'écran partagé.
+     * Mode conduite. Constat sur cet autoradio (Android 9 en interne) : la fenêtre principale de l'écran
+     * partagé se place toujours à GAUCHE, et c'est elle seule dont on peut régler la largeur.
+     * Le GPS est donc la fenêtre principale (gauche, 2/3) et le panneau Koackpit se met à côté (droite, 1/3).
      */
     fun launch(ctx: Context, navPkgs: List<String>, navIntent: Intent? = null, done: (String) -> Unit) {
         val log = StringBuilder()
@@ -64,30 +65,30 @@ object SplitScreen {
         }.onFailure { log.append("1. BtMain refusée : $it\n") }
         else log.append("1. Source déjà ${CarLink.sourceName(src)}\n")
 
-        // 2. Lecteur en fenêtre principale, à droite
+        // 2. GPS en fenêtre principale, à gauche
         h.postDelayed({
             val opts = ActivityOptions.makeBasic()
             runCatching {
                 hidden(ActivityOptions::class.java, "setLaunchWindowingMode", Int::class.javaPrimitiveType!!).invoke(opts, SPLIT_PRIMARY)
-                hidden(ActivityOptions::class.java, "setSplitScreenCreateMode", Int::class.javaPrimitiveType!!).invoke(opts, CREATE_MODE_RIGHT)
+                hidden(ActivityOptions::class.java, "setSplitScreenCreateMode", Int::class.javaPrimitiveType!!).invoke(opts, CREATE_MODE_LEFT)
                 log.append("2. Écran partagé demandé\n")
             }.onFailure { log.append("2. Écran partagé refusé : ${it.cause ?: it}\n") }
             runCatching {
-                ctx.startActivity(
-                    Intent(ctx, MusicActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                    opts.toBundle(),
-                )
-                log.append("3. Lecteur lancé\n")
-            }.onFailure { log.append("3. Lecteur échoué : $it\n"); done(log.toString()); return@postDelayed }
+                ctx.startActivity(nav.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), opts.toBundle())
+                log.append("3. GPS lancé à gauche\n")
+            }.onFailure { log.append("3. GPS échoué : $it\n"); done(log.toString()); return@postDelayed }
 
-            // 3. GPS dans l'autre moitié
+            // 3. Panneau Koackpit dans l'autre partie, à droite
             h.postDelayed({
                 runCatching {
-                    ctx.startActivity(nav.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT))
-                    log.append("4. GPS lancé à côté\n")
+                    ctx.startActivity(
+                        Intent(ctx, MusicActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT)
+                    )
+                    log.append("4. Panneau lancé à droite\n")
                     Prefs.setDriving(ctx, true)
-                    arrange(ctx, nav.component?.packageName ?: nav.`package` ?: navPkgs.first())
-                }.onFailure { log.append("4. GPS échoué : $it\n") }
+                    arrange(ctx)
+                }.onFailure { log.append("4. Panneau échoué : $it\n") }
                 done(log.toString())
             }, 800)
         }, if (needBt) 900L else 0L)
@@ -96,19 +97,30 @@ object SplitScreen {
     /** Panneau Koackpit : un tiers de la largeur, à droite ; le GPS a les deux tiers à gauche. */
     private const val PANEL_FRACTION = 3
 
-    /**
-     * Mise en place définitive par l'outil administrateur : GPS à gauche sur les 2/3, panneau à droite.
-     * Si l'outil échoue, l'écran partagé d'Android reste tel quel (moitié-moitié) : rien n'est cassé.
-     */
-    private fun arrange(ctx: Context, navPkg: String) {
+    /** Réglage des largeurs par l'outil administrateur. S'il échoue, l'écran reste moitié-moitié. */
+    private fun arrange(ctx: Context) {
         val app = ctx.applicationContext
         Thread {
             Thread.sleep(1200)
             val w = app.resources.displayMetrics.let { maxOf(it.widthPixels, it.heightPixels) }
             val r = runCatching {
-                RootAccess.run(app, RootTool.command(app.packageName, "layout", app.packageName, navPkg, (w / PANEL_FRACTION).toString()), 20_000)
+                RootAccess.run(app, RootTool.command(app.packageName, "layout", (w / PANEL_FRACTION).toString()), 20_000)
             }.getOrElse { "ERREUR ${it.message}" }
             WakeLog.add(app, "Disposition conduite : ${r.trim().take(300)}")
+        }.start()
+    }
+
+    /**
+     * Fin de la conduite : referme l'écran partagé (sinon le GPS resterait à gauche avec le bureau Android
+     * à droite), puis exécute [then] sur le fil principal.
+     */
+    fun dismiss(ctx: Context, then: (() -> Unit)? = null) {
+        val app = ctx.applicationContext
+        Thread {
+            val r = runCatching { RootAccess.run(app, RootTool.command(app.packageName, "dismiss"), 15_000) }
+                .getOrElse { "ERREUR ${it.message}" }
+            WakeLog.add(app, "Fin de conduite : ${r.trim().take(200)}")
+            then?.let { Handler(Looper.getMainLooper()).post(it) }
         }.start()
     }
 

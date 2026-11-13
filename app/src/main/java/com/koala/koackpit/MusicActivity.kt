@@ -162,10 +162,9 @@ class MusicActivity : ComponentActivity() {
     /** Quitte la conduite et rouvre l'accueil Koackpit. */
     private fun goHome() {
         val app = applicationContext
-        Handler(Looper.getMainLooper()).postDelayed({
+        quit {
             app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        }, 700)
-        quit()
+        }
     }
 
     private fun settled() = SystemClock.uptimeMillis() - createdAt > 4000
@@ -174,9 +173,11 @@ class MusicActivity : ComponentActivity() {
     private fun awake() = (getSystemService(POWER_SERVICE) as android.os.PowerManager).isInteractive
 
     /** Fermeture voulue par l'utilisateur : la conduite ne sera pas rétablie au réveil. */
-    fun quit() {
+    fun quit(then: (() -> Unit)? = null) {
         Prefs.setDriving(this, false)
         if (!isFinishing) finishAndRemoveTask()
+        // Le GPS est la fenêtre principale : on referme l'écran partagé nous-mêmes
+        SplitScreen.dismiss(applicationContext, then)
     }
 
     override fun onDestroy() {
