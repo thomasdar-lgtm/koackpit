@@ -23,7 +23,6 @@ import android.widget.TextView
 class UpdateActivity : Activity() {
     companion object {
         private const val KOACKPIT = "com.koala.koackpit"
-        private const val ALLOWED_DIR = "/data/user/0/$KOACKPIT/cache/updates/"
         private const val TMP = "/data/local/tmp/koackpit-update.apk"
         private val NAVY = Color.parseColor("#00071A")
         private val YELLOW = Color.parseColor("#FFCC00")
@@ -95,19 +94,18 @@ class UpdateActivity : Activity() {
 
     private fun start(i: Intent?) {
         if (running) return
-        val apk = i?.getStringExtra("apk")
-        // Sécurité : uniquement le fichier téléchargé par Koackpit
-        if (apk == null || !apk.startsWith(ALLOWED_DIR) || apk.contains("..") || apk.contains("'")) {
-            fail("Fichier de mise à jour invalide"); return
-        }
+        // Koackpit a déjà ouvert l'accès système et copié l'APK à cet emplacement fixe
+        if (i?.getStringExtra("tmp") != TMP) { fail("Fichier de mise à jour invalide"); return }
         running = true
         Thread {
-            RootShell.open(this)
             try {
-                val out = RootShell.shell(
-                    "cp '$apk' $TMP && chmod 644 $TMP && pm install -r $TMP 2>&1; rm -f $TMP",
-                    timeoutMs = 180_000,
-                )
+                // Accès déjà ouvert par Koackpit : connexion directe ; sinon on l'ouvre nous-mêmes
+                val out = try {
+                    RootShell.shell("pm install -r $TMP 2>&1; rm -f $TMP", timeoutMs = 180_000, tries = 6)
+                } catch (e: IllegalStateException) {
+                    RootShell.open(this)
+                    RootShell.shell("pm install -r $TMP 2>&1; rm -f $TMP", timeoutMs = 180_000)
+                }
                 if (!out.contains("Success")) throw IllegalStateException(out.trim().take(160).ifEmpty { "aucune réponse" })
                 main.post { status.text = "Redémarrage de Koackpit…" }
                 // Ferme un éventuel écran « Application installée » et rouvre Koackpit

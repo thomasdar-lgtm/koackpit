@@ -15,7 +15,7 @@ import java.net.URL
 object UpdaterApp {
     private const val PKG = "com.koala.koackpit.updater"
     private const val ACTIVITY = "$PKG.UpdateActivity"
-    private const val MIN_VERSION = 2L   // 2 : permission réseau local corrigée
+    private const val MIN_VERSION = 3L   // 3 : Koackpit prépare l'accès système avant de passer la main
     private const val ASSET = "KoackpitUpdater.bin"
     private const val API = "https://api.github.com/repos/thomasdar-lgtm/koackpit/releases/latest"
     const val HANDOFF_MARKER = "updater-handoff"
@@ -28,16 +28,20 @@ object UpdaterApp {
     fun ready(ctx: Context) = (installedVersion(ctx) ?: 0L) >= MIN_VERSION
 
     /** Confie l'installation à l'appli compagnon. Renvoie false si elle n'est pas disponible. */
-    fun handOff(ctx: Context, apk: File): Boolean {
+    suspend fun handOff(ctx: Context, apk: File): Boolean {
         if (!ready(ctx)) return false
         // Marqueur encore présent = la dernière mise à jour confiée à l'appli compagnon n'a pas abouti
         // (sinon Koackpit aurait été remplacé et le marqueur effacé) : on installe directement cette fois.
         val marker = File(ctx.filesDir, HANDOFF_MARKER)
         if (marker.exists()) { marker.delete(); return false }
+        // Koackpit, dont l'accès système fonctionne, l'ouvre et copie l'APK ; l'appli compagnon n'a plus qu'à installer.
+        val tmp = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching { RootAccess.prepareForUpdater(ctx, apk) }.getOrNull()
+        } ?: return false
         return runCatching {
             marker.writeText("1")
             ctx.startActivity(
-                Intent().setClassName(PKG, ACTIVITY).putExtra("apk", apk.absolutePath)
+                Intent().setClassName(PKG, ACTIVITY).putExtra("tmp", tmp)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             )
         }.onFailure { marker.delete() }.isSuccess

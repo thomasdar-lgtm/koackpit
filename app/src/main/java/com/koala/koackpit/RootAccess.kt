@@ -176,6 +176,24 @@ object RootAccess {
             run(ctx, "dumpsys package ${ctx.packageName} | grep -m2 -E 'versionName|lastUpdateTime'")
     } catch (e: Exception) { "Lecture impossible : ${e.message}" }
 
+    /**
+     * Préparation pour l'appli compagnon : ouvre l'accès système et copie l'APK dans /data/local/tmp,
+     * puis LAISSE l'accès ouvert. L'appli compagnon s'y connecte directement (sans rien redémarrer),
+     * installe, puis referme. Renvoie le chemin copié.
+     */
+    fun prepareForUpdater(ctx: Context, apk: File): String = synchronized(lock) {
+        val tmp = "/data/local/tmp/koackpit-update.apk"
+        openAdb(ctx)
+        try {
+            val ls = shellRetry("cp '${apk.absolutePath}' $tmp && chmod 644 $tmp && ls -l $tmp 2>&1")
+            if (!ls.contains("koackpit-update.apk") || ls.contains("No such")) throw IllegalStateException("copie impossible : ${ls.take(80)}")
+            tmp
+        } catch (e: Exception) {
+            closeAdb(ctx)
+            throw e
+        }
+    }
+
     /** Sécurité : si adb réseau est resté ouvert (coupure pendant une opération), on le referme. */
     fun ensureClosed(ctx: Context) {
         val p = prop("service.adb.tcp.port")

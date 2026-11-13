@@ -87,10 +87,12 @@ object RootShell {
     }
 
     /** Exécute une commande administrateur (adb doit avoir été ouvert), en attendant qu'il soit prêt. */
-    fun shell(cmd: String, timeoutMs: Int = 8000): String {
-        repeat(15) {
-            try { return shellOnce(cmd, timeoutMs) } catch (e: NotReady) { Thread.sleep(700) }
+    fun shell(cmd: String, timeoutMs: Int = 8000, tries: Int = 15): String {
+        var last: Throwable? = null
+        repeat(tries) {
+            try { return shellOnce(cmd, timeoutMs) } catch (e: NotReady) { last = e.cause ?: e; Thread.sleep(700) }
         }
-        throw IllegalStateException("accès système indisponible")
+        // Message précis (type d'erreur réseau) pour diagnostiquer au lieu de deviner
+        throw IllegalStateException("accès système indisponible (${last?.javaClass?.simpleName}: ${last?.message})")
     }
 }
