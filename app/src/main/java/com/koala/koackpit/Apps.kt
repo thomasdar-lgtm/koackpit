@@ -26,9 +26,9 @@ object Prefs {
     /** Mode conduite actif : à rétablir au réveil de l'autoradio s'il a été fermé par la veille. */
     fun driving(ctx: Context) = sp(ctx).getBoolean("driving", false)
     fun setDriving(ctx: Context, on: Boolean) = sp(ctx).edit().putBoolean("driving", on).apply()
-    /** Au démarrage de la voiture : lancer la conduite (GPS + lecteur côte à côte). Activé par défaut. */
-    fun autoDrive(ctx: Context) = sp(ctx).getBoolean("autoDrive", true)
-    fun setAutoDrive(ctx: Context, on: Boolean) = sp(ctx).edit().putBoolean("autoDrive", on).apply()
+    /** Au démarrage de la voiture : lancer la conduite (GPS + lecteur). Désactivé par défaut : accueil Koackpit. */
+    fun autoDrive(ctx: Context) = sp(ctx).getBoolean("autoDrive2", false)
+    fun setAutoDrive(ctx: Context, on: Boolean) = sp(ctx).edit().putBoolean("autoDrive2", on).apply()
     fun splitLog(ctx: Context): String = sp(ctx).getString("splitLog", "") ?: ""
     fun setSplitLog(ctx: Context, s: String) = sp(ctx).edit().putString("splitLog", s).apply()
 }

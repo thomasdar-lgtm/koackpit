@@ -84,7 +84,7 @@ class MusicActivity : ComponentActivity() {
         current = WeakReference(this)
         // Bouton retour = quitter la conduite (ferme l'écran partagé)
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() = quit()
+            override fun handleOnBackPressed() = goHome()
         })
         setContent {
             var now by remember { mutableStateOf(Date()) }
@@ -96,7 +96,8 @@ class MusicActivity : ComponentActivity() {
                 onPlay = { CarLink.playPause() },
                 onNext = { CarLink.next() },
                 onHome = ::goHome,
-                onClose = ::quit,
+                // ✕ : quitte la conduite et revient à l'accueil Koackpit (sinon Waze restait seul en plein écran)
+                onClose = ::goHome,
                 onPhone = { Apps.open(this, Targets.PHONE) },
                 onCar = { Apps.open(this, Targets.CAR_INFO) },
                 onApps = ::goHome,

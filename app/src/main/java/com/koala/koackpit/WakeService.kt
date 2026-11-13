@@ -60,7 +60,8 @@ class WakeService : Service() {
             val h = Handler(Looper.getMainLooper())
             // Conduite au démarrage (réglage, activé par défaut) ou conduite en cours avant la veille :
             // on ouvre le GPS + lecteur côte à côte plutôt que l'accueil.
-            val wantDrive = Prefs.autoDrive(app) || Prefs.driving(app)
+            // Au démarrage : l'accueil Koackpit, sauf si le réglage « conduite au démarrage » est activé
+            val wantDrive = Prefs.autoDrive(app)
             if (wantDrive) {
                 for (delay in longArrayOf(2500, 7000)) {
                     h.postDelayed({
