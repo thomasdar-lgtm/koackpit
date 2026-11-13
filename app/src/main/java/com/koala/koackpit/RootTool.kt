@@ -18,6 +18,7 @@ object RootTool {
 
     /** Nom de la porte d'entrée trouvée (pour le journal). */
     private var source = "?"
+    private var step = "démarrage"
 
     /**
      * Gestionnaire de fenêtres. Cet autoradio n'a pas la classe ActivityTaskManager (constaté : ClassNotFound) :
@@ -61,7 +62,10 @@ object RootTool {
             val c = t.javaClass
             val top = runCatching { c.getField("topActivity").get(t) as ComponentName? }.getOrNull()
             val base = runCatching { c.getField("baseActivity").get(t) as ComponentName? }.getOrNull()
-            if (top?.packageName == pkg || base?.packageName == pkg) return c.getField("taskId").getInt(t)
+            // Android 10 : « taskId » ; Android 9 (cet autoradio) : « id » ou « persistentId »
+            if (top?.packageName == pkg || base?.packageName == pkg)
+                return listOf("taskId", "id", "persistentId").firstNotNullOfOrNull { f -> runCatching { c.getField(f).getInt(t) }.getOrNull() }
+                    ?: throw NoSuchFieldException("numéro de tâche (${c.fields.joinToString(",") { it.name }})")
         }
         return null
     }
@@ -84,14 +88,18 @@ object RootTool {
             when (args.getOrNull(0)) {
                 "layout" -> {
                     val panelPkg = args[1]; val navPkg = args[2]; val panelW = args[3].toInt()
+                    step = "recherche des fenêtres"
                     val panel = taskOf(panelPkg) ?: throw IllegalStateException("panneau introuvable")
                     val nav = taskOf(navPkg) ?: throw IllegalStateException("GPS introuvable")
                     // Panneau Koackpit = fenêtre principale ancrée à DROITE ; le GPS prend le reste à gauche.
+                    step = "panneau à droite"
                     call("setTaskWindowingModeSplitScreenPrimary", panel, CREATE_MODE_RIGHT, true, false, null, false)
+                    step = "GPS à gauche"
                     call("setTaskWindowingMode", nav, WINDOWING_MODE_SPLIT_SCREEN_SECONDARY, true)
                     val dm = Class.forName("android.content.res.Resources").getMethod("getSystem").invoke(null)
                         .let { it!!.javaClass.getMethod("getDisplayMetrics").invoke(it) as android.util.DisplayMetrics }
                     val w = maxOf(dm.widthPixels, dm.heightPixels); val h = minOf(dm.widthPixels, dm.heightPixels)
+                    step = "largeur"
                     call("resizeDockedStack", Rect(w - panelW, 0, w, h), null, null, null, null)
                     println("OK [$source] " + stacks())
                 }
@@ -101,7 +109,7 @@ object RootTool {
             }
         } catch (t: Throwable) {
             val e = (t as? java.lang.reflect.InvocationTargetException)?.targetException ?: t
-            println("ERREUR ${e.javaClass.simpleName}: ${e.message}")
+            println("ERREUR [$source, étape $step] ${e.javaClass.simpleName}: ${e.message}")
         }
     }
 
