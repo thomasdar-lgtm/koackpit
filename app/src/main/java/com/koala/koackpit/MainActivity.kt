@@ -173,6 +173,11 @@ fun Home(onApps: () -> Unit, onSettings: () -> Unit) {
         ),
         onGpsOnly = { go(listOf(nav, Targets.WAZE, Targets.MAPS), "Le GPS") },
         onPrev = { CarLink.prev() }, onPlay = { CarLink.playPause() }, onNext = { CarLink.next() },
+        guidance = NavState.guidance,
+        speedKmh = rememberSpeedKmh(),
+        // Favoris Maison / Travail de Waze : la conduite s'ouvre directement en guidage
+        onHomeAddr = wazeFav(ctx, nav, "home"),
+        onWorkAddr = wazeFav(ctx, nav, "work"),
     )
 }
 
@@ -354,5 +359,14 @@ fun KeepAliveBanner(onActivate: () -> Unit) {
             Modifier.clip(RoundedCornerShape(20.dp)).background(Yellow).clickable(onClick = onActivate)
                 .padding(horizontal = 18.dp, vertical = 10.dp),
         ) { Text("Activer", color = Navy, fontWeight = FontWeight.Black, fontSize = 15.sp) }
+    }
+}
+
+/** Raccourci vers un favori Waze (Maison / Travail), ouvert dans la conduite. Null si Waze n'est pas le GPS choisi. */
+fun wazeFav(ctx: android.content.Context, nav: String, fav: String): (() -> Unit)? {
+    if (nav == Targets.MAPS) return null
+    return {
+        val i = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("waze://?favorite=$fav&navigate=yes")).setPackage(Targets.WAZE)
+        SplitScreen.launch(ctx, listOf(Targets.WAZE), i) {}
     }
 }

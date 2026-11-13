@@ -8,6 +8,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- Vitesse affichée sur l'accueil -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Liste des applis (tiroir, tuiles, diagnostic) -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
@@ -79,6 +81,16 @@
                 <action android:name="android.service.wallpaper.WallpaperService" />
             </intent-filter>
             <meta-data android:name="android.service.wallpaper" android:resource="@xml/wallpaper" />
+        </service>
+        <!-- Lecture de la prochaine direction dans la notification de Waze / Google Maps -->
+        <service
+            android:name=".NavListener"
+            android:exported="true"
+            android:label="Koackpit guidage"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
         </service>
         <receiver android:name=".BootReceiver" android:exported="true">
             <intent-filter>

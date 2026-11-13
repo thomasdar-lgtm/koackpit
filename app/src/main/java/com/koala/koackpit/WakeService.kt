@@ -115,12 +115,15 @@ class WakeService : Service() {
         main.postDelayed(reverseWatch, 3000)
         // Android 10 n'autorise une appli en arrière-plan à ouvrir un écran que si elle a le droit
         // « afficher par-dessus les autres applis » : on se l'accorde une fois via l'accès système.
-        if (!Settings.canDrawOverlays(this)) {
+        if (!Settings.canDrawOverlays(this) || NavPermissions.missing(this)) {
             val app = applicationContext
             // Après 30 s : ne pas gêner une mise à jour en cours, qui utilise aussi l'accès système
             Thread {
                 Thread.sleep(30_000)
-                if (!Settings.canDrawOverlays(app)) runCatching { RootAccess.run(app, "appops set ${app.packageName} SYSTEM_ALERT_WINDOW allow") }
+                if (!Settings.canDrawOverlays(app) || NavPermissions.missing(app)) runCatching {
+                    RootAccess.run(app, "appops set ${app.packageName} SYSTEM_ALERT_WINDOW allow; " + NavPermissions.grantCommand(app))
+                    WakeLog.add(app, "Autorisations accordées (affichage, position, guidage)")
+                }
             }.start()
         }
     }

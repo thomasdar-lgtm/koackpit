@@ -29,7 +29,7 @@ class Screenshots {
 
     @Test
     fun accueil() = captureRoboImage("build/screens/accueil.png") {
-        HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {})
+        HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {}, speedKmh = 0, onHomeAddr = {}, onWorkAddr = {})
     }
 
     @Test
@@ -38,6 +38,12 @@ class Screenshots {
             HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {})
             UpdateChip(Modifier.align(androidx.compose.ui.Alignment.BottomEnd).padding(end = 20.dp, bottom = 20.dp), "0.6.7", null, "") {}
         }
+    }
+
+    @Test
+    fun accueil_guidage() = captureRoboImage("build/screens/accueil-guidage.png") {
+        HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {},
+            guidance = Guidance("350 m", "Tourner à droite · Avenue du Maréchal Foch", "Arrivée 18:04 · 12 km"), speedKmh = 48)
     }
 
     @Test

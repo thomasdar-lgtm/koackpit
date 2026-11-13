@@ -46,9 +46,10 @@ object SplitScreen {
      * Mode conduite. Le lecteur Koackpit est la fenêtre principale de l'écran partagé et le GPS se met
      * à côté : quand le lecteur se ferme, Android referme tout seul l'écran partagé.
      */
-    fun launch(ctx: Context, navPkgs: List<String>, done: (String) -> Unit) {
+    fun launch(ctx: Context, navPkgs: List<String>, navIntent: Intent? = null, done: (String) -> Unit) {
         val log = StringBuilder()
-        val nav = navPkgs.firstNotNullOfOrNull { ctx.packageManager.getLaunchIntentForPackage(it) }
+        // navIntent : ouvrir le GPS directement sur une destination (ex. favori Maison de Waze)
+        val nav = navIntent ?: navPkgs.firstNotNullOfOrNull { ctx.packageManager.getLaunchIntentForPackage(it) }
         if (nav == null) { done("GPS introuvable"); return }
         if (MusicActivity.isOpen()) { done("Conduite déjà ouverte"); return }
         val h = Handler(Looper.getMainLooper())

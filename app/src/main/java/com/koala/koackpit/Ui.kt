@@ -193,37 +193,61 @@ fun MediaCardWide(modifier: Modifier, m: MediaInfo, onPrev: () -> Unit, onPlay: 
     }
 }
 
-/** Grande carte navigation de l'accueil : lance la conduite (GPS + musique côte à côte). */
+/** Guidage en cours, lu dans la notification de Waze ou Google Maps. */
+data class Guidance(val distance: String, val street: String, val eta: String, val arrow: androidx.compose.ui.graphics.ImageBitmap? = null)
+
+/**
+ * Carte navigation de l'accueil, sans fausse carte : Android n'autorise pas l'affichage de Waze dans
+ * Koackpit. Pendant un trajet : la prochaine instruction (lue dans la notification du GPS).
+ * Sinon : vitesse et raccourcis. La vraie carte est dans le mode conduite.
+ */
 @Composable
-fun NavCard(modifier: Modifier, navName: String, onDrive: () -> Unit, onGpsOnly: () -> Unit) {
+fun NavCard(
+    modifier: Modifier, navName: String, guidance: Guidance?, speedKmh: Int?,
+    onDrive: () -> Unit, onHomeAddr: (() -> Unit)?, onWorkAddr: (() -> Unit)?,
+) {
     Box(
         modifier.clip(RoundedCornerShape(18.dp))
-            .background(Brush.linearGradient(listOf(Color(0xFF1D3557), Color(0xFF264B6E), Color(0xFF1B2F4F))))
-            .clickable(onClick = onDrive)
+            .background(Brush.linearGradient(listOf(Color(0xFF1D3557), Color(0xFF16294A))))
+            .clickable(onClick = onDrive).padding(14.dp)
     ) {
-        // Fond « carte » stylisé
-        Canvas(Modifier.fillMaxSize()) {
-            val w = size.width; val h = size.height
-            val road = Color(0xFF3A5A80)
-            val u = density
-            drawLine(road, Offset(-20f, h * 0.68f), Offset(w + 20f, h * 0.44f), strokeWidth = 11 * u)
-            drawLine(road, Offset(w * 0.30f, -20f), Offset(w * 0.52f, h + 20f), strokeWidth = 11 * u)
-            drawLine(road.copy(alpha = 0.5f), Offset(w * 0.75f, -20f), Offset(w * 0.62f, h + 20f), strokeWidth = 6 * u)
-            val p = Offset(w * 0.415f, h * 0.575f)
-            drawCircle(NavBlue.copy(alpha = 0.25f), 15 * u, p)
-            drawCircle(Color.White, 9 * u, p)
-            drawCircle(NavBlue, 6 * u, p)
-        }
-        Column(Modifier.padding(14.dp)) {
-            Caption("Navigation")
-            Text(navName, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black)
-        }
-        Row(
-            Modifier.align(Alignment.BottomStart).padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Pill("Démarrer la conduite", Yellow, Navy, onDrive)
-            Pill("GPS seul", Card.copy(alpha = 0.92f), Color.White, onGpsOnly)
+        Column(Modifier.fillMaxSize()) {
+            Caption(if (guidance != null) "Guidage · $navName" else "Navigation · $navName")
+            Spacer(Modifier.height(10.dp))
+            if (guidance != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(72.dp).clip(RoundedCornerShape(16.dp)).background(NavBlue), contentAlignment = Alignment.Center) {
+                        if (guidance.arrow != null) androidx.compose.foundation.Image(guidance.arrow, null, Modifier.size(56.dp))
+                        else Icon(Icons.Filled.Place, null, tint = Color.White, modifier = Modifier.size(40.dp))
+                    }
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(guidance.distance, color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                        Text(guidance.street, color = Color.White.copy(alpha = 0.85f), fontSize = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+                if (guidance.eta.isNotEmpty()) {
+                    Spacer(Modifier.height(10.dp))
+                    Text(guidance.eta, color = Yellow, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                }
+            } else {
+                Text("Où va-t-on ?", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                Spacer(Modifier.height(4.dp))
+                Text("La carte s'ouvre avec la conduite, à côté de la musique.", color = Muted, fontSize = 13.sp)
+            }
+            Spacer(Modifier.weight(1f))
+            // Vitesse (GPS de l'autoradio)
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(speedKmh?.toString() ?: "–", color = Color.White, fontSize = 44.sp, fontWeight = FontWeight.Black, lineHeight = 44.sp)
+                Spacer(Modifier.width(6.dp))
+                Text("km/h", color = Muted, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp))
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Pill(if (guidance != null) "Voir la carte" else "Démarrer la conduite", Yellow, Navy, onDrive)
+                if (guidance == null && onHomeAddr != null) Pill("Maison", Card.copy(alpha = 0.92f), Color.White, onHomeAddr)
+                if (guidance == null && onWorkAddr != null) Pill("Travail", Card.copy(alpha = 0.92f), Color.White, onWorkAddr)
+            }
         }
     }
 }
@@ -256,11 +280,13 @@ fun TodayCard(modifier: Modifier, time: String, date: String, onSettings: () -> 
 fun HomeContent(
     time: String, date: String, navName: String, media: MediaInfo, rail: RailActions,
     onGpsOnly: () -> Unit, onPrev: () -> Unit, onPlay: () -> Unit, onNext: () -> Unit,
+    guidance: Guidance? = null, speedKmh: Int? = null,
+    onHomeAddr: (() -> Unit)? = null, onWorkAddr: (() -> Unit)? = null,
 ) {
     Row(Modifier.fillMaxSize().background(Navy)) {
         AppRail(time, "", rail)
         Row(Modifier.fillMaxSize().padding(10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            NavCard(Modifier.weight(1.25f).fillMaxHeight(), navName, rail.onDrive, onGpsOnly)
+            NavCard(Modifier.weight(1.25f).fillMaxHeight(), navName, guidance, speedKmh, rail.onDrive, onHomeAddr, onWorkAddr)
             Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 MediaCardWide(Modifier.weight(1.15f).fillMaxWidth(), media, onPrev, onPlay, onNext, rail.onMusic)
                 TodayCard(Modifier.weight(1f).fillMaxWidth(), time, date, rail.onSettings)
