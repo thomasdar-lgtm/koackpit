@@ -115,11 +115,11 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun Koackpit(screen: androidx.compose.runtime.MutableState<Screen>, upd: UpdateState, resumes: Int) {
-    // Vérification au retour sur Koackpit, puis toutes les 10 min tant que l'écran reste affiché
+    // Vérification au retour sur Koackpit, puis toutes les 2 min tant que l'écran reste affiché
     LaunchedEffect(resumes) {
         Updater.refresh(upd, force = false)
         while (true) {
-            delay(10 * 60_000L)
+            delay(2 * 60_000L)
             if (MainActivity.visible) Updater.refresh(upd, force = true)
         }
     }
