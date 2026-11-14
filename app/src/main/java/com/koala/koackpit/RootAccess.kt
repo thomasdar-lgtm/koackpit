@@ -39,6 +39,8 @@ object RootAccess {
     }.getOrDefault("?")
 
     private fun openAdb(ctx: Context) {
+        // Noté au journal : permet de voir si une coupure Bluetooth suit une action système de Koackpit
+        WakeLog.add(ctx, "Accès système ouvert")
         setProp(ctx, "service.adb.tcp.port", PORT.toString())
         setProp(ctx, "ctl.restart", "adbd")
     }

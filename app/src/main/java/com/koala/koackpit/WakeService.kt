@@ -97,6 +97,27 @@ class WakeService : Service() {
         }
     }
 
+    /**
+     * Journal du Bluetooth de l'autoradio (pour les déconnexions « au hasard ») : chaque changement d'état
+     * annoncé par le service de l'autoradio est noté avec l'heure, à côté des actions de Koackpit.
+     */
+    private val btReceiver = object : BroadcastReceiver() {
+        private val hfp = listOf("init", "inactif", "connexion…", "connecté", "appel sortant", "appel entrant", "en appel")
+        override fun onReceive(c: Context, i: Intent) {
+            if (isInitialStickyBroadcast) return
+            val msg = when (i.action) {
+                "android.car.action.BT_HFP_STATE_CHANGED" -> {
+                    val cur = i.getIntExtra("current_state", -1); val last = i.getIntExtra("last_state", -1)
+                    "Bluetooth : ${hfp.getOrElse(last) { "$last" }} → ${hfp.getOrElse(cur) { "$cur" }}"
+                }
+                "android.car.action.BT_CONNECT_STATE" ->
+                    "Bluetooth : " + (if (i.getBooleanExtra("bt_connected", false)) "téléphone connecté" else "TÉLÉPHONE DÉCONNECTÉ")
+                else -> "Bluetooth : alimentation " + (i.extras?.keySet()?.joinToString { k -> "$k=${i.extras?.get(k)}" } ?: "")
+            }
+            WakeLog.add(c, msg)
+        }
+    }
+
     private val accReceiver = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
             if (isInitialStickyBroadcast) return            // ancienne valeur, pas un vrai démarrage
@@ -120,6 +141,11 @@ class WakeService : Service() {
         WakeLog.add(this, "Service démarré (fond d'écran Koackpit : ${if (KeepAlive.active(this)) "oui" else "NON"}, " +
             "affichage par-dessus : ${if (Settings.canDrawOverlays(this)) "oui" else "non"})")
         registerReceiver(accReceiver, IntentFilter(ACTION_ACC))
+        registerReceiver(btReceiver, IntentFilter().apply {
+            addAction("android.car.action.BT_HFP_STATE_CHANGED")
+            addAction("android.car.action.BT_CONNECT_STATE")
+            addAction("android.car.action.BT_POWER_STATE_CHANGED")
+        })
         main.postDelayed(reverseWatch, 3000)
         // Android 10 n'autorise une appli en arrière-plan à ouvrir un écran que si elle a le droit
         // « afficher par-dessus les autres applis » : on se l'accorde une fois via l'accès système.
@@ -172,6 +198,7 @@ class WakeService : Service() {
 
     override fun onDestroy() {
         runCatching { unregisterReceiver(accReceiver) }
+        runCatching { unregisterReceiver(btReceiver) }
         main.removeCallbacks(reverseWatch)
         super.onDestroy()
     }
