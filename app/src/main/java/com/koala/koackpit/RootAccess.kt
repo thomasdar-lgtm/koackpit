@@ -163,18 +163,23 @@ object RootAccess {
         }
     }
 
-    /** Journal de la dernière tentative d'installation (pour le diagnostic). */
-    fun lastInstallLog(ctx: Context): String = try {
-        "--- Démarrages :\n" + WakeLog.read(ctx) +
-            "\n--- Veille du processeur (batterie) :\n" +
-            run(ctx, "[ -f /sys/kernel/debug/suspend_stats ] || mount -t debugfs none /sys/kernel/debug 2>/dev/null; " +
-                "head -n 12 /sys/kernel/debug/suspend_stats 2>&1; " +
-                "echo '- Réveils :'; cat /sys/kernel/debug/wakeup_sources 2>/dev/null | sort -k6 -n -r | head -n 6 | awk '{print \$1, \$6}'") +
+    /**
+     * Journal pour le diagnostic. Chaque partie est lue séparément : le journal des démarrages (simple
+     * fichier de Koackpit) s'affiche toujours, même si l'accès système ne répond pas.
+     */
+    fun lastInstallLog(ctx: Context): String {
+        fun part(f: () -> String) = try { f() } catch (e: Exception) { "indisponible : ${e.message}" }
+        return "--- Démarrages :\n" + part { WakeLog.read(ctx) } +
             "\n--- Écrans pendant la dernière mise à jour :\n" +
-            (runCatching { File(ctx.filesDir, "update-trace.txt").readText() }.getOrNull() ?: "aucune trace") +
-            "\n--- Système :\n" +
-            run(ctx, "dumpsys package ${ctx.packageName} | grep -m2 -E 'versionName|lastUpdateTime'")
-    } catch (e: Exception) { "Lecture impossible : ${e.message}" }
+            part { runCatching { File(ctx.filesDir, "update-trace.txt").readText() }.getOrNull() ?: "aucune trace" } +
+            "\n--- Accès système et veille du processeur :\n" +
+            part {
+                run(ctx, "dumpsys package ${ctx.packageName} | grep -m2 -E 'versionName|lastUpdateTime'; " +
+                    "[ -f /sys/kernel/debug/suspend_stats ] || mount -t debugfs none /sys/kernel/debug 2>/dev/null; " +
+                    "head -n 12 /sys/kernel/debug/suspend_stats 2>&1; " +
+                    "echo '- Réveils :'; cat /sys/kernel/debug/wakeup_sources 2>/dev/null | sort -k6 -n -r | head -n 6 | awk '{print \$1, \$6}'")
+            }
+    }
 
     /**
      * Préparation pour l'appli compagnon : ouvre l'accès système et copie l'APK dans /data/local/tmp,
