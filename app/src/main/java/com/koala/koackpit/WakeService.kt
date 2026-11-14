@@ -76,6 +76,13 @@ class WakeService : Service() {
                 }
                 return
             }
+            // Accueil voulu : une conduite restée ouverte avant l'arrêt de la voiture n'est PAS reprise
+            // (sinon elle se relançait d'elle-même au démarrage).
+            if (Prefs.driving(app) || MusicActivity.isOpen()) {
+                WakeLog.add(app, "Démarrage : conduite précédente fermée, accueil Koackpit")
+                Prefs.setDriving(app, false)
+                MusicActivity.closeIfOpen()
+            }
             for (delay in longArrayOf(800, 2500, 5000)) {
                 h.postDelayed({
                     if (!MainActivity.visible && !MusicActivity.isOpen()) {

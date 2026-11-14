@@ -8,7 +8,7 @@ import android.graphics.Rect
  * Il pilote directement le gestionnaire de fenêtres d'Android 10 : placement et taille de l'écran partagé.
  * Une appli normale n'a pas ce droit ; l'administrateur (uid 0) si.
  *
- * Usage : RootTool layout <largeur panneau en pixels>
+ * Usage : RootTool layout <largeur panneau> <largeur écran> <hauteur écran>   (pixels)
  *         RootTool dismiss
  *         RootTool stacks
  */
@@ -88,12 +88,13 @@ object RootTool {
             when (args.getOrNull(0)) {
                 "layout" -> {
                     // GPS = fenêtre principale à gauche ; on lui donne tout sauf la largeur du panneau.
-                    val panelW = args[1].toInt()
-                    val dm = Class.forName("android.content.res.Resources").getMethod("getSystem").invoke(null)
-                        .let { it!!.javaClass.getMethod("getDisplayMetrics").invoke(it) as android.util.DisplayMetrics }
-                    val w = maxOf(dm.widthPixels, dm.heightPixels); val h = minOf(dm.widthPixels, dm.heightPixels)
-                    step = "largeur"
-                    call("resizeDockedStack", Rect(0, 0, w - panelW, h), null, null, null, null)
+                    // La taille de l'écran est fournie par l'appli : ici (hors appli), Android ne la connaît pas
+                    // (elle valait 0 × 0, d'où un GPS plein écran et un panneau de 1 pixel).
+                    val panelW = args[1].toInt(); val w = args[2].toInt(); val h = args[3].toInt()
+                    val r = Rect(0, 0, w - panelW, h)
+                    if (r.width() < w / 3 || h < 100) throw IllegalArgumentException("taille invalide $r (écran ${w}×$h)")
+                    step = "largeur $r"
+                    call("resizeDockedStack", r, null, null, null, null)
                     println("OK [$source] " + stacks())
                 }
                 "dismiss" -> { step = "fermeture"; call("dismissSplitScreenMode", false); println("OK") }

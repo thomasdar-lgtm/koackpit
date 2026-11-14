@@ -102,9 +102,13 @@ object SplitScreen {
         val app = ctx.applicationContext
         Thread {
             Thread.sleep(1200)
-            val w = app.resources.displayMetrics.let { maxOf(it.widthPixels, it.heightPixels) }
+            // Taille physique réelle de l'écran (1280 × 720 sur cet autoradio)
+            val size = android.graphics.Point()
+            @Suppress("DEPRECATION")
+            (app.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager).defaultDisplay.getRealSize(size)
+            val w = maxOf(size.x, size.y); val hgt = minOf(size.x, size.y)
             val r = runCatching {
-                RootAccess.run(app, RootTool.command(app.packageName, "layout", (w / PANEL_FRACTION).toString()), 20_000)
+                RootAccess.run(app, RootTool.command(app.packageName, "layout", (w / PANEL_FRACTION).toString(), w.toString(), hgt.toString()), 20_000)
             }.getOrElse { "ERREUR ${it.message}" }
             WakeLog.add(app, "Disposition conduite : ${r.trim().take(300)}")
         }.start()
