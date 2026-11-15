@@ -55,24 +55,52 @@ class WakeService : Service() {
             }, delay)
         }
 
+        /**
+         * Remet la source BT si besoin, en vérifiant le résultat (jusqu'à 4 essais espacés de 3 s) :
+         * 1er essai par la demande directe au service (rien à l'écran), ensuite par la page Bluetooth d'origine
+         * (comme quand Thomas l'ouvre à la main), puis retour à Koackpit.
+         */
+        private fun ensureBtSource(app: Context, attempt: Int) {
+            val h = Handler(Looper.getMainLooper())
+            Thread {
+                val src = CarLink.currentSource()
+                h.post {
+                    if (src == CarLink.SRC_BT) {
+                        WakeLog.add(app, if (attempt == 1) "Démarrage : source déjà Bluetooth" else "Démarrage : source Bluetooth OK (essai ${attempt - 1})")
+                        return@post
+                    }
+                    if (attempt > 4) { WakeLog.add(app, "Démarrage : source Bluetooth impossible (reste ${CarLink.sourceName(src)})"); return@post }
+                    if (attempt == 1) {
+                        WakeLog.add(app, "Démarrage : source ${CarLink.sourceName(src)} → Bluetooth (demande directe)")
+                        Thread { CarLink.enterSource(CarLink.SRC_BT) }.start()
+                    } else {
+                        WakeLog.add(app, "Démarrage : source ${CarLink.sourceName(src)} → Bluetooth (page Bluetooth, essai $attempt)")
+                        runCatching {
+                            app.startActivity(Intent().setComponent(SplitScreen.BT_MAIN).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                        }.onFailure { WakeLog.add(app, "Page Bluetooth refusée : ${it.message}") }
+                        // Retour à Koackpit (accueil, ou conduite si elle est ouverte)
+                        h.postDelayed({
+                            if (MusicActivity.isOpen()) MusicActivity.restart()
+                            else app.startActivity(Intent(app, MainActivity::class.java)
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
+                        }, 1500)
+                    }
+                    h.postDelayed({ ensureBtSource(app, attempt + 1) }, 3000)
+                }
+            }.start()
+        }
+
         fun bringToFront(ctx: Context) {
             val app = ctx.applicationContext
             val h = Handler(Looper.getMainLooper())
             // Conduite au démarrage (réglage, activé par défaut) ou conduite en cours avant la veille :
             // on ouvre le GPS + lecteur côte à côte plutôt que l'accueil.
             // Au démarrage : l'accueil Koackpit, sauf si le réglage « conduite au démarrage » est activé
-            // Son Bluetooth : le service de l'autoradio coupe le son du téléphone tant qu'il n'a pas la priorité
-            // audio d'Android, et ne la demande que lorsque SA page Bluetooth s'affiche (constaté : sans elle,
-            // même Deezer restait muet ; en l'ouvrant, le son revient et reste). Au réveil, on l'ouvre donc
-            // un instant — ce qui remet aussi la source sur Bluetooth (avant : « Android » coupait son + volant).
-            val src = CarLink.currentSource()
-            val switchBt = src != null
-            if (switchBt) {
-                WakeLog.add(app, "Démarrage : page Bluetooth un instant (source ${CarLink.sourceName(src)}, priorité audio)")
-                runCatching {
-                    app.startActivity(Intent().setComponent(SplitScreen.BT_MAIN).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                }.onFailure { WakeLog.add(app, "Page Bluetooth refusée : ${it.message}") }
-            }
+            // Son Bluetooth : le service de l'autoradio coupe le son du téléphone tant que sa source n'est pas
+            // « BT » (constaté au journal : au réveil la source reste « None » et le son reste coupé ; il ne revient
+            // qu'à l'entrée dans la source BT). On la remet donc, une fois l'autoradio réellement réveillé.
+            h.postDelayed({ ensureBtSource(app, 1) }, 3000)
+            val switchBt = false
             val wantDrive = Prefs.autoDrive(app)
             if (wantDrive) {
                 for (delay in longArrayOf(2500, 7000)) {
