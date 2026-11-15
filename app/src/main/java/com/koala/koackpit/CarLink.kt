@@ -87,11 +87,17 @@ object CarLink {
     /** État A2DP : 0 repos, 1 lecture, 2 pause, 3 arrêt. */
     fun a2dpState(): Int? = value("state.bt.a2dp_state", TYPE_INT)?.takeIf { it.containsKey("value") }?.getInt("value")
 
+    /** État Bluetooth : 0 init, 1 inactif (pas de téléphone), 2 connexion…, 3 connecté, 4+ appel. */
+    fun hfpState(): Int? = value("state.bt.hfp_state", TYPE_INT)?.takeIf { it.containsKey("value") }?.getInt("value")
+
     /** Caméra de recul affichée (marche arrière) : clé gérée par le service de l'autoradio. */
     fun inBackCar(): Boolean? = value("state.app.in_backcar", TYPE_INT)?.takeIf { it.containsKey("value") }?.getInt("value")?.let { it == 1 }
 
     /** Titre et artiste reçus du téléphone (AVRCP). */
     fun avrcpInfo(): Array<String>? = value("state.bt.avrcp_info", TYPE_STRING_ARRAY)?.getStringArray("value")
+
+    /** Demande au module Bluetooth de se connecter au dernier téléphone (fonction « Connect » sans adresse). */
+    fun btConnectLast() = request(4, 2, Bundle().apply { putInt("bt_fun", 0); putInt("arg_int", 0) }) != null
 
     private fun btFun(f: Int) = request(4, 2, Bundle().apply { putInt("bt_fun", f); putInt("arg_int", 0) }) != null
     fun playPause() = btFun(FUN_PLAY_PAUSE)

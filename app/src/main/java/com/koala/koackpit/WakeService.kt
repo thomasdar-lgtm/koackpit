@@ -160,6 +160,17 @@ class WakeService : Service() {
             val msg = when (i.action) {
                 "android.car.action.BT_HFP_STATE_CHANGED" -> {
                     val cur = i.getIntExtra("current_state", -1); val last = i.getIntExtra("last_state", -1)
+                    // Module Bluetooth prêt (init → inactif) : on lui demande tout de suite de se reconnecter au
+                    // téléphone, sans attendre sa propre reconnexion automatique (~20 s constatées). Second essai à +8 s.
+                    if (last == 0 && cur == 1) for (d in longArrayOf(500, 8000)) main.postDelayed({
+                        Thread {
+                            val st = CarLink.hfpState()
+                            if (st == null || st == 1) {
+                                val ok = CarLink.btConnectLast()
+                                WakeLog.add(c, "Bluetooth : connexion au téléphone demandée (+${d} ms) " + if (ok) "" else "— refusée")
+                            }
+                        }.start()
+                    }, d)
                     "Bluetooth : ${hfp.getOrElse(last) { "$last" }} → ${hfp.getOrElse(cur) { "$cur" }}"
                 }
                 "android.car.action.BT_CONNECT_STATE" -> {
