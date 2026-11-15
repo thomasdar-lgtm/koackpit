@@ -98,7 +98,10 @@ fun rememberSpeedKmh(): Int? {
         if (ok) runCatching { lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 0f, l) }
         onDispose { runCatching { lm.removeUpdates(l) } }
     }
-    return speed
+    // Vitesse de la voiture (compteur, via le CAN) en priorité ; le GPS seulement si elle n'arrive pas
+    // (lecture de CanBus.speed : l'affichage se met à jour à chaque trame)
+    val can = CanBus.speed.value
+    return if (can != null && CanBus.freshSpeed() != null) can else speed
 }
 
 /** Autorisations accordées une fois via l'accès système (lecture du guidage, position GPS). */
