@@ -60,21 +60,29 @@ class WakeService : Service() {
          * 1er essai par la demande directe au service (rien à l'écran), ensuite par la page Bluetooth d'origine
          * (comme quand Thomas l'ouvre à la main), puis retour à Koackpit.
          */
-        private fun ensureBtSource(app: Context, attempt: Int) {
+        fun ensureBtSource(app: Context, attempt: Int, toggle: Boolean = false) {
             val h = Handler(Looper.getMainLooper())
             Thread {
                 val src = CarLink.currentSource()
                 h.post {
-                    if (src == CarLink.SRC_BT) {
-                        WakeLog.add(app, if (attempt == 1) "Démarrage : source déjà Bluetooth" else "Démarrage : source Bluetooth OK (essai ${attempt - 1})")
+                    if (src == CarLink.SRC_BT && attempt == 1 && toggle) {
+                        // Déjà « BT » côté service, mais le module Bluetooth a pu recouper le son en se réinitialisant
+                        // sans que le service le sache : on sort puis on rentre dans la source pour qu'il le rouvre.
+                        WakeLog.add(app, "Son Bluetooth : source rechargée (Android puis Bluetooth)")
+                        Thread { CarLink.enterSource(CarLink.SRC_ANDROID); Thread.sleep(700); CarLink.enterSource(CarLink.SRC_BT) }.start()
+                        h.postDelayed({ ensureBtSource(app, 2) }, 3000)
                         return@post
                     }
-                    if (attempt > 4) { WakeLog.add(app, "Démarrage : source Bluetooth impossible (reste ${CarLink.sourceName(src)})"); return@post }
+                    if (src == CarLink.SRC_BT) {
+                        WakeLog.add(app, if (attempt == 1) "Son Bluetooth : source déjà Bluetooth" else "Son Bluetooth : source Bluetooth OK")
+                        return@post
+                    }
+                    if (attempt > 4) { WakeLog.add(app, "Son Bluetooth : source impossible (reste ${CarLink.sourceName(src)})"); return@post }
                     if (attempt == 1) {
-                        WakeLog.add(app, "Démarrage : source ${CarLink.sourceName(src)} → Bluetooth (demande directe)")
+                        WakeLog.add(app, "Son Bluetooth : source ${CarLink.sourceName(src)} → Bluetooth (demande directe)")
                         Thread { CarLink.enterSource(CarLink.SRC_BT) }.start()
                     } else {
-                        WakeLog.add(app, "Démarrage : source ${CarLink.sourceName(src)} → Bluetooth (page Bluetooth, essai $attempt)")
+                        WakeLog.add(app, "Son Bluetooth : source ${CarLink.sourceName(src)} → Bluetooth (page Bluetooth, essai $attempt)")
                         runCatching {
                             app.startActivity(Intent().setComponent(SplitScreen.BT_MAIN).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                         }.onFailure { WakeLog.add(app, "Page Bluetooth refusée : ${it.message}") }
@@ -99,7 +107,10 @@ class WakeService : Service() {
             // Son Bluetooth : le service de l'autoradio coupe le son du téléphone tant que sa source n'est pas
             // « BT » (constaté au journal : au réveil la source reste « None » et le son reste coupé ; il ne revient
             // qu'à l'entrée dans la source BT). On la remet donc, une fois l'autoradio réellement réveillé.
-            h.postDelayed({ ensureBtSource(app, 1) }, 3000)
+            // Pas trop tôt : le module Bluetooth se réinitialise ~9 s après le réveil et recoupe alors le son.
+            // Le vrai déclencheur est la connexion du téléphone (~30 s, voir btReceiver) ; ceci est le filet de
+            // sécurité si le téléphone est resté connecté pendant une courte coupure du contact.
+            h.postDelayed({ ensureBtSource(app, 1, toggle = true) }, 15_000)
             val switchBt = false
             val wantDrive = Prefs.autoDrive(app)
             if (wantDrive) {
@@ -151,8 +162,12 @@ class WakeService : Service() {
                     val cur = i.getIntExtra("current_state", -1); val last = i.getIntExtra("last_state", -1)
                     "Bluetooth : ${hfp.getOrElse(last) { "$last" }} → ${hfp.getOrElse(cur) { "$cur" }}"
                 }
-                "android.car.action.BT_CONNECT_STATE" ->
-                    "Bluetooth : " + (if (i.getBooleanExtra("bt_connected", false)) "téléphone connecté" else "TÉLÉPHONE DÉCONNECTÉ")
+                "android.car.action.BT_CONNECT_STATE" -> {
+                    val on = i.getBooleanExtra("bt_connected", false)
+                    // Téléphone connecté : c'est le bon moment pour (re)ouvrir le son Bluetooth
+                    if (on) main.postDelayed({ ensureBtSource(c.applicationContext, 1, toggle = true) }, 2000)
+                    "Bluetooth : " + (if (on) "téléphone connecté" else "TÉLÉPHONE DÉCONNECTÉ")
+                }
                 else -> "Bluetooth : alimentation " + (i.extras?.keySet()?.joinToString { k -> "$k=${i.extras?.get(k)}" } ?: "")
             }
             WakeLog.add(c, msg)
