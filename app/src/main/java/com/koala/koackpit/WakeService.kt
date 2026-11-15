@@ -83,7 +83,19 @@ class WakeService : Service() {
                 Prefs.setDriving(app, false)
                 MusicActivity.closeIfOpen()
             }
-            for (delay in longArrayOf(800, 2500, 5000)) {
+            // Source audio : au réveil, l'autoradio repasse souvent sur « Android » (constaté dans le journal),
+            // ce qui coupe le son du téléphone ET les commandes au volant. Avant la 0.7.5, la relance de la
+            // conduite corrigeait ça sans le dire. On remet donc la source Bluetooth ici, comme la touche BT.
+            val src = CarLink.currentSource()
+            val switchBt = src != null && src != CarLink.SRC_BT
+            if (switchBt) {
+                WakeLog.add(app, "Démarrage : source ${CarLink.sourceName(src)} → Bluetooth")
+                runCatching {
+                    app.startActivity(Intent().setComponent(SplitScreen.BT_MAIN).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                }.onFailure { WakeLog.add(app, "Bascule Bluetooth refusée : ${it.message}") }
+            }
+            // Koackpit repasse devant ensuite (plus tard si la page Bluetooth doit d'abord basculer la source)
+            for (delay in if (switchBt) longArrayOf(1500, 3000, 5000) else longArrayOf(800, 2500, 5000)) {
                 h.postDelayed({
                     if (!MainActivity.visible && !MusicActivity.isOpen()) {
                         val r = runCatching {
@@ -147,6 +159,7 @@ class WakeService : Service() {
             addAction("android.car.action.BT_POWER_STATE_CHANGED")
         })
         main.postDelayed(reverseWatch, 3000)
+        main.postDelayed(sourceWatch, 4000)
         // Android 10 n'autorise une appli en arrière-plan à ouvrir un écran que si elle a le droit
         // « afficher par-dessus les autres applis » : on se l'accorde une fois via l'accès système.
         if (!Settings.canDrawOverlays(this) || NavPermissions.missing(this)) {
@@ -169,6 +182,24 @@ class WakeService : Service() {
      */
     private val main = Handler(Looper.getMainLooper())
     private var lastBack = false
+    /** Journal de la source audio de l'autoradio : chaque changement est noté (Bluetooth, Android, Radio…). */
+    private var lastSource: Int? = null
+    private val sourceWatch = object : Runnable {
+        override fun run() {
+            Thread {
+                val s = CarLink.currentSource()
+                main.post {
+                    if (s != null && s != lastSource) {
+                        if (lastSource != null) WakeLog.add(this@WakeService, "Source audio : ${CarLink.sourceName(lastSource)} → ${CarLink.sourceName(s)}")
+                        else WakeLog.add(this@WakeService, "Source audio : ${CarLink.sourceName(s)}")
+                        lastSource = s
+                    }
+                }
+            }.start()
+            main.postDelayed(this, 2000)
+        }
+    }
+
     private val reverseWatch = object : Runnable {
         override fun run() {
             val pm = getSystemService(POWER_SERVICE) as android.os.PowerManager
@@ -200,6 +231,7 @@ class WakeService : Service() {
         runCatching { unregisterReceiver(accReceiver) }
         runCatching { unregisterReceiver(btReceiver) }
         main.removeCallbacks(reverseWatch)
+        main.removeCallbacks(sourceWatch)
         super.onDestroy()
     }
 

@@ -40,7 +40,7 @@ object SplitScreen {
     }
 
     private const val CREATE_MODE_LEFT = 0       // SPLIT_SCREEN_CREATE_MODE_TOP_OR_LEFT
-    private val BT_MAIN = android.content.ComponentName("android.car.app.bt", "android.car.app.bt.BtMain")
+    val BT_MAIN = android.content.ComponentName("android.car.app.bt", "android.car.app.bt.BtMain")
 
     /**
      * Mode conduite. Constat sur cet autoradio (Android 9 en interne) : la fenêtre principale de l'écran
