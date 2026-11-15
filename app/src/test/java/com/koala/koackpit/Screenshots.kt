@@ -65,6 +65,15 @@ class Screenshots {
         }
     } }
 
+    /** Planche de la Golf en grand : fermée, porte conducteur, deux portes + coffre, tout ouvert. */
+    @Test
+    fun golf() = captureRoboImage("build/screens/golf.png") { Scaled {
+        Row(Modifier.fillMaxSize().background(Navy).padding(16.dp)) {
+            for (m in listOf(0, Doors.FL, Doors.FL or Doors.RR or Doors.TRUNK, 63))
+                CarTopView(m, Modifier.weight(1f).fillMaxHeight())
+        }
+    } }
+
     @Test
     fun accueil_sans_musique() = captureRoboImage("build/screens/accueil-vide.png") { Scaled {
         HomeContent("17:42", "Jeudi 12 novembre", "Google Maps", MediaInfo(), RailActions(), {}, {}, {}, {})
