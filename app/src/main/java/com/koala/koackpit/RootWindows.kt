@@ -61,6 +61,17 @@ object RootWindows {
     /** À l'avance (démarrage du service) : la première conduite sera rapide elle aussi. */
     fun warmUp(ctx: Context) {
         val app = ctx.applicationContext
-        Thread { synchronized(lock) { runCatching { ensure(app) } } }.start()
+        Thread {
+            synchronized(lock) { runCatching { ensure(app) } }
+            // Animations d'Android deux fois plus rapides (les fenêtres s'ouvrent et changent plus vite).
+            // Réversible : « anim 1 » remet la vitesse d'origine.
+            val cur = runCatching { android.provider.Settings.Global.getFloat(app.contentResolver, "transition_animation_scale", 1f) }.getOrDefault(1f)
+            if (cur != ANIM) {
+                val r = runCatching { run(app, "anim", ANIM.toString()) }.getOrElse { "ERREUR ${it.message}" }
+                WakeLog.add(app, "Animations système ×${1 / ANIM} : $r")
+            }
+        }.start()
     }
+
+    private const val ANIM = 0.5f
 }

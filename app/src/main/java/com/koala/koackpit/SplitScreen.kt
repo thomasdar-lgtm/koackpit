@@ -70,21 +70,20 @@ object SplitScreen {
         //    Ensuite UNE seule commande administrateur ancre le GPS à gauche (2/3) : le panneau passe à droite.
         //    Plus de page Bluetooth, de bureau ou de moitié-moitié visibles entre les deux.
         val quiet = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION
+        // Les deux lancements partent d'affilée : Android les traite dans l'ordre (GPS puis panneau devant)
         h.postDelayed({
             runCatching {
                 ctx.startActivity(nav.addFlags(quiet))
                 log.append("2. GPS lancé\n")
             }.onFailure { log.append("2. GPS échoué : $it\n"); done(log.toString()); return@postDelayed }
-            h.postDelayed({
-                runCatching {
-                    ctx.startActivity(Intent(ctx, MusicActivity::class.java).addFlags(quiet))
-                    log.append("3. Panneau lancé\n")
-                    Prefs.setDriving(ctx, true)
-                    val navPkg = nav.component?.packageName ?: nav.`package` ?: navPkgs.first()
-                    arrange(ctx, navPkg, t0)
-                }.onFailure { log.append("3. Panneau échoué : $it\n") }
-                done(log.toString())
-            }, 250)
+            runCatching {
+                ctx.startActivity(Intent(ctx, MusicActivity::class.java).addFlags(quiet))
+                log.append("3. Panneau lancé\n")
+                Prefs.setDriving(ctx, true)
+                val navPkg = nav.component?.packageName ?: nav.`package` ?: navPkgs.first()
+                arrange(ctx, navPkg, t0)
+            }.onFailure { log.append("3. Panneau échoué : $it\n") }
+            done(log.toString())
         }, if (needBt) 900L else 0L)
     }
 
@@ -95,7 +94,7 @@ object SplitScreen {
     private fun arrange(ctx: Context, navPkg: String, t0: Long) {
         val app = ctx.applicationContext
         Thread {
-            Thread.sleep(150)   // le temps que le panneau soit au premier plan
+            Thread.sleep(60)   // le temps que les deux lancements soient pris en compte
             // Taille physique réelle de l'écran (1280 × 720 sur cet autoradio)
             val size = android.graphics.Point()
             @Suppress("DEPRECATION")

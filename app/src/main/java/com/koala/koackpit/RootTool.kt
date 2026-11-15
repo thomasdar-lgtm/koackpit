@@ -120,6 +120,14 @@ object RootTool {
                 call("resizeDockedStack", r, null, null, null, null)
                 "OK [$source] " + stacks()
             }
+            "anim" -> {
+                // Vitesse des animations d'Android (ouverture/fermeture/changement de fenêtre). 1 = d'origine.
+                val v = args[1].toFloat().coerceIn(0f, 1f).toString()
+                step = "animations"
+                for (k in listOf("window_animation_scale", "transition_animation_scale", "animator_duration_scale"))
+                    Runtime.getRuntime().exec(arrayOf("settings", "put", "global", k, v)).waitFor()
+                "OK"
+            }
             "dismiss" -> { step = "fermeture"; call("dismissSplitScreenMode", false); "OK" }
             "stacks" -> stacks()
             else -> "ERREUR commande inconnue"
