@@ -135,7 +135,7 @@ fun CarTopView(mask: Int, modifier: Modifier = Modifier) {
                     return
                 }
                 rotate((if (leftSide) 1f else -1f) * 62f * t, Offset(x, hingeY)) {
-                    val w = 6f
+                    val w = 9f
                     drawRoundRect(
                         Brush.verticalGradient(listOf(open, Color(0xFFFFA000)), hingeY, hingeY + len),
                         Offset(if (leftSide) x - w else x, hingeY), Size(w, len), CornerRadius(3f), alpha = 0.4f + 0.6f * t,
@@ -172,7 +172,7 @@ fun DoorAlert(mask: Int, modifier: Modifier = Modifier, compact: Boolean = false
                 .border(1.5.dp, Yellow, RoundedCornerShape(18.dp)).padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            CarTopView(mask, Modifier.size(if (compact) 46.dp else 64.dp, if (compact) 56.dp else 78.dp))
+            CarTopView(mask, Modifier.size(if (compact) 56.dp else 76.dp, if (compact) 64.dp else 88.dp))
             Spacer(Modifier.width(10.dp))
             Column(verticalArrangement = Arrangement.Center) {
                 Text(Doors.label(mask), color = Color.White, fontSize = if (compact) 13.sp else 17.sp, fontWeight = FontWeight.Bold, lineHeight = 18.sp)
