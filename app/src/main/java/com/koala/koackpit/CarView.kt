@@ -83,7 +83,7 @@ fun CarTopView(mask: Int, modifier: Modifier = Modifier) {
             val L = cx - 42f; val R = cx + 42f          // flancs
             val top = 12f; val bottom = 228f            // pare-chocs
             val bodyCol = Color(0xFF41557D); val bodyHi = Color(0xFF52699A)
-            val glass = Color(0xFF14203B); val line = Color(0xFF2B3B5E); val tyre = Color(0xFF0A0F1C)
+            val glass = Color(0xFF14203B); val line = Color(0xFF2B3B5E); val tyre = Color(0xFF2A3348)
             val open = Yellow
 
             // Roues (dépassent légèrement des flancs)
@@ -149,9 +149,16 @@ fun CarTopView(mask: Int, modifier: Modifier = Modifier) {
             door(138f, 38f, rl, true)
             door(138f, 38f, rr, false)
 
-            // Hayon (arrière) et capot (avant) : panneau jaune qui « sort » de la voiture
-            if (trunk > 0.02f) drawRoundRect(open, Offset(L + 8f, bottom - 12f), Size(R - L - 16f, 10f + 14f * trunk), CornerRadius(6f), alpha = 0.4f + 0.6f * trunk)
-            if (hood > 0.02f) drawRoundRect(open, Offset(L + 10f, top - 12f * hood), Size(R - L - 20f, 46f), CornerRadius(10f), alpha = 0.35f + 0.5f * hood, style = Stroke(4f))
+            // Hayon (arrière) et capot (avant) : le panneau se soulève (décalé vers l'extérieur) et passe en jaune
+            if (trunk > 0.02f) {
+                val y = 186f + 12f * trunk
+                drawRoundRect(open, Offset(L + 4f, y), Size(R - L - 8f, bottom - 186f), CornerRadius(16f), alpha = 0.85f * trunk)
+                drawRoundRect(glass, Offset(L + 16f, y + 4f), Size(R - L - 32f, 14f), CornerRadius(6f), alpha = 0.6f * trunk)
+            }
+            if (hood > 0.02f) {
+                val y = top - 10f * hood
+                drawRoundRect(open, Offset(L + 2f, y), Size(R - L - 4f, 54f), CornerRadius(30f, 24f), alpha = 0.85f * hood)
+            }
         }
     }
 }
