@@ -36,6 +36,8 @@ object CanBus {
 
     // Relevé des types de trames reçues pendant la première minute (pour les prochaines données : portes…)
     private val counts = java.util.TreeMap<Int, Int>()
+    private val lastHex = HashMap<Int, String>()
+    private val logged = HashMap<Int, Int>()
     private var countUntil = 0L
     private var firstSpeedLogged = false
 
@@ -65,7 +67,16 @@ object CanBus {
         val len = f[2].toInt() and 255
         if (3 + len > f.size) return
         val now = SystemClock.elapsedRealtime()
-        if (now < countUntil) synchronized(counts) { counts[type] = (counts[type] ?: 0) + 1 }
+        if (now < countUntil) {
+            synchronized(counts) { counts[type] = (counts[type] ?: 0) + 1 }
+            // Relevé brut : chaque nouveau contenu d'un type (8 au plus par type) est noté, pour décoder
+            // les trames que Car Info n'utilise pas et associer chaque action (porte, phares…) à une trame.
+            val hex = f.copyOfRange(3, 3 + len).joinToString(" ") { "%02X".format(it) }
+            val changed = synchronized(counts) {
+                if (lastHex[type] != hex && (logged[type] ?: 0) < 8) { lastHex[type] = hex; logged[type] = (logged[type] ?: 0) + 1; true } else false
+            }
+            if (changed) app?.let { WakeLog.add(it, "CAN type $type : $hex") }
+        }
         if (type == TYPE_SPEED && len >= 2) {
             val raw = ((f[4].toInt() and 255) shl 8) or (f[3].toInt() and 255)
             val kmh = raw / 16
@@ -110,13 +121,13 @@ object CanBus {
         if (!ok) return
         registeredOn = car
         runCatching { car.linkToDeath({ registeredOn = null; main.postDelayed({ app?.let { start(it) } }, 3000) }, 0) }
-        // Relevé d'une minute
-        synchronized(counts) { counts.clear() }
-        countUntil = SystemClock.elapsedRealtime() + 60_000
+        // Relevé de deux minutes
+        synchronized(counts) { counts.clear(); lastHex.clear(); logged.clear() }
+        countUntil = SystemClock.elapsedRealtime() + 120_000
         main.postDelayed({
             val s = synchronized(counts) { counts.entries.joinToString(", ") { "type ${it.key}×${it.value}" } }
-            app?.let { WakeLog.add(it, "CAN, trames en 1 min : " + s.ifEmpty { "aucune (contact coupé ou boîtier muet ?)" }) }
-        }, 60_000)
+            app?.let { WakeLog.add(it, "CAN, trames en 2 min : " + s.ifEmpty { "aucune (contact coupé ou boîtier muet ?)" }) }
+        }, 120_000)
         WakeLog.add(ctx, "CAN : abonné")
     }
 }
