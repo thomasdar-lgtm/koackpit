@@ -106,7 +106,7 @@ fun DiagScreen(server: FileServer, onBack: () -> Unit = {}, onZip: (File) -> Uni
                 contentAlignment = Alignment.Center,
             ) {
                 androidx.compose.material3.Icon(
-                    androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, "Retour", tint = Yellow,
+                    androidx.compose.material.icons.Icons.Filled.ArrowBack, "Retour", tint = Yellow,
                     modifier = Modifier.size(26.dp),
                 )
             }
