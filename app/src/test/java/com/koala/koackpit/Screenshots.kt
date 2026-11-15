@@ -60,7 +60,7 @@ class Screenshots {
             Box(Modifier.weight(2f).fillMaxHeight().background(Color(0xFF2A3F5C)))
             Box(Modifier.width(285.dp).fillMaxHeight()) {
                 DrivePanel("17:42", media, {}, {}, {}, {}, {}, {}, {}, {}, null)
-                DoorAlert(Doors.FR, Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 52.dp), compact = true)
+                DoorAlert(Doors.FR, Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 60.dp), compact = true)
             }
         }
     } }

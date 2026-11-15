@@ -7,6 +7,8 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -54,7 +56,7 @@ object Doors {
 fun CarTopView(mask: Int, modifier: Modifier = Modifier) {
     Canvas(modifier) {
         val w = size.width; val h = size.height
-        val bw = w * 0.46f; val bh = h * 0.86f
+        val bw = w * 0.56f; val bh = h * 0.9f
         val left = (w - bw) / 2; val top = (h - bh) / 2
         val body = Color(0xFF3A4C70); val glass = Color(0xFF1B2744); val open = Yellow
         // Carrosserie
@@ -85,10 +87,11 @@ fun CarTopView(mask: Int, modifier: Modifier = Modifier) {
 fun DoorAlert(mask: Int, modifier: Modifier = Modifier, compact: Boolean = false) {
     AnimatedVisibility(mask != 0, modifier, enter = slideInVertically { -it } + fadeIn(), exit = slideOutVertically { -it } + fadeOut()) {
         Row(
-            Modifier.clip(RoundedCornerShape(18.dp)).background(Card).padding(horizontal = 14.dp, vertical = 8.dp),
+            Modifier.shadow(12.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(CardHi)
+                .border(1.5.dp, Yellow, RoundedCornerShape(18.dp)).padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            CarTopView(mask, Modifier.size(if (compact) 44.dp else 60.dp))
+            CarTopView(mask, Modifier.size(if (compact) 40.dp else 54.dp, if (compact) 52.dp else 70.dp))
             Spacer(Modifier.width(10.dp))
             Column(verticalArrangement = Arrangement.Center) {
                 Text(Doors.label(mask), color = Color.White, fontSize = if (compact) 13.sp else 17.sp, fontWeight = FontWeight.Bold, lineHeight = 18.sp)
