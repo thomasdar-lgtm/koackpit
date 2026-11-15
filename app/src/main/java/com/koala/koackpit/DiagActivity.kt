@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -59,7 +60,7 @@ class DiagActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { DiagScreen(server) { zip = it } }
+        setContent { DiagScreen(server, onBack = { finish() }) { zip = it } }
     }
 
     override fun onDestroy() {
@@ -71,7 +72,7 @@ class DiagActivity : ComponentActivity() {
 private const val LIMIT_MB = 300
 
 @Composable
-fun DiagScreen(server: FileServer, onZip: (File) -> Unit) {
+fun DiagScreen(server: FileServer, onBack: () -> Unit = {}, onZip: (File) -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val upd = remember { UpdateState() }
@@ -99,6 +100,17 @@ fun DiagScreen(server: FileServer, onZip: (File) -> Unit) {
     Column(Modifier.fillMaxSize().background(Navy).padding(16.dp)) {
         UpdateBanner(upd)
         Row(verticalAlignment = Alignment.CenterVertically) {
+            // Retour à Koackpit (la barre de l'autoradio n'en propose pas toujours)
+            Box(
+                Modifier.size(44.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Card).clickable(onClick = onBack),
+                contentAlignment = Alignment.Center,
+            ) {
+                androidx.compose.material3.Icon(
+                    androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, "Retour", tint = Yellow,
+                    modifier = Modifier.size(26.dp),
+                )
+            }
+            Spacer(Modifier.width(12.dp))
             Text("Koackpit", color = Yellow, fontSize = 26.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.width(12.dp))
             Text("Diagnostic ${BuildConfig.VERSION_NAME}", color = Muted, fontSize = 15.sp)
