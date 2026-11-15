@@ -173,9 +173,10 @@ object RootAccess {
         fun part(f: () -> String) = try { f() } catch (e: Exception) { "indisponible : ${e.message}" }
         return "--- Son Bluetooth (service de l'autoradio, plus récent en haut) :\n" + part {
                 // Le service « car » coupe le son Bluetooth (setBtmMute) quand il n'a pas la priorité audio d'Android
-                run(ctx, "logcat -d -v time 2>/dev/null | grep -E 'setBtmMute|onAudioFocusChange|requestMcuModeAudioGain|onStateChangedComposite|enterApp:' " +
+                // Filtre fait par logcat lui-même (-e) : beaucoup plus rapide que logcat | grep (dépassait 8 s)
+                run(ctx, "logcat -d -v time -e 'setBtmMute|onAudioFocusChange|requestMcuModeAudioGain|onStateChangedComposite|enterApp:' 2>/dev/null " +
                     "| tail -n 14 | tac | cut -c1-160; echo '- Priorité audio actuelle :'; " +
-                    "dumpsys audio 2>/dev/null | sed -n '/Audio Focus stack entries/,/^ *\$/p' | head -n 6 | cut -c1-160")
+                    "dumpsys audio 2>/dev/null | sed -n '/Audio Focus stack entries/,/^ *\$/p' | head -n 6 | cut -c1-160", 30_000)
             } +
             "\n--- Démarrages :\n" + part { WakeLog.read(ctx) } +
             "\n--- Écrans pendant la dernière mise à jour :\n" +
