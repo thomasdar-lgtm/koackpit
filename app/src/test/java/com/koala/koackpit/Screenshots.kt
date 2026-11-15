@@ -47,6 +47,25 @@ class Screenshots {
     } }
 
     @Test
+    fun accueil_porte() = captureRoboImage("build/screens/accueil-porte.png") { Scaled {
+        Box(Modifier.fillMaxSize()) {
+            HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {})
+            DoorAlert(Doors.FL or Doors.TRUNK, Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 12.dp))
+        }
+    } }
+
+    @Test
+    fun conduite_porte() = captureRoboImage("build/screens/conduite-porte.png") { Scaled {
+        Row(Modifier.fillMaxSize()) {
+            Box(Modifier.weight(2f).fillMaxHeight().background(Color(0xFF2A3F5C)))
+            Box(Modifier.width(285.dp).fillMaxHeight()) {
+                DrivePanel("17:42", media, {}, {}, {}, {}, {}, {}, {}, {}, null)
+                DoorAlert(Doors.FR, Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 52.dp), compact = true)
+            }
+        }
+    } }
+
+    @Test
     fun accueil_sans_musique() = captureRoboImage("build/screens/accueil-vide.png") { Scaled {
         HomeContent("17:42", "Jeudi 12 novembre", "Google Maps", MediaInfo(), RailActions(), {}, {}, {}, {})
     } }

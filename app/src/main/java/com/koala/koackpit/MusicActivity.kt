@@ -103,6 +103,10 @@ class MusicActivity : ComponentActivity() {
                 onApps = ::goHome,
                 onBtSource = if (srcIsBt.value) null else ::forceBtSource,
             )
+            // Portes / coffre ouverts : alerte compacte en haut du panneau
+            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.TopCenter) {
+                DoorAlert(CanBus.doors.value, androidx.compose.ui.Modifier.padding(top = 52.dp), compact = true)
+            }
         } }
     }
 

@@ -24,10 +24,14 @@ object CanBus {
     private const val TX_REGISTER = 1
     private const val CBK_CANBUS = 64
     private const val TYPE_SPEED = 22
+    private const val TYPE_DOORS = 36   // 2e octet : ouvrants (confirmé dans la voiture : porte conducteur = bit 0, coffre = bit 4)
 
     /** Vitesse lue dans la voiture (km/h), et quand (pour savoir si elle est encore fraîche). */
     val speed = mutableStateOf<Int?>(null)
     @Volatile private var speedAt = 0L
+    /** Ouvrants ouverts (voir [Doors]). */
+    val doors = mutableStateOf(0)
+
     fun freshSpeed(): Int? = speed.value?.takeIf { SystemClock.elapsedRealtime() - speedAt < 3000 }
 
     private val main = Handler(Looper.getMainLooper())
@@ -76,6 +80,10 @@ object CanBus {
                 if (lastHex[type] != hex && (logged[type] ?: 0) < 8) { lastHex[type] = hex; logged[type] = (logged[type] ?: 0) + 1; true } else false
             }
             if (changed) app?.let { WakeLog.add(it, "CAN type $type : $hex") }
+        }
+        if (type == TYPE_DOORS && len >= 2) {
+            val m = f[4].toInt() and 0x3F
+            main.post { if (doors.value != m) doors.value = m }
         }
         if (type == TYPE_SPEED && len >= 2) {
             val raw = ((f[4].toInt() and 255) shl 8) or (f[3].toInt() and 255)

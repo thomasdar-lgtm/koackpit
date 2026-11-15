@@ -140,6 +140,8 @@ fun Koackpit(screen: androidx.compose.runtime.MutableState<Screen>, upd: UpdateS
                 Screen.SETTINGS -> SettingsScreen(upd, onBack = { screen.value = Screen.HOME })
             }
         }
+        // Portes / coffre / capot ouverts : alerte en haut, au centre
+        DoorAlert(CanBus.doors.value, Modifier.align(Alignment.TopCenter).padding(top = 12.dp))
         // Mise à jour : petite carte en bas à droite, par-dessus l'écran
         UpdateBanner(upd, Modifier.align(Alignment.BottomEnd).padding(end = 20.dp, bottom = 20.dp))
     }
