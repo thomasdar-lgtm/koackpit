@@ -171,7 +171,13 @@ object RootAccess {
      */
     fun lastInstallLog(ctx: Context): String {
         fun part(f: () -> String) = try { f() } catch (e: Exception) { "indisponible : ${e.message}" }
-        return "--- Démarrages :\n" + part { WakeLog.read(ctx) } +
+        return "--- Son Bluetooth (service de l'autoradio, plus récent en haut) :\n" + part {
+                // Le service « car » coupe le son Bluetooth (setBtmMute) quand il n'a pas la priorité audio d'Android
+                run(ctx, "logcat -d -v time 2>/dev/null | grep -E 'setBtmMute|onAudioFocusChange|requestMcuModeAudioGain|onStateChangedComposite|enterApp:' " +
+                    "| tail -n 14 | tac | cut -c1-160; echo '- Priorité audio actuelle :'; " +
+                    "dumpsys audio 2>/dev/null | sed -n '/Audio Focus stack entries/,/^ *\$/p' | head -n 6 | cut -c1-160")
+            } +
+            "\n--- Démarrages :\n" + part { WakeLog.read(ctx) } +
             "\n--- Écrans pendant la dernière mise à jour :\n" +
             part { runCatching { File(ctx.filesDir, "update-trace.txt").readText() }.getOrNull() ?: "aucune trace" } +
             "\n--- Accès système et veille du processeur :\n" +
