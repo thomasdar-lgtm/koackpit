@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,6 +38,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -153,9 +155,13 @@ fun Caption(text: String) =
 
 /** Pochette : pour l'instant un dégradé (la vraie pochette viendra de l'appli compagnon du S25). */
 @Composable
-fun Artwork(modifier: Modifier, title: String = "") {
-    // Pochette envoyée par l'appli « Koackpit Téléphone » ; sinon la note de musique
-    val art = PhoneLink.artFor(title)
+fun Artwork(modifier: Modifier, title: String = "", artist: String = "") {
+    // Pochette trouvée sur Deezer d'après le titre et l'artiste reçus en Bluetooth ; sinon la note de musique
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val found by androidx.compose.runtime.produceState<ImageBitmap?>(null, title, artist) {
+        value = if (title.isBlank()) null else kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { CoverArt.fetch(ctx, title, artist) }
+    }
+    val art = found ?: PhoneLink.artFor(title)
     Box(
         modifier.clip(RoundedCornerShape(14.dp))
             .background(Brush.linearGradient(listOf(Color(0xFFE85D75), Color(0xFF7B2FF7)))),
@@ -183,7 +189,7 @@ fun MediaCardWide(modifier: Modifier, m: MediaInfo, onPrev: () -> Unit, onPlay: 
             Caption("En écoute · Bluetooth")
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Artwork(Modifier.size(64.dp), m.title)
+                Artwork(Modifier.size(64.dp), m.title, m.artist)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(m.title.ifEmpty { "Rien en lecture" }, color = Color.White, fontSize = 17.sp,
@@ -332,7 +338,7 @@ fun DrivePanel(
                     Caption("Bluetooth")
                     // Pochette plus petite si un bouton ou un message doit aussi tenir dans la carte
                     val extra = onBtSource != null || media.warning.isNotEmpty()
-                    Artwork(Modifier.size(if (narrow || extra) 72.dp else 110.dp), media.title)
+                    Artwork(Modifier.size(if (narrow || extra) 72.dp else 110.dp), media.title, media.artist)
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(media.title.ifEmpty { "Rien en lecture" }, color = Color.White, fontSize = 16.sp,
                             fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
