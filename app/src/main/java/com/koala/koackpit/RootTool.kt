@@ -96,6 +96,30 @@ object RootTool {
                 call("resizeDockedStack", r, null, null, null, null)
                 "OK [$source] " + stacks()
             }
+            "drive" -> {
+                // Conduite en UNE étape, sans écran intermédiaire : le panneau Koackpit est déjà devant en plein
+                // écran ; on ancre directement la tâche du GPS à gauche, à sa largeur finale. Le panneau passe
+                // alors tout seul dans la partie droite (Android y met la fenêtre qui était au premier plan).
+                val nav = args[1]; val panelW = args[2].toInt(); val w = args[3].toInt(); val h = args[4].toInt()
+                val r = Rect(0, 0, w - panelW, h)
+                if (r.width() < w / 3 || h < 100) throw IllegalArgumentException("taille invalide $r (écran ${w}×$h)")
+                step = "recherche du GPS"
+                var task: Int? = null
+                val end = System.currentTimeMillis() + 4000
+                while (task == null && System.currentTimeMillis() < end) { task = taskOf(nav); if (task == null) Thread.sleep(150) }
+                if (task == null) throw IllegalStateException("GPS $nav non lancé")
+                step = "GPS à gauche"
+                try {
+                    call("setTaskWindowingModeSplitScreenPrimary", task, 0, true, false, r, false)
+                } catch (e: java.lang.reflect.InvocationTargetException) {
+                    // Un ancien écran partagé traîne : on le referme puis on recommence
+                    call("dismissSplitScreenMode", false)
+                    call("setTaskWindowingModeSplitScreenPrimary", task, 0, true, false, r, false)
+                }
+                step = "largeur $r"
+                call("resizeDockedStack", r, null, null, null, null)
+                "OK [$source] " + stacks()
+            }
             "dismiss" -> { step = "fermeture"; call("dismissSplitScreenMode", false); "OK" }
             "stacks" -> stacks()
             else -> "ERREUR commande inconnue"

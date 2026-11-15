@@ -53,7 +53,7 @@ object RootWindows {
     /** Exécute une commande de fenêtres (layout, dismiss, stacks). Ne jamais appeler sur le fil principal. */
     fun run(ctx: Context, vararg args: String): String = synchronized(lock) {
         val app = ctx.applicationContext
-        if (ensure(app)) ask(args.joinToString(" "))?.let { return it }
+        if (ensure(app)) ask(args.joinToString(" "), 8000)?.let { return it }
         // Dernier recours : ancienne méthode (lente mais éprouvée)
         RootAccess.run(app, RootTool.command(app.packageName, *args), 20_000)
     }

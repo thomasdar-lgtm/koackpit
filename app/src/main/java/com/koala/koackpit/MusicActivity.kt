@@ -161,9 +161,14 @@ class MusicActivity : ComponentActivity() {
 
     /** Quitte la conduite et rouvre l'accueil Koackpit. */
     private fun goHome() {
+        // Ordre choisi pour ne rien montrer d'autre : écran partagé refermé (le GPS passe derrière),
+        // accueil Koackpit devant, puis seulement le panneau est fermé.
         val app = applicationContext
-        quit {
-            app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        Prefs.setDriving(this, false)
+        SplitScreen.dismiss(app) {
+            app.startActivity(Intent(app, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION))
+            Handler(Looper.getMainLooper()).postDelayed({ if (!isFinishing) finishAndRemoveTask() }, 300)
         }
     }
 

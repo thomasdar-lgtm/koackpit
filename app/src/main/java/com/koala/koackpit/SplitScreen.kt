@@ -66,50 +66,43 @@ object SplitScreen {
         }.onFailure { log.append("1. BtMain refusée : $it\n") }
         else log.append("1. Source déjà ${CarLink.sourceName(src)}\n")
 
-        // 2. GPS en fenêtre principale, à gauche
+        // 2. GPS lancé (ou ramené) normalement, puis le panneau Koackpit par-dessus en plein écran.
+        //    Ensuite UNE seule commande administrateur ancre le GPS à gauche (2/3) : le panneau passe à droite.
+        //    Plus de page Bluetooth, de bureau ou de moitié-moitié visibles entre les deux.
+        val quiet = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION
         h.postDelayed({
-            val opts = ActivityOptions.makeBasic()
             runCatching {
-                hidden(ActivityOptions::class.java, "setLaunchWindowingMode", Int::class.javaPrimitiveType!!).invoke(opts, SPLIT_PRIMARY)
-                hidden(ActivityOptions::class.java, "setSplitScreenCreateMode", Int::class.javaPrimitiveType!!).invoke(opts, CREATE_MODE_LEFT)
-                log.append("2. Écran partagé demandé\n")
-            }.onFailure { log.append("2. Écran partagé refusé : ${it.cause ?: it}\n") }
-            runCatching {
-                ctx.startActivity(nav.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), opts.toBundle())
-                log.append("3. GPS lancé à gauche\n")
-            }.onFailure { log.append("3. GPS échoué : $it\n"); done(log.toString()); return@postDelayed }
-
-            // 3. Panneau Koackpit dans l'autre partie, à droite
+                ctx.startActivity(nav.addFlags(quiet))
+                log.append("2. GPS lancé\n")
+            }.onFailure { log.append("2. GPS échoué : $it\n"); done(log.toString()); return@postDelayed }
             h.postDelayed({
                 runCatching {
-                    ctx.startActivity(
-                        Intent(ctx, MusicActivity::class.java)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT)
-                    )
-                    log.append("4. Panneau lancé à droite\n")
+                    ctx.startActivity(Intent(ctx, MusicActivity::class.java).addFlags(quiet))
+                    log.append("3. Panneau lancé\n")
                     Prefs.setDriving(ctx, true)
-                    arrange(ctx, t0)
-                }.onFailure { log.append("4. Panneau échoué : $it\n") }
+                    val navPkg = nav.component?.packageName ?: nav.`package` ?: navPkgs.first()
+                    arrange(ctx, navPkg, t0)
+                }.onFailure { log.append("3. Panneau échoué : $it\n") }
                 done(log.toString())
-            }, 400)
+            }, 250)
         }, if (needBt) 900L else 0L)
     }
 
     /** Panneau Koackpit : un tiers de la largeur, à droite ; le GPS a les deux tiers à gauche. */
     private const val PANEL_FRACTION = 3
 
-    /** Réglage des largeurs par l'outil administrateur résident. S'il échoue, l'écran reste moitié-moitié. */
-    private fun arrange(ctx: Context, t0: Long) {
+    /** Mise en place de l'écran partagé par l'outil administrateur résident. */
+    private fun arrange(ctx: Context, navPkg: String, t0: Long) {
         val app = ctx.applicationContext
         Thread {
-            Thread.sleep(250)   // le temps que le panneau rejoigne l'écran partagé
+            Thread.sleep(150)   // le temps que le panneau soit au premier plan
             // Taille physique réelle de l'écran (1280 × 720 sur cet autoradio)
             val size = android.graphics.Point()
             @Suppress("DEPRECATION")
             (app.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager).defaultDisplay.getRealSize(size)
             val w = maxOf(size.x, size.y); val hgt = minOf(size.x, size.y)
             val r = runCatching {
-                RootWindows.run(app, "layout", (w / PANEL_FRACTION).toString(), w.toString(), hgt.toString())
+                RootWindows.run(app, "drive", navPkg, (w / PANEL_FRACTION).toString(), w.toString(), hgt.toString())
             }.getOrElse { "ERREUR ${it.message}" }
             WakeLog.add(app, "Disposition conduite (${android.os.SystemClock.elapsedRealtime() - t0} ms) : ${r.trim().take(300)}")
         }.start()
