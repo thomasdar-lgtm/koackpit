@@ -69,7 +69,7 @@ class Screenshots {
     @Test
     fun golf() = captureRoboImage("build/screens/golf.png") { Scaled {
         Row(Modifier.fillMaxSize().background(Navy).padding(16.dp)) {
-            for (m in listOf(0, Doors.FL, Doors.FL or Doors.RR or Doors.TRUNK, 63))
+            for (m in listOf(0, Doors.FL, Doors.FL or Doors.RR or Doors.TRUNK, 31, Doors.HOOD))
                 CarTopView(m, Modifier.weight(1f).fillMaxHeight())
         }
     } }

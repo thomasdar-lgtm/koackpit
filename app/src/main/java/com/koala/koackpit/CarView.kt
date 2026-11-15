@@ -63,65 +63,36 @@ object Doors {
 }
 
 /**
- * Golf 5 vue de dessus (image de la voiture de Thomas, fond détouré), avant en haut.
- * Repère de dessin : 580 × 640 unités ; l'image occupe 330 × 640 au centre, la place de chaque côté
- * sert aux portes ouvertes. Positions des ouvrants relevées sur l'image.
- * Les ouvrants ouverts sont surlignés en jaune et pivotent sur leur charnière (animation).
+ * Golf 5 vue de dessus, à partir des images fournies par Thomas : la voiture fermée (golf_base) et,
+ * pour chaque ouvrant, un calque ne contenant que la partie qui change (porte ouverte, coffre ouvert).
+ * Les calques se superposent : n'importe quelle combinaison d'ouvrants s'affiche correctement.
+ * Capot : image entière à part (vue moteur), affichée en fondu à la place de la voiture.
+ * Toutes les images font 431 × 640 et sont alignées.
  */
 @Composable
 fun CarTopView(mask: Int, modifier: Modifier = Modifier) {
-    fun anim(bit: Int) = if (mask and bit != 0) 1f else 0f
-    val fl by animateFloatAsState(anim(Doors.FL), tween(450), label = "fl")
-    val fr by animateFloatAsState(anim(Doors.FR), tween(450), label = "fr")
-    val rl by animateFloatAsState(anim(Doors.RL), tween(450), label = "rl")
-    val rr by animateFloatAsState(anim(Doors.RR), tween(450), label = "rr")
-    val trunk by animateFloatAsState(anim(Doors.TRUNK), tween(450), label = "coffre")
-    val hood by animateFloatAsState(anim(Doors.HOOD), tween(450), label = "capot")
-    val img = ImageBitmap.imageResource(R.drawable.golf_top)
+    @Composable fun fade(bit: Int, name: String) =
+        animateFloatAsState(if (mask and bit != 0) 1f else 0f, tween(350), label = name).value
+    val fl = fade(Doors.FL, "fl"); val fr = fade(Doors.FR, "fr"); val rl = fade(Doors.RL, "rl"); val rr = fade(Doors.RR, "rr")
+    val trunk = fade(Doors.TRUNK, "coffre"); val hood = fade(Doors.HOOD, "capot")
+    val base = ImageBitmap.imageResource(R.drawable.golf_base)
+    val layers = listOf(
+        ImageBitmap.imageResource(R.drawable.golf_fl) to fl, ImageBitmap.imageResource(R.drawable.golf_fr) to fr,
+        ImageBitmap.imageResource(R.drawable.golf_rl) to rl, ImageBitmap.imageResource(R.drawable.golf_rr) to rr,
+        ImageBitmap.imageResource(R.drawable.golf_trunk) to trunk,
+    )
+    val capot = ImageBitmap.imageResource(R.drawable.golf_capot)
 
     Canvas(modifier) {
-        val uw = 580f; val uh = 640f
-        val k = minOf(size.width / uw, size.height / uh)
-        withTransform({
-            translate((size.width - uw * k) / 2, (size.height - uh * k) / 2)
-            scale(k, k, Offset.Zero)
-        }) {
-            val ox = 125f
-            val left = ox + 32f; val right = ox + 298f
-            val open = Yellow; val deep = Color(0xFFFFA000)
-
-            drawImage(img, dstOffset = IntOffset(ox.toInt(), 0), dstSize = IntSize(330, 640), filterQuality = FilterQuality.High)
-
-            fun door(hingeY: Float, len: Float, t: Float, leftSide: Boolean) {
-                if (t < 0.02f) return
-                val x = if (leftSide) left else right
-                // Emplacement de la porte surligné sur la carrosserie
-                drawRoundRect(open, Offset(if (leftSide) x - 4f else x - 22f, hingeY), Size(26f, len), CornerRadius(10f), alpha = 0.55f * t)
-                // Porte ouverte : pivote autour de sa charnière avant
-                rotate((if (leftSide) 1f else -1f) * 58f * t, Offset(x, hingeY)) {
-                    drawRoundRect(
-                        Brush.verticalGradient(listOf(open, deep), hingeY, hingeY + len),
-                        Offset(if (leftSide) x - 14f else x, hingeY), Size(14f, len), CornerRadius(7f), alpha = 0.3f + 0.7f * t,
-                    )
-                }
-            }
-            door(194f, 136f, fl, true)
-            door(194f, 136f, fr, false)
-            door(333f, 150f, rl, true)
-            door(333f, 150f, rr, false)
-
-            // Hayon et capot : surlignés et légèrement « soulevés » vers l'extérieur
-            if (trunk > 0.02f) {
-                val o = Offset(ox + 57f, 497f + 16f * trunk); val sz = Size(217f, 130f)
-                drawRoundRect(open, o, sz, CornerRadius(30f), alpha = 0.5f * trunk)
-                drawRoundRect(open, o, sz, CornerRadius(30f), alpha = trunk, style = Stroke(7f))
-            }
-            if (hood > 0.02f) {
-                val o = Offset(ox + 53f, 13f - 16f * hood); val sz = Size(227f, 139f)
-                drawRoundRect(open, o, sz, CornerRadius(70f, 40f), alpha = 0.5f * hood)
-                drawRoundRect(open, o, sz, CornerRadius(70f, 40f), alpha = hood, style = Stroke(7f))
-            }
+        val k = minOf(size.width / 431f, size.height / 640f)
+        val sz = IntSize((431 * k).toInt(), (640 * k).toInt())
+        val off = IntOffset(((size.width - sz.width) / 2).toInt(), ((size.height - sz.height) / 2).toInt())
+        val car = 1f - hood
+        if (car > 0.01f) {
+            drawImage(base, dstOffset = off, dstSize = sz, alpha = car, filterQuality = FilterQuality.High)
+            for ((img, t) in layers) if (t > 0.01f) drawImage(img, dstOffset = off, dstSize = sz, alpha = t * car, filterQuality = FilterQuality.High)
         }
+        if (hood > 0.01f) drawImage(capot, dstOffset = off, dstSize = sz, alpha = hood, filterQuality = FilterQuality.High)
     }
 }
 
@@ -134,7 +105,7 @@ fun DoorAlert(mask: Int, modifier: Modifier = Modifier, compact: Boolean = false
                 .border(1.5.dp, Yellow, RoundedCornerShape(18.dp)).padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            CarTopView(mask, Modifier.size(if (compact) 64.dp else 86.dp, if (compact) 70.dp else 94.dp))
+            CarTopView(mask, Modifier.size(if (compact) 54.dp else 70.dp, if (compact) 80.dp else 104.dp))
             Spacer(Modifier.width(10.dp))
             Column(verticalArrangement = Arrangement.Center) {
                 Text(Doors.label(mask), color = Color.White, fontSize = if (compact) 13.sp else 17.sp, fontWeight = FontWeight.Bold, lineHeight = 18.sp)
