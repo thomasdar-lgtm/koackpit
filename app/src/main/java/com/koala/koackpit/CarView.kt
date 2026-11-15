@@ -6,6 +6,11 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.res.imageResource
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Brush
@@ -58,9 +63,10 @@ object Doors {
 }
 
 /**
- * Golf 5 (3 ou 5 portes, hayon) vue de dessus, avant en haut. Dessin vectoriel dans un repère de
- * 180 × 240 unités (voiture de 84 de large au centre ; la place autour sert aux portes ouvertes).
- * Les ouvrants ouverts pivotent sur leur charnière avec une animation et passent en jaune.
+ * Golf 5 vue de dessus (image de la voiture de Thomas, fond détouré), avant en haut.
+ * Repère de dessin : 580 × 640 unités ; l'image occupe 330 × 640 au centre, la place de chaque côté
+ * sert aux portes ouvertes. Positions des ouvrants relevées sur l'image.
+ * Les ouvrants ouverts sont surlignés en jaune et pivotent sur leur charnière (animation).
  */
 @Composable
 fun CarTopView(mask: Int, modifier: Modifier = Modifier) {
@@ -71,93 +77,49 @@ fun CarTopView(mask: Int, modifier: Modifier = Modifier) {
     val rr by animateFloatAsState(anim(Doors.RR), tween(450), label = "rr")
     val trunk by animateFloatAsState(anim(Doors.TRUNK), tween(450), label = "coffre")
     val hood by animateFloatAsState(anim(Doors.HOOD), tween(450), label = "capot")
+    val img = ImageBitmap.imageResource(R.drawable.golf_top)
 
     Canvas(modifier) {
-        val uw = 180f; val uh = 240f
+        val uw = 580f; val uh = 640f
         val k = minOf(size.width / uw, size.height / uh)
         withTransform({
             translate((size.width - uw * k) / 2, (size.height - uh * k) / 2)
             scale(k, k, Offset.Zero)
         }) {
-            val cx = 90f
-            val L = cx - 42f; val R = cx + 42f          // flancs
-            val top = 12f; val bottom = 228f            // pare-chocs
-            val bodyCol = Color(0xFF41557D); val bodyHi = Color(0xFF52699A)
-            val glass = Color(0xFF14203B); val line = Color(0xFF2B3B5E); val tyre = Color(0xFF2A3348)
-            val open = Yellow
+            val ox = 125f
+            val left = ox + 32f; val right = ox + 298f
+            val open = Yellow; val deep = Color(0xFFFFA000)
 
-            // Roues (dépassent légèrement des flancs)
-            for (y in listOf(48f, 178f)) for (x in listOf(L - 4f, R - 10f))
-                drawRoundRect(tyre, Offset(x, y), Size(14f, 30f), CornerRadius(5f))
+            drawImage(img, dstOffset = IntOffset(ox.toInt(), 0), dstSize = IntSize(330, 640), filterQuality = FilterQuality.High)
 
-            // Carrosserie : avant arrondi, flancs légèrement galbés, arrière de hayon presque droit
-            val body = Path().apply {
-                moveTo(cx, top)
-                cubicTo(cx + 30f, top, R - 2f, top + 6f, R, top + 34f)
-                cubicTo(R + 3f, 90f, R + 3f, 160f, R, 200f)
-                cubicTo(R - 1f, bottom - 6f, cx + 30f, bottom, cx, bottom)
-                cubicTo(cx - 30f, bottom, L + 1f, bottom - 6f, L, 200f)
-                cubicTo(L - 3f, 160f, L - 3f, 90f, L, top + 34f)
-                cubicTo(L + 2f, top + 6f, cx - 30f, top, cx, top)
-                close()
-            }
-            drawPath(body, Brush.horizontalGradient(listOf(bodyCol, bodyHi, bodyCol), L, R))
-
-            // Capot : nervures
-            drawLine(line, Offset(cx - 22f, top + 14f), Offset(cx - 26f, 62f), 1.5f)
-            drawLine(line, Offset(cx + 22f, top + 14f), Offset(cx + 26f, 62f), 1.5f)
-
-            // Rétroviseurs
-            drawRoundRect(bodyCol, Offset(L - 11f, 80f), Size(12f, 8f), CornerRadius(4f))
-            drawRoundRect(bodyCol, Offset(R - 1f, 80f), Size(12f, 8f), CornerRadius(4f))
-
-            // Pare-brise (trapèze), toit, lunette arrière
-            val ws = Path().apply {
-                moveTo(L + 10f, 94f); lineTo(cx - 26f, 68f); quadraticBezierTo(cx, 63f, cx + 26f, 68f)
-                lineTo(R - 10f, 94f); quadraticBezierTo(cx, 89f, L + 10f, 94f); close()
-            }
-            drawPath(ws, glass)
-            drawRoundRect(bodyHi, Offset(L + 12f, 97f), Size(R - L - 24f, 84f), CornerRadius(10f))
-            val rw = Path().apply {
-                moveTo(L + 12f, 184f); quadraticBezierTo(cx, 180f, R - 12f, 184f)
-                lineTo(R - 16f, 204f); quadraticBezierTo(cx, 207f, L + 16f, 204f); close()
-            }
-            drawPath(rw, glass)
-            // Vitres latérales
-            drawLine(glass, Offset(L + 6f, 98f), Offset(L + 6f, 178f), 5f, StrokeCap.Round)
-            drawLine(glass, Offset(R - 6f, 98f), Offset(R - 6f, 178f), 5f, StrokeCap.Round)
-
-            // Portes : ligne de jonction quand fermée, panneau pivotant quand ouverte
             fun door(hingeY: Float, len: Float, t: Float, leftSide: Boolean) {
-                val x = if (leftSide) L else R
-                if (t < 0.02f) {
-                    drawLine(line, Offset(x + (if (leftSide) 2f else -2f), hingeY + len), Offset(x + (if (leftSide) 10f else -10f), hingeY + len), 1.5f)
-                    return
-                }
-                rotate((if (leftSide) 1f else -1f) * 62f * t, Offset(x, hingeY)) {
-                    val w = 9f
+                if (t < 0.02f) return
+                val x = if (leftSide) left else right
+                // Emplacement de la porte surligné sur la carrosserie
+                drawRoundRect(open, Offset(if (leftSide) x - 4f else x - 22f, hingeY), Size(26f, len), CornerRadius(10f), alpha = 0.55f * t)
+                // Porte ouverte : pivote autour de sa charnière avant
+                rotate((if (leftSide) 1f else -1f) * 58f * t, Offset(x, hingeY)) {
                     drawRoundRect(
-                        Brush.verticalGradient(listOf(open, Color(0xFFFFA000)), hingeY, hingeY + len),
-                        Offset(if (leftSide) x - w else x, hingeY), Size(w, len), CornerRadius(3f), alpha = 0.4f + 0.6f * t,
+                        Brush.verticalGradient(listOf(open, deep), hingeY, hingeY + len),
+                        Offset(if (leftSide) x - 14f else x, hingeY), Size(14f, len), CornerRadius(7f), alpha = 0.3f + 0.7f * t,
                     )
                 }
-                // Ouverture dans la carrosserie
-                drawLine(tyre, Offset(x, hingeY + 2f), Offset(x, hingeY + len - 2f), 3f * t, StrokeCap.Round)
             }
-            door(92f, 44f, fl, true)
-            door(92f, 44f, fr, false)
-            door(138f, 38f, rl, true)
-            door(138f, 38f, rr, false)
+            door(194f, 136f, fl, true)
+            door(194f, 136f, fr, false)
+            door(333f, 150f, rl, true)
+            door(333f, 150f, rr, false)
 
-            // Hayon (arrière) et capot (avant) : le panneau se soulève (décalé vers l'extérieur) et passe en jaune
+            // Hayon et capot : surlignés et légèrement « soulevés » vers l'extérieur
             if (trunk > 0.02f) {
-                val y = 186f + 12f * trunk
-                drawRoundRect(open, Offset(L + 4f, y), Size(R - L - 8f, bottom - 186f), CornerRadius(16f), alpha = 0.85f * trunk)
-                drawRoundRect(glass, Offset(L + 16f, y + 4f), Size(R - L - 32f, 14f), CornerRadius(6f), alpha = 0.6f * trunk)
+                val o = Offset(ox + 57f, 497f + 16f * trunk); val sz = Size(217f, 130f)
+                drawRoundRect(open, o, sz, CornerRadius(30f), alpha = 0.5f * trunk)
+                drawRoundRect(open, o, sz, CornerRadius(30f), alpha = trunk, style = Stroke(7f))
             }
             if (hood > 0.02f) {
-                val y = top - 10f * hood
-                drawRoundRect(open, Offset(L + 2f, y), Size(R - L - 4f, 54f), CornerRadius(30f, 24f), alpha = 0.85f * hood)
+                val o = Offset(ox + 53f, 13f - 16f * hood); val sz = Size(227f, 139f)
+                drawRoundRect(open, o, sz, CornerRadius(70f, 40f), alpha = 0.5f * hood)
+                drawRoundRect(open, o, sz, CornerRadius(70f, 40f), alpha = hood, style = Stroke(7f))
             }
         }
     }
@@ -172,7 +134,7 @@ fun DoorAlert(mask: Int, modifier: Modifier = Modifier, compact: Boolean = false
                 .border(1.5.dp, Yellow, RoundedCornerShape(18.dp)).padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            CarTopView(mask, Modifier.size(if (compact) 56.dp else 76.dp, if (compact) 64.dp else 88.dp))
+            CarTopView(mask, Modifier.size(if (compact) 64.dp else 86.dp, if (compact) 70.dp else 94.dp))
             Spacer(Modifier.width(10.dp))
             Column(verticalArrangement = Arrangement.Center) {
                 Text(Doors.label(mask), color = Color.White, fontSize = if (compact) 13.sp else 17.sp, fontWeight = FontWeight.Bold, lineHeight = 18.sp)
