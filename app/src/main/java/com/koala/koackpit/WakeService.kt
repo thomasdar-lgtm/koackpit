@@ -61,6 +61,18 @@ class WakeService : Service() {
             // Conduite au démarrage (réglage, activé par défaut) ou conduite en cours avant la veille :
             // on ouvre le GPS + lecteur côte à côte plutôt que l'accueil.
             // Au démarrage : l'accueil Koackpit, sauf si le réglage « conduite au démarrage » est activé
+            // Son Bluetooth : le service de l'autoradio coupe le son du téléphone tant qu'il n'a pas la priorité
+            // audio d'Android, et ne la demande que lorsque SA page Bluetooth s'affiche (constaté : sans elle,
+            // même Deezer restait muet ; en l'ouvrant, le son revient et reste). Au réveil, on l'ouvre donc
+            // un instant — ce qui remet aussi la source sur Bluetooth (avant : « Android » coupait son + volant).
+            val src = CarLink.currentSource()
+            val switchBt = src != null
+            if (switchBt) {
+                WakeLog.add(app, "Démarrage : page Bluetooth un instant (source ${CarLink.sourceName(src)}, priorité audio)")
+                runCatching {
+                    app.startActivity(Intent().setComponent(SplitScreen.BT_MAIN).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                }.onFailure { WakeLog.add(app, "Page Bluetooth refusée : ${it.message}") }
+            }
             val wantDrive = Prefs.autoDrive(app)
             if (wantDrive) {
                 for (delay in longArrayOf(2500, 7000)) {
@@ -82,17 +94,6 @@ class WakeService : Service() {
                 WakeLog.add(app, "Démarrage : conduite précédente fermée, accueil Koackpit")
                 Prefs.setDriving(app, false)
                 MusicActivity.closeIfOpen()
-            }
-            // Source audio : au réveil, l'autoradio repasse souvent sur « Android » (constaté dans le journal),
-            // ce qui coupe le son du téléphone ET les commandes au volant. Avant la 0.7.5, la relance de la
-            // conduite corrigeait ça sans le dire. On remet donc la source Bluetooth ici, comme la touche BT.
-            val src = CarLink.currentSource()
-            val switchBt = src != null && src != CarLink.SRC_BT
-            if (switchBt) {
-                WakeLog.add(app, "Démarrage : source ${CarLink.sourceName(src)} → Bluetooth")
-                runCatching {
-                    app.startActivity(Intent().setComponent(SplitScreen.BT_MAIN).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                }.onFailure { WakeLog.add(app, "Bascule Bluetooth refusée : ${it.message}") }
             }
             // Koackpit repasse devant ensuite (plus tard si la page Bluetooth doit d'abord basculer la source)
             for (delay in if (switchBt) longArrayOf(1500, 3000, 5000) else longArrayOf(800, 2500, 5000)) {
