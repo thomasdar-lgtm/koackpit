@@ -15,3 +15,4 @@ dependencyResolutionManagement {
 rootProject.name = "Koackpit"
 include(":app")
 include(":updater")
+include(":phone")

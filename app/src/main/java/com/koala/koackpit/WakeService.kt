@@ -162,6 +162,8 @@ class WakeService : Service() {
         main.postDelayed(sourceWatch, 4000)
         // Données de la voiture (vitesse…) lues sur le bus CAN
         main.postDelayed({ CanBus.start(this) }, 2000)
+        // Appli compagnon du téléphone (pochette, morceau en cours)
+        PhoneLink.start(this)
         // Outil fenêtres résident lancé à l'avance (la conduite s'ouvre et se ferme alors sans attente)
         main.postDelayed({ RootWindows.warmUp(this) }, 25_000)
         // Android 10 n'autorise une appli en arrière-plan à ouvrir un écran que si elle a le droit

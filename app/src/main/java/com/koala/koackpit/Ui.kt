@@ -153,12 +153,17 @@ fun Caption(text: String) =
 
 /** Pochette : pour l'instant un dégradé (la vraie pochette viendra de l'appli compagnon du S25). */
 @Composable
-fun Artwork(modifier: Modifier) {
+fun Artwork(modifier: Modifier, title: String = "") {
+    // Pochette envoyée par l'appli « Koackpit Téléphone » ; sinon la note de musique
+    val art = PhoneLink.artFor(title)
     Box(
         modifier.clip(RoundedCornerShape(14.dp))
             .background(Brush.linearGradient(listOf(Color(0xFFE85D75), Color(0xFF7B2FF7)))),
         contentAlignment = Alignment.Center,
-    ) { NoteGlyph(Color.White.copy(alpha = 0.85f), 28) }
+    ) {
+        if (art != null) androidx.compose.foundation.Image(art, null, Modifier.matchParentSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+        else NoteGlyph(Color.White.copy(alpha = 0.85f), 28)
+    }
 }
 
 @Composable
@@ -178,7 +183,7 @@ fun MediaCardWide(modifier: Modifier, m: MediaInfo, onPrev: () -> Unit, onPlay: 
             Caption("En écoute · Bluetooth")
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Artwork(Modifier.size(64.dp))
+                Artwork(Modifier.size(64.dp), m.title)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(m.title.ifEmpty { "Rien en lecture" }, color = Color.White, fontSize = 17.sp,
@@ -327,7 +332,7 @@ fun DrivePanel(
                     Caption("Bluetooth")
                     // Pochette plus petite si un bouton ou un message doit aussi tenir dans la carte
                     val extra = onBtSource != null || media.warning.isNotEmpty()
-                    Artwork(Modifier.size(if (narrow || extra) 72.dp else 110.dp))
+                    Artwork(Modifier.size(if (narrow || extra) 72.dp else 110.dp), media.title)
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(media.title.ifEmpty { "Rien en lecture" }, color = Color.White, fontSize = 16.sp,
                             fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
