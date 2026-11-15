@@ -160,6 +160,8 @@ class WakeService : Service() {
         })
         main.postDelayed(reverseWatch, 3000)
         main.postDelayed(sourceWatch, 4000)
+        // Outil fenêtres résident lancé à l'avance (la conduite s'ouvre et se ferme alors sans attente)
+        main.postDelayed({ RootWindows.warmUp(this) }, 25_000)
         // Android 10 n'autorise une appli en arrière-plan à ouvrir un écran que si elle a le droit
         // « afficher par-dessus les autres applis » : on se l'accorde une fois via l'accès système.
         if (!Settings.canDrawOverlays(this) || NavPermissions.missing(this)) {

@@ -8,7 +8,8 @@ import android.graphics.Rect
  * Il pilote directement le gestionnaire de fenêtres d'Android 10 : placement et taille de l'écran partagé.
  * Une appli normale n'a pas ce droit ; l'administrateur (uid 0) si.
  *
- * Usage : RootTool layout <largeur panneau> <largeur écran> <hauteur écran>   (pixels)
+ * Usage : RootTool serve <uid de Koackpit>   (outil résident, voir RootWindows)
+ *         RootTool layout <largeur panneau> <largeur écran> <hauteur écran>   (pixels)
  *         RootTool dismiss
  *         RootTool stacks
  */
@@ -82,29 +83,64 @@ object RootTool {
         }.joinToString(" | ")
     }.getOrElse { "?" }
 
+    /** Exécute une commande de fenêtres. Renvoie « OK … » ou « ERREUR … ». */
+    fun exec(args: List<String>): String = try {
+        when (args.getOrNull(0)) {
+            "layout" -> {
+                // GPS = fenêtre principale à gauche ; on lui donne tout sauf la largeur du panneau.
+                // La taille de l'écran est fournie par l'appli : ici (hors appli), Android ne la connaît pas.
+                val panelW = args[1].toInt(); val w = args[2].toInt(); val h = args[3].toInt()
+                val r = Rect(0, 0, w - panelW, h)
+                if (r.width() < w / 3 || h < 100) throw IllegalArgumentException("taille invalide $r (écran ${w}×$h)")
+                step = "largeur $r"
+                call("resizeDockedStack", r, null, null, null, null)
+                "OK [$source] " + stacks()
+            }
+            "dismiss" -> { step = "fermeture"; call("dismissSplitScreenMode", false); "OK" }
+            "stacks" -> stacks()
+            else -> "ERREUR commande inconnue"
+        }
+    } catch (t: Throwable) {
+        val e = (t as? java.lang.reflect.InvocationTargetException)?.targetException ?: t
+        "ERREUR [$source, étape $step] ${e.javaClass.simpleName}: ${e.message}"
+    }
+
+    /** Nom de la prise locale de l'outil résident. */
+    const val SOCKET = "koackpit_root"
+    /** L'outil résident doit être de la même version que l'appli (sinon il est remplacé). */
+    val VERSION = BuildConfig.VERSION_CODE.toString()
+
+    /**
+     * Outil RÉSIDENT : reste lancé en administrateur et répond instantanément aux demandes de Koackpit
+     * (au lieu d'ouvrir puis refermer l'accès système à chaque fois, ~2 s). Seule l'appli Koackpit
+     * (vérifiée par son numéro d'utilisateur Android) peut lui parler, et seulement pour les fenêtres.
+     */
+    private fun serve(allowedUid: Int) {
+        val server = try { android.net.LocalServerSocket(SOCKET) } catch (e: Exception) { return }   // déjà lancé
+        while (true) {
+            val s = try { server.accept() } catch (e: Exception) { continue }
+            try {
+                if (s.peerCredentials.uid != allowedUid) continue
+                s.soTimeout = 3000
+                val line = s.inputStream.bufferedReader().readLine() ?: continue
+                val parts = line.trim().split(' ').filter { it.isNotEmpty() }
+                val out = when (parts.firstOrNull()) {
+                    "version" -> VERSION
+                    "quit" -> { s.outputStream.write("OK\n".toByteArray()); s.close(); kotlin.system.exitProcess(0) }
+                    else -> exec(parts)
+                }
+                s.outputStream.write((out.replace('\n', ' ') + "\n").toByteArray())
+            } catch (e: Exception) {
+            } finally {
+                runCatching { s.close() }
+            }
+        }
+    }
+
     @JvmStatic
     fun main(args: Array<String>) {
-        try {
-            when (args.getOrNull(0)) {
-                "layout" -> {
-                    // GPS = fenêtre principale à gauche ; on lui donne tout sauf la largeur du panneau.
-                    // La taille de l'écran est fournie par l'appli : ici (hors appli), Android ne la connaît pas
-                    // (elle valait 0 × 0, d'où un GPS plein écran et un panneau de 1 pixel).
-                    val panelW = args[1].toInt(); val w = args[2].toInt(); val h = args[3].toInt()
-                    val r = Rect(0, 0, w - panelW, h)
-                    if (r.width() < w / 3 || h < 100) throw IllegalArgumentException("taille invalide $r (écran ${w}×$h)")
-                    step = "largeur $r"
-                    call("resizeDockedStack", r, null, null, null, null)
-                    println("OK [$source] " + stacks())
-                }
-                "dismiss" -> { step = "fermeture"; call("dismissSplitScreenMode", false); println("OK") }
-                "stacks" -> println(stacks())
-                else -> println("ERREUR commande inconnue")
-            }
-        } catch (t: Throwable) {
-            val e = (t as? java.lang.reflect.InvocationTargetException)?.targetException ?: t
-            println("ERREUR [$source, étape $step] ${e.javaClass.simpleName}: ${e.message}")
-        }
+        if (args.getOrNull(0) == "serve") { serve(args[1].toInt()); return }
+        println(exec(args.toList()))
     }
 
     /** Commande shell (à lancer via RootAccess.run) qui exécute cet outil en administrateur. */

@@ -54,6 +54,7 @@ object SplitScreen {
         if (nav == null) { done("GPS introuvable"); return }
         if (MusicActivity.isOpen()) { done("Conduite déjà ouverte"); return }
         val h = Handler(Looper.getMainLooper())
+        val t0 = android.os.SystemClock.elapsedRealtime()
 
         // 1. Source audio Bluetooth. L'autoradio la mémorise : on ne passe par sa page BtMain
         //    (seul moyen de basculer l'ampli) que si une autre source est active.
@@ -87,30 +88,30 @@ object SplitScreen {
                     )
                     log.append("4. Panneau lancé à droite\n")
                     Prefs.setDriving(ctx, true)
-                    arrange(ctx)
+                    arrange(ctx, t0)
                 }.onFailure { log.append("4. Panneau échoué : $it\n") }
                 done(log.toString())
-            }, 800)
+            }, 400)
         }, if (needBt) 900L else 0L)
     }
 
     /** Panneau Koackpit : un tiers de la largeur, à droite ; le GPS a les deux tiers à gauche. */
     private const val PANEL_FRACTION = 3
 
-    /** Réglage des largeurs par l'outil administrateur. S'il échoue, l'écran reste moitié-moitié. */
-    private fun arrange(ctx: Context) {
+    /** Réglage des largeurs par l'outil administrateur résident. S'il échoue, l'écran reste moitié-moitié. */
+    private fun arrange(ctx: Context, t0: Long) {
         val app = ctx.applicationContext
         Thread {
-            Thread.sleep(1200)
+            Thread.sleep(250)   // le temps que le panneau rejoigne l'écran partagé
             // Taille physique réelle de l'écran (1280 × 720 sur cet autoradio)
             val size = android.graphics.Point()
             @Suppress("DEPRECATION")
             (app.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager).defaultDisplay.getRealSize(size)
             val w = maxOf(size.x, size.y); val hgt = minOf(size.x, size.y)
             val r = runCatching {
-                RootAccess.run(app, RootTool.command(app.packageName, "layout", (w / PANEL_FRACTION).toString(), w.toString(), hgt.toString()), 20_000)
+                RootWindows.run(app, "layout", (w / PANEL_FRACTION).toString(), w.toString(), hgt.toString())
             }.getOrElse { "ERREUR ${it.message}" }
-            WakeLog.add(app, "Disposition conduite : ${r.trim().take(300)}")
+            WakeLog.add(app, "Disposition conduite (${android.os.SystemClock.elapsedRealtime() - t0} ms) : ${r.trim().take(300)}")
         }.start()
     }
 
@@ -120,10 +121,10 @@ object SplitScreen {
      */
     fun dismiss(ctx: Context, then: (() -> Unit)? = null) {
         val app = ctx.applicationContext
+        val t0 = android.os.SystemClock.elapsedRealtime()
         Thread {
-            val r = runCatching { RootAccess.run(app, RootTool.command(app.packageName, "dismiss"), 15_000) }
-                .getOrElse { "ERREUR ${it.message}" }
-            WakeLog.add(app, "Fin de conduite : ${r.trim().take(200)}")
+            val r = runCatching { RootWindows.run(app, "dismiss") }.getOrElse { "ERREUR ${it.message}" }
+            WakeLog.add(app, "Fin de conduite (${android.os.SystemClock.elapsedRealtime() - t0} ms) : ${r.trim().take(200)}")
             then?.let { Handler(Looper.getMainLooper()).post(it) }
         }.start()
     }
