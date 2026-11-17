@@ -83,7 +83,9 @@ object CanBus {
             if (changed) app?.let { WakeLog.add(it, "CAN type $type : $hex") }
         }
         if (now < captureUntil) capture(type, f.copyOfRange(3, 3 + len))
-        if (type == TYPE_KEY && len >= 2) onKey(f[3].toInt() and 255, f[4].toInt() and 255)
+        // Boutons du volant : action désactivée. Le code 01 pris pour « OK » est en réalité un bouton de gauche
+        // (relevé du 17/11 : 01, 06, 02, 05 pour les 4 boutons de gauche ; OK n'envoie rien sur le CAN).
+        // if (type == TYPE_KEY && len >= 2) onKey(f[3].toInt() and 255, f[4].toInt() and 255)
         if (type == TYPE_DOORS && len >= 2) {
             val m = f[4].toInt() and 0x3F
             main.post { if (doors.value != m) doors.value = m }

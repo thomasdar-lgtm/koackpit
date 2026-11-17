@@ -12,8 +12,8 @@ android {
         applicationId = "com.koala.koackpit"
         minSdk = 26
         targetSdk = 35
-        versionCode = 78
-        versionName = "0.10.7"
+        versionCode = 79
+        versionName = "0.10.8"
     }
 
     signingConfigs {
