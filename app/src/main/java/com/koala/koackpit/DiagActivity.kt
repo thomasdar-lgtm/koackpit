@@ -136,11 +136,11 @@ fun DiagScreen(server: FileServer, onBack: () -> Unit = {}, onZip: (File) -> Uni
             Spacer(Modifier.width(8.dp))
             Button(
                 onClick = {
-                    CanBus.startCapture(ctx, 5)
-                    toast(ctx, "Relevé voiture lancé pour 5 min : roule normalement")
+                    CanBus.startCapture(ctx, 10)
+                    toast(ctx, "Relevé voiture lancé pour 10 min : roule normalement")
                 },
                 colors = toolColors(false),
-            ) { Text("Relevé voiture (5 min)", fontWeight = FontWeight.Black) }
+            ) { Text("Relevé voiture (10 min)", fontWeight = FontWeight.Black) }
         }
         if (rootLog.isNotEmpty()) {
             Spacer(Modifier.height(6.dp))

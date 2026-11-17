@@ -112,13 +112,15 @@ object CanBus {
     /** Relevé de [minutes] min : chaque nouveau contenu de chaque trame (40 au plus par trame) avec l'heure. */
     fun startCapture(ctx: Context, minutes: Int) {
         app = ctx.applicationContext
-        synchronized(capLast) { capLast.clear(); capCount.clear(); capCounts.clear() }
+        synchronized(capLast) { capLast.clear(); capCount.clear(); capCounts.clear(); capWritten.clear(); capLines = 0 }
+        startGps(ctx.applicationContext)
         captureFile(ctx).writeText("Relevé CAN démarré ${stamp()} pour $minutes min (Koackpit ${BuildConfig.VERSION_NAME})\n")
         captureUntil = SystemClock.elapsedRealtime() + minutes * 60_000L
         WakeLog.add(ctx, "Relevé voiture démarré ($minutes min)")
         main.postDelayed({
             val s = synchronized(capLast) { capCounts.entries.joinToString(", ") { "type ${it.key}×${it.value}" } }
             app?.let {
+                stopGps(it)
                 runCatching { captureFile(it).appendText("Fin ${stamp()} — trames : $s\n") }
                 WakeLog.add(it, "Relevé voiture terminé : " + s.ifEmpty { "aucune trame" })
             }
@@ -127,14 +129,47 @@ object CanBus {
 
     private fun stamp() = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.FRANCE).format(java.util.Date())
 
+    private val capWritten = HashMap<String, Long>()
+    private var capLines = 0
+    @Volatile private var gpsKmh: Float? = null
+    private var gpsListener: android.location.LocationListener? = null
+
+    /**
+     * Une ligne par trame et par seconde au plus (sous-type = 1er octet pour 65 et 125), avec la vitesse GPS
+     * du moment : permet de retrouver quelle trame porte la vitesse, le carburant… en les comparant.
+     */
     private fun capture(type: Int, data: ByteArray) {
-        val key = if (type == 65 && data.isNotEmpty()) "$type/${data[0].toInt() and 255}" else "$type"
+        val key = if ((type == 65 || type == 125) && data.isNotEmpty()) "$type/${"%02X".format(data[0])}" else "$type"
         val hex = data.joinToString(" ") { "%02X".format(it) }
+        val now = SystemClock.elapsedRealtime()
         val write = synchronized(capLast) {
             capCounts[type] = (capCounts[type] ?: 0) + 1
-            if (capLast[key] != hex && (capCount[key] ?: 0) < 40) { capLast[key] = hex; capCount[key] = (capCount[key] ?: 0) + 1; true } else false
+            if (capLast[key] != hex && now - (capWritten[key] ?: 0L) >= 1000 && capLines < 6000) {
+                capLast[key] = hex; capWritten[key] = now; capLines++; true
+            } else false
         }
-        if (write) app?.let { runCatching { captureFile(it).appendText("${stamp()} type $key : $hex\n") } }
+        if (write) app?.let {
+            val g = gpsKmh?.let { v -> " | GPS ${"%.1f".format(v)}" } ?: ""
+            runCatching { captureFile(it).appendText("${stamp()} $key : $hex$g\n") }
+        }
+    }
+
+    @android.annotation.SuppressLint("MissingPermission")
+    private fun startGps(ctx: Context) {
+        val lm = ctx.getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
+        val l = object : android.location.LocationListener {
+            override fun onLocationChanged(loc: android.location.Location) { gpsKmh = if (loc.hasSpeed()) loc.speed * 3.6f else null }
+            @Deprecated("Deprecated in Java") override fun onStatusChanged(p: String?, s: Int, e: android.os.Bundle?) {}
+            override fun onProviderEnabled(p: String) {}
+            override fun onProviderDisabled(p: String) {}
+        }
+        runCatching { lm.requestLocationUpdates(android.location.LocationManager.GPS_PROVIDER, 1000L, 0f, l, Looper.getMainLooper()) }
+        gpsListener = l
+    }
+
+    private fun stopGps(ctx: Context) {
+        gpsListener?.let { l -> runCatching { (ctx.getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager).removeUpdates(l) } }
+        gpsListener = null; gpsKmh = null
     }
 
     private fun carService(): IBinder? = runCatching {

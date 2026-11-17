@@ -38,7 +38,10 @@ object CallLog {
     private fun start(app: Context) {
         active = true; lines = 0
         startStamp = now("MM-dd HH:mm:ss.000")
-        file(app).writeText("Appel du ${now("dd/MM HH:mm:ss")} (Koackpit ${BuildConfig.VERSION_NAME})\n")
+        // Les relevés s'ajoutent (les plus anciens sont retirés au-delà de 150 Ko)
+        val f = file(app)
+        if (f.exists() && f.length() > 150_000) runCatching { f.writeText(f.readText().takeLast(75_000)) }
+        f.appendText("\n==== Appel du ${now("dd/MM HH:mm:ss")} (Koackpit ${BuildConfig.VERSION_NAME})\n")
         WakeLog.add(app, "Appel : relevé démarré")
         main.post(object : Runnable {
             override fun run() {
