@@ -136,4 +136,28 @@ class Screenshots {
             }
         }
     } }
+
+    private val diagApps = listOf(
+        AppEntry("android.car.app.canbus", "CarCanbus", true, emptyList(), 9_437_184L, carInfo = true, vendor = true),
+        AppEntry("com.waze", "Waze", false, emptyList(), 150_000_000L, carInfo = false, vendor = false),
+    )
+
+    @Test
+    fun diagnostic() = captureRoboImage("build/screens/diagnostic.png") { Scaled {
+        androidx.compose.foundation.layout.Column(Modifier.fillMaxSize().background(Navy).padding(16.dp)) {
+            DiagHeader(2, {}, {}, {}, {}, {})
+        }
+    } }
+
+    @Test
+    fun diagnostic_fichier() = captureRoboImage("build/screens/diagnostic-fichier.png") { Scaled {
+        val f = java.io.File.createTempFile("koackpit-diag", ".zip")
+        ExportPanel(diagApps, emptyList(), false, null, "", f, "http://192.168.43.12:8080/koackpit-diag.zip", "Téléchargements/Koackpit/koackpit-diag.zip",
+            {}, {}, {}, {}, qr = qrBitmap("http://192.168.43.12:8080/koackpit-diag.zip"))
+    } }
+
+    @Test
+    fun diagnostic_creer() = captureRoboImage("build/screens/diagnostic-creer.png") { Scaled {
+        ExportPanel(diagApps, emptyList(), false, null, "", null, null, null, {}, {}, {}, {})
+    } }
 }

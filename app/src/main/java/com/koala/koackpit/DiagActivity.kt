@@ -45,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -72,6 +73,15 @@ class DiagActivity : ComponentActivity() {
 
 private const val LIMIT_MB = 300
 
+/** QR code (noir sur blanc) de [text], pour le scanner avec l'appareil photo du S25. */
+fun qrBitmap(text: String, size: Int = 512): android.graphics.Bitmap {
+    val m = com.google.zxing.qrcode.QRCodeWriter().encode(
+        text, com.google.zxing.BarcodeFormat.QR_CODE, size, size, mapOf(com.google.zxing.EncodeHintType.MARGIN to 1),
+    )
+    val px = IntArray(size * size) { i -> if (m.get(i % size, i / size)) android.graphics.Color.BLACK else android.graphics.Color.WHITE }
+    return android.graphics.Bitmap.createBitmap(px, size, size, android.graphics.Bitmap.Config.ARGB_8888)
+}
+
 @Composable
 fun DiagScreen(server: FileServer, onBack: () -> Unit = {}, onZip: (File) -> Unit) {
     val ctx = LocalContext.current
@@ -87,6 +97,7 @@ fun DiagScreen(server: FileServer, onBack: () -> Unit = {}, onZip: (File) -> Uni
     var url by remember { mutableStateOf<String?>(null) }
     var rootLog by remember { mutableStateOf("") }
     var activeTool by remember { mutableStateOf(0) }   // 1 = test d'accès, 2 = journal : bouton surligné
+    var export by remember { mutableStateOf(false) }   // fenêtre « Créer le fichier »
 
     LaunchedEffect(Unit) {
         val list = withContext(Dispatchers.IO) { Diag.apps(ctx) }
@@ -95,73 +106,143 @@ fun DiagScreen(server: FileServer, onBack: () -> Unit = {}, onZip: (File) -> Uni
         runCatching { upd.info = Updater.check() }
     }
 
-    val totalMb = apps.filter { it.pkg in selected }.sumOf { it.size } / 1_048_576
-    val carInfo = apps.firstOrNull { it.carInfo }
-
-    Column(Modifier.fillMaxSize().background(Navy).padding(16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            // Retour à Koackpit (la barre de l'autoradio n'en propose pas toujours)
-            Box(
-                Modifier.size(44.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Card).clickable(onClick = onBack),
-                contentAlignment = Alignment.Center,
-            ) {
-                androidx.compose.material3.Icon(
-                    androidx.compose.material.icons.Icons.Filled.ArrowBack, "Retour", tint = Yellow,
-                    modifier = Modifier.size(26.dp),
-                )
+    fun create() {
+        progress = 0f
+        result = null
+        scope.launch {
+            val f = withContext(Dispatchers.IO) {
+                runCatching {
+                    Diag.build(ctx, apps.toList(), selected.toSet()) { v, s -> progress = v; step = s }
+                }.onFailure { e -> withContext(Dispatchers.Main) { toast(ctx, "Erreur : ${e.message}") } }.getOrNull()
             }
-            Spacer(Modifier.width(12.dp))
-            Text("Koackpit", color = Yellow, fontSize = 26.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.width(12.dp))
-            Text("Diagnostic ${BuildConfig.VERSION_NAME}", color = Muted, fontSize = 15.sp)
-            Spacer(Modifier.weight(1f))
-            Button(
-                onClick = {
+            if (f != null) {
+                onZip(f)
+                result = f
+                savedAt = withContext(Dispatchers.IO) { Diag.copyToDownloads(ctx, f) }
+                val port = server.start()
+                url = Diag.ip()?.takeIf { port > 0 }?.let { "http://$it:$port/${Diag.ZIP_NAME}" }
+            }
+            progress = null
+        }
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().background(Navy).padding(16.dp)) {
+            DiagHeader(
+                activeTool,
+                onBack = onBack,
+                onTest = {
                     activeTool = 1
                     rootLog = "Test en cours (10 s max)…"
                     scope.launch { rootLog = withContext(Dispatchers.IO) { RootAccess.test(ctx) } }
                 },
-                colors = toolColors(activeTool != 2),
-            ) { Text("Tester l'accès système", fontWeight = FontWeight.Black) }
-            Spacer(Modifier.width(8.dp))
-            Button(
-                onClick = {
+                onLogs = {
                     activeTool = 2
                     rootLog = "Lecture du journal…"
                     scope.launch { rootLog = withContext(Dispatchers.IO) { RootAccess.lastInstallLog(ctx) } }
                 },
-                colors = toolColors(activeTool == 2),
-            ) { Text("Journaux", fontWeight = FontWeight.Black) }
-            Spacer(Modifier.width(8.dp))
-            Button(
-                onClick = {
+                onCapture = {
                     CanBus.startCapture(ctx, 10)
                     toast(ctx, "Relevé voiture lancé pour 10 min : roule normalement")
                 },
-                colors = toolColors(false),
-            ) { Text("Relevé voiture (10 min)", fontWeight = FontWeight.Black) }
-        }
-        if (rootLog.isNotEmpty()) {
-            Spacer(Modifier.height(6.dp))
+                onExport = { export = true },
+            )
+            Spacer(Modifier.height(10.dp))
+            // Résultat de l'outil choisi : toute la hauteur de l'écran
             Text(
-                rootLog, color = Color.White, fontSize = 13.sp, lineHeight = 17.sp,
-                // Zone défilante : le journal peut être long
-                modifier = Modifier.fillMaxWidth().heightIn(max = 260.dp).clip(RoundedCornerShape(10.dp)).background(Card)
-                    .verticalScroll(rememberScrollState()).padding(10.dp),
+                rootLog.ifEmpty { "Choisis un outil ci-dessus. « Créer le fichier » prépare le diagnostic complet à envoyer à Claude." },
+                color = if (rootLog.isEmpty()) Muted else Color.White, fontSize = 14.sp, lineHeight = 19.sp,
+                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)).background(Card)
+                    .verticalScroll(rememberScrollState()).padding(14.dp),
             )
         }
-        Spacer(Modifier.height(10.dp))
+        if (export) ExportPanel(
+            apps = apps, selected = selected, loading = loading,
+            progress = progress, step = step, result = result, url = url, savedAt = savedAt,
+            onToggle = { pkg -> if (pkg in selected) selected.remove(pkg) else selected.add(pkg) },
+            onCreate = { create() },
+            onShare = { f ->
+                runCatching {
+                    val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.files", f)
+                    ctx.startActivity(
+                        Intent.createChooser(
+                            Intent(Intent.ACTION_SEND).setType("application/zip").putExtra(Intent.EXTRA_STREAM, uri)
+                                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
+                            "Envoyer le diagnostic",
+                        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }.onFailure { toast(ctx, "Partage impossible") }
+            },
+            onClose = { export = false },
+        )
+    }
+}
 
+@Composable
+fun DiagHeader(activeTool: Int, onBack: () -> Unit, onTest: () -> Unit, onLogs: () -> Unit, onCapture: () -> Unit, onExport: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        BackDisc(onBack)
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text("Koackpit", color = Yellow, fontSize = 24.sp, fontWeight = FontWeight.Black)
+            Text("Diagnostic ${BuildConfig.VERSION_NAME}", color = Muted, fontSize = 12.sp)
+        }
+        Spacer(Modifier.weight(1f))
+        val pad = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 10.dp)
+        Button(onClick = onTest, colors = toolColors(activeTool == 1), contentPadding = pad) { Text("Tester l'accès", fontWeight = FontWeight.Black, fontSize = 14.sp) }
+        Spacer(Modifier.width(8.dp))
+        Button(onClick = onLogs, colors = toolColors(activeTool == 2), contentPadding = pad) { Text("Journaux", fontWeight = FontWeight.Black, fontSize = 14.sp) }
+        Spacer(Modifier.width(8.dp))
+        Button(onClick = onCapture, colors = toolColors(false), contentPadding = pad) { Text("Relevé (10 min)", fontWeight = FontWeight.Black, fontSize = 14.sp) }
+        Spacer(Modifier.width(8.dp))
+        Button(onClick = onExport, colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Navy), contentPadding = pad) {
+            Text("Créer le fichier", fontWeight = FontWeight.Black, fontSize = 14.sp)
+        }
+    }
+}
+
+@Composable
+private fun BackDisc(onClick: () -> Unit) {
+    Box(
+        Modifier.size(44.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Card).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        androidx.compose.material3.Icon(
+            androidx.compose.material.icons.Icons.Filled.ArrowBack, "Retour", tint = Yellow, modifier = Modifier.size(26.dp),
+        )
+    }
+}
+
+/** Fenêtre plein écran « Créer le fichier » : applis à joindre à gauche, création et QR code à droite. */
+@Composable
+fun ExportPanel(
+    apps: List<AppEntry>, selected: List<String>, loading: Boolean,
+    progress: Float?, step: String, result: File?, url: String?, savedAt: String?,
+    onToggle: (String) -> Unit, onCreate: () -> Unit, onShare: (File) -> Unit, onClose: () -> Unit,
+    qr: android.graphics.Bitmap? = null,
+) {
+    val totalMb = apps.filter { it.pkg in selected }.sumOf { it.size } / 1_048_576
+    val carInfo = apps.firstOrNull { it.carInfo }
+    val code = qr ?: remember(url) { url?.let { runCatching { qrBitmap(it) }.getOrNull() } }
+    Column(
+        Modifier.fillMaxSize().background(Navy).clickable(enabled = false) {}.padding(16.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            BackDisc(onClose)
+            Spacer(Modifier.width(12.dp))
+            Text("Créer le fichier de diagnostic", color = Yellow, fontSize = 24.sp, fontWeight = FontWeight.Black)
+        }
+        Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            // Liste des applis
-            Column(Modifier.weight(1.1f).fillMaxHeight()) {
+            // Applis à joindre (rarement utile)
+            Column(Modifier.weight(1f).fillMaxHeight()) {
                 Text(
                     when {
                         loading -> "Recherche des applis…"
-                        carInfo != null -> "Car Info trouvée : ${carInfo.pkg}"
-                        else -> "Car Info non reconnue automatiquement : coche-la dans la liste"
+                        carInfo != null -> "Joindre une appli (seulement si Claude le demande)"
+                        else -> "Car Info non reconnue automatiquement : coche-la si Claude le demande"
                     },
-                    color = if (carInfo != null || loading) Color.White else Red, fontWeight = FontWeight.Bold, fontSize = 15.sp,
+                    color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp,
                 )
                 Text("Applis cochées : $totalMb Mo", color = Muted, fontSize = 13.sp)
                 Spacer(Modifier.height(6.dp))
@@ -169,9 +250,7 @@ fun DiagScreen(server: FileServer, onBack: () -> Unit = {}, onZip: (File) -> Uni
                     items(apps, key = { it.pkg }) { a ->
                         val on = a.pkg in selected
                         Row(
-                            Modifier.fillMaxWidth().clickable(enabled = progress == null) {
-                                if (on) selected.remove(a.pkg) else selected.add(a.pkg)
-                            }.padding(horizontal = 6.dp),
+                            Modifier.fillMaxWidth().clickable(enabled = progress == null) { onToggle(a.pkg) }.padding(horizontal = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Checkbox(
@@ -192,76 +271,56 @@ fun DiagScreen(server: FileServer, onBack: () -> Unit = {}, onZip: (File) -> Uni
                 }
             }
 
-            // Actions
-            Column(Modifier.weight(0.9f).fillMaxHeight().clip(RoundedCornerShape(12.dp)).background(Card).verticalScroll(rememberScrollState()).padding(16.dp)) {
-                Text("1. Créer le fichier", color = Yellow, fontWeight = FontWeight.Black, fontSize = 17.sp)
-                Text(
-                    "Rapport système seul par défaut (fichier léger). Coche une appli seulement si Claude le demande. Rien n'est modifié sur l'autoradio.",
-                    color = Color.White, fontSize = 13.sp,
-                )
-                Spacer(Modifier.height(10.dp))
-                val p = progress
-                if (p != null) {
-                    LinearProgressIndicator(progress = { p }, Modifier.fillMaxWidth(), color = Yellow, trackColor = Navy)
-                    Text("${(p * 100).toInt()} % — $step", color = Muted, fontSize = 12.sp)
-                } else {
-                    Button(
-                        enabled = !loading && totalMb <= LIMIT_MB,
-                        onClick = {
-                            progress = 0f
-                            result = null
-                            scope.launch {
-                                val f = withContext(Dispatchers.IO) {
-                                    runCatching {
-                                        Diag.build(ctx, apps.toList(), selected.toSet()) { v, s -> progress = v; step = s }
-                                    }.onFailure { e -> withContext(Dispatchers.Main) { toast(ctx, "Erreur : ${e.message}") } }.getOrNull()
-                                }
-                                if (f != null) {
-                                    onZip(f)
-                                    result = f
-                                    savedAt = withContext(Dispatchers.IO) { Diag.copyToDownloads(ctx, f) }
-                                    val port = server.start()
-                                    url = Diag.ip()?.takeIf { port > 0 }?.let { "http://$it:$port" }
-                                }
-                                progress = null
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Navy),
-                    ) { Text(if (result == null) "Créer le fichier" else "Recréer le fichier", fontWeight = FontWeight.Bold) }
-                    if (totalMb > LIMIT_MB) Text("Trop lourd : décoche des applis (max $LIMIT_MB Mo)", color = Red, fontSize = 12.sp)
-                }
-
-                result?.let { f ->
+            // Création puis récupération
+            Column(
+                Modifier.weight(1.2f).fillMaxHeight().clip(RoundedCornerShape(12.dp)).background(Card)
+                    .verticalScroll(rememberScrollState()).padding(18.dp),
+            ) {
+                if (progress != null) {
+                    Text("Création en cours…", color = Yellow, fontWeight = FontWeight.Black, fontSize = 18.sp)
+                    Spacer(Modifier.height(10.dp))
+                    LinearProgressIndicator(progress = { progress }, Modifier.fillMaxWidth(), color = Yellow, trackColor = Navy)
+                    Text("${(progress * 100).toInt()} % — $step", color = Muted, fontSize = 13.sp)
+                } else if (result == null) {
+                    Text("Journaux, rapport système et relevés dans un seul fichier.", color = Color.White, fontSize = 15.sp)
                     Spacer(Modifier.height(14.dp))
-                    Text("2. Le récupérer sur le S25", color = Yellow, fontWeight = FontWeight.Black, fontSize = 17.sp)
-                    Text("Fichier prêt : ${f.length() / 1_048_576} Mo", color = Color.White, fontSize = 13.sp)
-                    Spacer(Modifier.height(6.dp))
-                    if (url != null) {
-                        Text("Sur le S25, ouvre Firefox à cette adresse :", color = Color.White, fontSize = 13.sp)
-                        Box(Modifier.fillMaxWidth().padding(vertical = 6.dp).clip(RoundedCornerShape(8.dp)).background(Navy).padding(10.dp)) {
-                            Text(url!!, color = Yellow, fontSize = 22.sp, fontWeight = FontWeight.Black)
-                        }
-                        Text("Garde Koackpit ouvert pendant le téléchargement.", color = Muted, fontSize = 12.sp)
-                    } else {
-                        Text("Pas de Wi-Fi : active le partage de connexion du S25.", color = Red, fontSize = 13.sp)
-                    }
-                    savedAt?.let { Text("Copie aussi dans : $it", color = Muted, fontSize = 12.sp) }
-                    Spacer(Modifier.height(8.dp))
                     Button(
-                        onClick = {
-                            runCatching {
-                                val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.files", f)
-                                ctx.startActivity(
-                                    Intent.createChooser(
-                                        Intent(Intent.ACTION_SEND).setType("application/zip").putExtra(Intent.EXTRA_STREAM, uri)
-                                            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
-                                        "Envoyer le diagnostic",
-                                    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                )
-                            }.onFailure { toast(ctx, "Partage impossible") }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Navy, contentColor = Yellow),
-                    ) { Text("Ou partager…") }
+                        enabled = !loading && totalMb <= LIMIT_MB, onClick = onCreate,
+                        colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Navy),
+                    ) { Text("Créer le fichier", fontWeight = FontWeight.Black, fontSize = 18.sp) }
+                    if (totalMb > LIMIT_MB) Text("Trop lourd : décoche des applis (max $LIMIT_MB Mo)", color = Red, fontSize = 13.sp)
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (code != null) {
+                            androidx.compose.foundation.Image(
+                                code.asImageBitmap(), "QR code du fichier",
+                                Modifier.size(220.dp).clip(RoundedCornerShape(8.dp)),
+                            )
+                            Spacer(Modifier.width(18.dp))
+                        }
+                        Column(Modifier.weight(1f)) {
+                            Text("Fichier prêt (${result.length() / 1_048_576} Mo)", color = Yellow, fontWeight = FontWeight.Black, fontSize = 18.sp)
+                            Spacer(Modifier.height(8.dp))
+                            if (url != null) {
+                                Text("Scanne le QR code avec l'appareil photo du S25 : le fichier se télécharge.", color = Color.White, fontSize = 15.sp)
+                                Spacer(Modifier.height(8.dp))
+                                Text(url, color = Yellow, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                Text("Garde cette fenêtre ouverte pendant le téléchargement.", color = Muted, fontSize = 12.sp)
+                            } else {
+                                Text("Pas de Wi-Fi : active le partage de connexion du S25.", color = Red, fontSize = 15.sp)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Button(onClick = onCreate, colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Navy)) {
+                            Text("Recréer le fichier", fontWeight = FontWeight.Bold)
+                        }
+                        Button(onClick = { onShare(result) }, colors = ButtonDefaults.buttonColors(containerColor = Navy, contentColor = Yellow)) {
+                            Text("Partager…")
+                        }
+                    }
+                    savedAt?.let { Spacer(Modifier.height(6.dp)); Text("Copie aussi dans : $it", color = Muted, fontSize = 12.sp) }
                 }
             }
         }

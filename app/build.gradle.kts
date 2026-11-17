@@ -12,8 +12,8 @@ android {
         applicationId = "com.koala.koackpit"
         minSdk = 26
         targetSdk = 35
-        versionCode = 87
-        versionName = "0.10.16"
+        versionCode = 88
+        versionName = "0.10.17"
     }
 
     signingConfigs {
@@ -59,6 +59,8 @@ dependencies {
     implementation("androidx.compose.material:material-icons-core")
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.core:core-ktx:1.15.0")
+    // QR code du fichier de diagnostic (génération seule, sans appareil photo)
+    implementation("com.google.zxing:core:3.5.3")
 
     // Captures d'écran sans la voiture (workflow screenshots.yml uniquement)
     testImplementation("junit:junit:4.13.2")
