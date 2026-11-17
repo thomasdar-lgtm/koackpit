@@ -88,8 +88,29 @@ object Slim {
     fun set(ctx: Context, pkg: String, enable: Boolean): String? = runCatching {
         val out = RootAccess.run(ctx, if (enable) "pm enable $pkg 2>&1" else "pm disable-user --user 0 $pkg 2>&1", 20_000)
         WakeLog.add(ctx, "Allègement : $pkg " + (if (enable) "réactivée" else "désactivée") + " — ${out.trim().take(80)}")
-        if (out.contains("new state")) null else out.trim().take(120)
+        if (out.contains("new state")) { saveState(ctx, pkg, !enable); null } else out.trim().take(120)
     }.getOrElse { it.message ?: "erreur" }
+
+    /** Applis désactivées par Thomas (l'autoradio les réactive à chaque redémarrage complet : constaté le 17/11). */
+    private fun prefs(ctx: Context) = ctx.getSharedPreferences("allegement", Context.MODE_PRIVATE)
+    private fun saveState(ctx: Context, pkg: String, disabled: Boolean) {
+        val set = prefs(ctx).getStringSet("off", emptySet())!!.toMutableSet()
+        if (disabled) set.add(pkg) else set.remove(pkg)
+        prefs(ctx).edit().putStringSet("off", set).apply()
+    }
+
+    /** Au démarrage : redésactive les applis que l'autoradio a réactivées. */
+    fun reapply(ctx: Context) {
+        val off = prefs(ctx).getStringSet("off", emptySet())!!
+        if (off.isEmpty()) return
+        val back = scan(ctx).filter { it.enabled && it.pkg in off }
+        if (back.isEmpty()) return
+        val out = runCatching {
+            RootAccess.run(ctx, back.joinToString("; ") { "pm disable-user --user 0 ${it.pkg} 2>&1" }, 30_000)
+        }.getOrElse { "ERREUR ${it.message}" }
+        val n = Regex("new state").findAll(out).count()
+        WakeLog.add(ctx, "Allègement réappliqué : $n/${back.size} (${back.joinToString { it.c.label }})")
+    }
 }
 
 @Composable

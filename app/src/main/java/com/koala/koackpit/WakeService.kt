@@ -246,6 +246,9 @@ class WakeService : Service() {
         })
         watchWifi()
         unthrottleWifiScan()
+        // L'autoradio réactive au redémarrage les applis allégées (FM, DVD…) : on les redésactive (après 50 s,
+        // pour ne pas gêner une mise à jour ni les autres accès système du démarrage)
+        Thread { Thread.sleep(50_000); runCatching { Slim.reapply(applicationContext) } }.start()
         main.postDelayed(reverseWatch, 3000)
         main.postDelayed(btWatch, 5000)
         main.postDelayed(updWatch, 60_000)
