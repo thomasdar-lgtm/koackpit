@@ -66,7 +66,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-enum class Screen { HOME, APPS, SETTINGS, CAR }
+enum class Screen { HOME, APPS, SETTINGS, CAR, SLIM }
 
 class MainActivity : ComponentActivity() {
     companion object { @Volatile var visible = false }
@@ -137,7 +137,8 @@ fun Koackpit(screen: androidx.compose.runtime.MutableState<Screen>, upd: UpdateS
             when (screen.value) {
                 Screen.HOME -> Home(onApps = { screen.value = Screen.APPS }, onSettings = { screen.value = Screen.SETTINGS }, onCar = { screen.value = Screen.CAR })
                 Screen.APPS -> AppDrawer(onBack = { screen.value = Screen.HOME })
-                Screen.SETTINGS -> SettingsScreen(upd, onBack = { screen.value = Screen.HOME })
+                Screen.SETTINGS -> SettingsScreen(upd, onBack = { screen.value = Screen.HOME }, onSlim = { screen.value = Screen.SLIM })
+                Screen.SLIM -> SlimScreen(onBack = { screen.value = Screen.SETTINGS })
                 Screen.CAR -> CarScreen(onBack = { screen.value = Screen.HOME }, onCarInfo = {
                     if (!Apps.open(ctx, Targets.CAR_INFO)) toast(ctx, "Car Info n'est pas installé")
                 })
@@ -260,7 +261,7 @@ fun AppDrawer(onBack: () -> Unit) {
 }
 
 @Composable
-fun SettingsScreen(upd: UpdateState, onBack: () -> Unit) {
+fun SettingsScreen(upd: UpdateState, onBack: () -> Unit, onSlim: () -> Unit = {}) {
     val ctx = LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     var nav by remember { mutableStateOf(Prefs.nav(ctx)) }
@@ -322,6 +323,8 @@ fun SettingsScreen(upd: UpdateState, onBack: () -> Unit) {
                 Text("Outils", color = Yellow, fontSize = 18.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.height(8.dp))
                 SettingButton("Outil de diagnostic") { ctx.startActivity(Intent(ctx, DiagActivity::class.java)) }
+                Spacer(Modifier.height(8.dp))
+                SettingButton("Alléger l'autoradio", onSlim)
                 Spacer(Modifier.height(8.dp))
                 SettingButton("Rechercher une mise à jour") {
                     scope.launch {

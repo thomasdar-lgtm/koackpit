@@ -99,6 +99,12 @@ class Screenshots {
     } }
 
     @Test
+    fun allegement() = captureRoboImage("build/screens/allegement.png") { Scaled {
+        val items = Slim.CANDIDATES.mapIndexed { i, c -> SlimItem(c, "android.car.app.exemple$i", enabled = i % 4 != 0) }
+        SlimContent(items, null, "", {}, {}, {})
+    } }
+
+    @Test
     fun accueil_sans_musique() = captureRoboImage("build/screens/accueil-vide.png") { Scaled {
         HomeContent("17:42", "Jeudi 12 novembre", "Google Maps", MediaInfo(), RailActions(), {}, {}, {}, {})
     } }
