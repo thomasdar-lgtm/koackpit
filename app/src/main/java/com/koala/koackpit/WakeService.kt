@@ -241,6 +241,7 @@ class WakeService : Service() {
             addAction("android.car.action.BT_CONNECT_STATE")
             addAction("android.car.action.BT_POWER_STATE_CHANGED")
         })
+        watchWifi()
         main.postDelayed(reverseWatch, 3000)
         main.postDelayed(btWatch, 5000)
         main.postDelayed(updWatch, 60_000)
@@ -317,11 +318,49 @@ class WakeService : Service() {
         }
     }
 
+    /**
+     * Journal du Wi-Fi (partage de connexion du téléphone) : chaque perte et chaque retour sont notés,
+     * avec le nom du réseau, le signal juste avant la perte et la durée de la coupure.
+     */
+    private var wifiCb: android.net.ConnectivityManager.NetworkCallback? = null
+    private var wifiUpAt = 0L
+    private var wifiDownAt = 0L
+    private var wifiRssi: Int? = null
+    private fun watchWifi() = runCatching {
+        val cm = getSystemService(android.net.ConnectivityManager::class.java)
+        val wm = applicationContext.getSystemService(android.net.wifi.WifiManager::class.java)
+        fun mins(ms: Long) = if (ms < 120_000) "${ms / 1000} s" else "${ms / 60_000} min"
+        val cb = object : android.net.ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: android.net.Network) {
+                val info = runCatching { wm.connectionInfo }.getOrNull()
+                val ssid = info?.ssid?.trim('"')?.takeIf { it.isNotBlank() && it != "<unknown ssid>" } ?: "?"
+                val now = android.os.SystemClock.elapsedRealtime()
+                val gap = if (wifiDownAt > 0) ", coupure ${mins(now - wifiDownAt)}" else ""
+                wifiUpAt = now; wifiRssi = info?.rssi
+                main.post { WakeLog.add(this@WakeService, "Wi-Fi connecté ($ssid, signal ${info?.rssi ?: "?"} dBm$gap)") }
+            }
+            override fun onCapabilitiesChanged(network: android.net.Network, caps: android.net.NetworkCapabilities) {
+                runCatching { wm.connectionInfo?.rssi }.getOrNull()?.takeIf { it > -127 }?.let { wifiRssi = it }
+            }
+            override fun onLost(network: android.net.Network) {
+                val now = android.os.SystemClock.elapsedRealtime()
+                val dur = if (wifiUpAt > 0) " après ${mins(now - wifiUpAt)}" else ""
+                val screen = if ((getSystemService(POWER_SERVICE) as android.os.PowerManager).isInteractive) "écran allumé" else "écran éteint"
+                wifiDownAt = now
+                main.post { WakeLog.add(this@WakeService, "Wi-Fi PERDU$dur (dernier signal ${wifiRssi ?: "?"} dBm, $screen)") }
+            }
+        }
+        cm.registerNetworkCallback(
+            android.net.NetworkRequest.Builder().addTransportType(android.net.NetworkCapabilities.TRANSPORT_WIFI).build(), cb)
+        wifiCb = cb
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int) = START_STICKY
 
     override fun onDestroy() {
         runCatching { unregisterReceiver(accReceiver) }
         runCatching { unregisterReceiver(btReceiver) }
+        wifiCb?.let { cb -> runCatching { getSystemService(android.net.ConnectivityManager::class.java).unregisterNetworkCallback(cb) } }
         main.removeCallbacks(reverseWatch)
         main.removeCallbacks(btWatch)
         main.removeCallbacks(updWatch)
