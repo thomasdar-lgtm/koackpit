@@ -83,12 +83,24 @@ class NavListener : NotificationListenerService() {
 fun rememberSpeedKmh(): Int? {
     val ctx = LocalContext.current
     var speed by remember { mutableStateOf<Int?>(null) }
+    // Lissage : la vitesse brute du GPS de l'autoradio varie de ±1-2 km/h d'une seconde à l'autre
+    // (constaté : 80-83 quand le S25 reste à 83). Moyenne glissante + arrondi avec seuil, comme Waze.
+    val filt = remember { floatArrayOf(-1f, 0f) }   // [vitesse lissée, heure de la dernière mesure]
     DisposableEffect(Unit) {
         val lm = ctx.getSystemService(Context.LOCATION_SERVICE) as LocationManager
         val ok = ctx.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         val l = object : LocationListener {
             override fun onLocationChanged(loc: Location) {
-                speed = if (loc.hasSpeed()) (loc.speed * 3.6f).toInt().let { if (it < 3) 0 else it } else null
+                if (!loc.hasSpeed()) { speed = null; filt[0] = -1f; return }
+                val raw = loc.speed * 3.6f
+                val t = (android.os.SystemClock.elapsedRealtime() / 1000L).toFloat()
+                // Repart de la mesure brute si c'est la première, après une coupure de 3 s, ou à l'arrêt
+                filt[0] = if (filt[0] < 0f || t - filt[1] > 3f || raw < 3f) raw else filt[0] + 0.35f * (raw - filt[0])
+                filt[1] = t
+                val shown = speed
+                val v = filt[0]
+                // N'actualise le chiffre que si l'écart dépasse 0,6 km/h : fini le va-et-vient entre deux valeurs
+                speed = if (v < 3f) 0 else if (shown == null || kotlin.math.abs(v - shown) > 0.6f) kotlin.math.round(v).toInt() else shown
             }
             @Deprecated("Deprecated in Java")
             override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
