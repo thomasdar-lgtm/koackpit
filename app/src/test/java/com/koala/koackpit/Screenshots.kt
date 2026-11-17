@@ -105,6 +105,13 @@ class Screenshots {
     } }
 
     @Test
+    fun reglages() = captureRoboImage("build/screens/reglages.png") { Scaled {
+        Box(Modifier.fillMaxSize().background(Navy)) {
+            SettingsContent(Targets.WAZE, { true }, "0.10.7", null, false, {}, {}, {}, {}, {})
+        }
+    } }
+
+    @Test
     fun accueil_sans_musique() = captureRoboImage("build/screens/accueil-vide.png") { Scaled {
         HomeContent("17:42", "Jeudi 12 novembre", "Google Maps", MediaInfo(), RailActions(), {}, {}, {}, {})
     } }

@@ -76,7 +76,7 @@ private const val LIMIT_MB = 300
 fun DiagScreen(server: FileServer, onBack: () -> Unit = {}, onZip: (File) -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
-    val upd = remember { UpdateState() }
+    val upd = UpdateHub.state
     val apps = remember { mutableStateListOf<AppEntry>() }
     val selected = remember { mutableStateListOf<String>() }
     var loading by remember { mutableStateOf(true) }

@@ -50,6 +50,9 @@ import java.net.URL
 
 data class UpdateInfo(val version: String, val url: String)
 
+/** État partagé de la mise à jour : le même pour l'accueil, les réglages, le diagnostic et le service. */
+object UpdateHub { val state = UpdateState() }
+
 class UpdateState {
     var info by mutableStateOf<UpdateInfo?>(null)
     var progress by mutableStateOf<Float?>(null)

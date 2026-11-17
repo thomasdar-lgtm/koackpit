@@ -71,7 +71,7 @@ enum class Screen { HOME, APPS, SETTINGS, CAR, SLIM }
 class MainActivity : ComponentActivity() {
     companion object { @Volatile var visible = false }
     private val screen = mutableStateOf(Screen.HOME)
-    private val upd = UpdateState()
+    private val upd = UpdateHub.state
     private val resumes = mutableStateOf(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -265,88 +265,85 @@ fun SettingsScreen(upd: UpdateState, onBack: () -> Unit, onSlim: () -> Unit = {}
     val ctx = LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     var nav by remember { mutableStateOf(Prefs.nav(ctx)) }
-    var splitLog by remember { mutableStateOf(Prefs.splitLog(ctx)) }
+    var checking by remember { mutableStateOf(false) }
+    SettingsContent(
+        nav = nav, installed = { Apps.installed(ctx, it) }, version = BuildConfig.VERSION_NAME,
+        update = upd.info?.version, checking = checking,
+        onNav = { nav = it; Prefs.setNav(ctx, it) },
+        onCheck = {
+            checking = true
+            scope.launch {
+                when (Updater.refresh(upd, force = true)) {
+                    null -> toast(ctx, "Pas de connexion à GitHub, vérifie le partage de connexion")
+                    false -> toast(ctx, "Koackpit est à jour (${BuildConfig.VERSION_NAME})")
+                    true -> toast(ctx, "Nouvelle version disponible : bouton en bas à droite")
+                }
+                checking = false
+            }
+        },
+        onDiag = { ctx.startActivity(Intent(ctx, DiagActivity::class.java)) },
+        onSlim = onSlim, onBack = onBack,
+    )
+}
+
+/** Réglages, version compacte : seulement ce qui sert vraiment. */
+@Composable
+fun SettingsContent(
+    nav: String, installed: (String) -> Boolean, version: String, update: String?, checking: Boolean,
+    onNav: (String) -> Unit, onCheck: () -> Unit, onDiag: () -> Unit, onSlim: () -> Unit, onBack: () -> Unit,
+) {
     Column(Modifier.fillMaxSize()) {
         Header("Réglages", onBack)
-        Row(Modifier.fillMaxSize().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Column(Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(Card).padding(16.dp)) {
-                Text("GPS par défaut", color = Yellow, fontSize = 18.sp, fontWeight = FontWeight.Black)
-                Spacer(Modifier.height(10.dp))
-                for ((pkg, name) in listOf(Targets.WAZE to "Waze", Targets.MAPS to "Google Maps")) {
-                    val ok = Apps.installed(ctx, pkg)
-                    val on = nav == pkg
-                    Row(
-                        Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(12.dp))
-                            .background(if (on) Yellow else Navy)
-                            .clickable { nav = pkg; Prefs.setNav(ctx, pkg) }.padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(name, color = if (on) Navy else Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                        if (!ok) Text("non installé", color = if (on) Navy else Muted, fontSize = 12.sp)
-                    }
-                }
-                Spacer(Modifier.height(16.dp))
-                Text("Conduite (GPS + lecteur BT)", color = Yellow, fontSize = 18.sp, fontWeight = FontWeight.Black)
-                Spacer(Modifier.height(8.dp))
-                var autoDrive by remember { mutableStateOf(Prefs.autoDrive(ctx)) }
-                SettingButton(
-                    if (autoDrive) "Au démarrage de la voiture : conduite ✓" else "Au démarrage de la voiture : accueil Koackpit"
-                ) {
-                    autoDrive = !autoDrive
-                    Prefs.setAutoDrive(ctx, autoDrive)
-                }
-                Spacer(Modifier.height(8.dp))
-                SettingButton("Lancer la conduite") {
-                    Prefs.setSplitLog(ctx, "Test en cours…")
-                    splitLog = "Test en cours…"
-                    SplitScreen.launch(ctx, listOf(nav, Targets.WAZE, Targets.MAPS)) { r ->
-                        val full = r + "\n" + SplitScreen.systemInfo(ctx)
-                        Prefs.setSplitLog(ctx, full)
-                        splitLog = full
-                    }
-                }
-                if (splitLog.isNotEmpty()) {
-                    Spacer(Modifier.height(8.dp))
-                    Text(splitLog, color = Color.White, fontSize = 12.sp, lineHeight = 15.sp,
-                        modifier = Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()))
-                }
-            }
-            Column(Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(Card).padding(16.dp)) {
-                Text("Écran d'accueil", color = Yellow, fontSize = 18.sp, fontWeight = FontWeight.Black)
-                Text("Pour que le bouton maison ouvre Koackpit, choisis-le comme appli d'accueil par défaut.", color = Color.White, fontSize = 13.sp)
-                Spacer(Modifier.height(8.dp))
-                SettingButton("Choisir l'appli d'accueil") {
-                    runCatching { ctx.startActivity(Intent(Settings.ACTION_HOME_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                        .onFailure { toast(ctx, "Réglage indisponible : appuie sur le bouton maison et choisis Koackpit") }
-                }
-                Spacer(Modifier.height(16.dp))
-                Text("Outils", color = Yellow, fontSize = 18.sp, fontWeight = FontWeight.Black)
-                Spacer(Modifier.height(8.dp))
-                SettingButton("Outil de diagnostic") { ctx.startActivity(Intent(ctx, DiagActivity::class.java)) }
-                Spacer(Modifier.height(8.dp))
-                SettingButton("Alléger l'autoradio", onSlim)
-                Spacer(Modifier.height(8.dp))
-                SettingButton("Rechercher une mise à jour") {
-                    scope.launch {
-                        when (Updater.refresh(upd, force = true)) {
-                            null -> toast(ctx, "Pas de connexion à GitHub, vérifie le partage de connexion")
-                            false -> toast(ctx, "Koackpit est à jour (${BuildConfig.VERSION_NAME})")
-                            true -> toast(ctx, "Nouvelle version disponible : installe-la par clé USB")
+        Row(Modifier.fillMaxSize().padding(start = 20.dp, end = 20.dp, bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SettingsSection("GPS de la conduite") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        for ((pkg, name) in listOf(Targets.WAZE to "Waze", Targets.MAPS to "Google Maps")) {
+                            val on = nav == pkg
+                            Column(
+                                Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(if (on) Yellow else Navy)
+                                    .clickable { onNav(pkg) }.padding(horizontal = 12.dp, vertical = 10.dp),
+                            ) {
+                                Text(name, color = if (on) Navy else Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                if (!installed(pkg)) Text("non installé", color = if (on) Navy else Muted, fontSize = 11.sp)
+                            }
                         }
                     }
                 }
-                Spacer(Modifier.height(16.dp))
-                Text("Koackpit ${BuildConfig.VERSION_NAME}", color = Muted, fontSize = 13.sp)
+                SettingsSection("Mise à jour") {
+                    Text(
+                        if (update != null) "Version $update disponible : bouton en bas à droite" else "Koackpit $version",
+                        color = if (update != null) Yellow else Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    SettingButton(if (checking) "Recherche…" else "Rechercher une mise à jour", onCheck)
+                }
+            }
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SettingsSection("Autoradio") {
+                    SettingButton("Alléger l'autoradio", onSlim)
+                    Spacer(Modifier.height(8.dp))
+                    SettingButton("Outil de diagnostic", onDiag)
+                }
             }
         }
     }
 }
 
 @Composable
+fun SettingsSection(title: String, content: @Composable () -> Unit) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Card).padding(14.dp)) {
+        Text(title, color = Yellow, fontSize = 15.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.height(8.dp))
+        content()
+    }
+}
+
+@Composable
 fun SettingButton(label: String, onClick: () -> Unit) {
     Box(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Navy).clickable(onClick = onClick).padding(14.dp)
-    ) { Text(label, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Navy).clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 11.dp)
+    ) { Text(label, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold) }
 }
 
 /** Tant que le fond d'écran Koackpit n'est pas choisi, l'autoradio arrête Koackpit en veille. */

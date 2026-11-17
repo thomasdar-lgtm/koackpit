@@ -185,6 +185,18 @@ class WakeService : Service() {
         }
     }
 
+    /**
+     * Recherche de mise à jour toutes les 90 s quand l'écran est allumé, quel que soit l'écran affiché :
+     * la petite carte apparaît sans avoir à quitter puis revenir sur Koackpit.
+     */
+    private val updWatch = object : Runnable {
+        override fun run() {
+            val awake = (getSystemService(Context.POWER_SERVICE) as android.os.PowerManager).isInteractive
+            if (awake) Thread { runCatching { kotlinx.coroutines.runBlocking { Updater.refresh(UpdateHub.state, force = true) } } }.start()
+            main.postDelayed(this, 90_000)
+        }
+    }
+
     /** Surveillance du son Bluetooth (toutes les 3 s), voir [BtSound]. */
     private val btWatch = object : Runnable {
         override fun run() {
@@ -224,6 +236,7 @@ class WakeService : Service() {
         })
         main.postDelayed(reverseWatch, 3000)
         main.postDelayed(btWatch, 5000)
+        main.postDelayed(updWatch, 60_000)
         main.postDelayed(sourceWatch, 4000)
         // Données de la voiture (vitesse…) lues sur le bus CAN
         main.postDelayed({ CanBus.start(this) }, 2000)
@@ -303,6 +316,7 @@ class WakeService : Service() {
         runCatching { unregisterReceiver(btReceiver) }
         main.removeCallbacks(reverseWatch)
         main.removeCallbacks(btWatch)
+        main.removeCallbacks(updWatch)
         main.removeCallbacks(sourceWatch)
         super.onDestroy()
     }
