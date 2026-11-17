@@ -193,7 +193,7 @@ fun DiagScreen(server: FileServer, onBack: () -> Unit = {}, onZip: (File) -> Uni
             }
 
             // Actions
-            Column(Modifier.weight(0.9f).fillMaxHeight().clip(RoundedCornerShape(12.dp)).background(Card).padding(16.dp)) {
+            Column(Modifier.weight(0.9f).fillMaxHeight().clip(RoundedCornerShape(12.dp)).background(Card).verticalScroll(rememberScrollState()).padding(16.dp)) {
                 Text("1. Créer le fichier", color = Yellow, fontWeight = FontWeight.Black, fontSize = 17.sp)
                 Text(
                     "Rapport système seul par défaut (fichier léger). Coche une appli seulement si Claude le demande. Rien n'est modifié sur l'autoradio.",
