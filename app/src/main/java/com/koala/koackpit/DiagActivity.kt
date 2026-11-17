@@ -99,7 +99,6 @@ fun DiagScreen(server: FileServer, onBack: () -> Unit = {}, onZip: (File) -> Uni
     val carInfo = apps.firstOrNull { it.carInfo }
 
     Column(Modifier.fillMaxSize().background(Navy).padding(16.dp)) {
-        UpdateBanner(upd)
         Row(verticalAlignment = Alignment.CenterVertically) {
             // Retour à Koackpit (la barre de l'autoradio n'en propose pas toujours)
             Box(

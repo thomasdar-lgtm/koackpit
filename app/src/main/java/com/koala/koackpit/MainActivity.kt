@@ -147,7 +147,7 @@ fun Koackpit(screen: androidx.compose.runtime.MutableState<Screen>, upd: UpdateS
         // Portes / coffre / capot ouverts : alerte en haut, au centre
         DoorAlert(CanBus.doors.value, Modifier.align(Alignment.TopCenter).padding(top = 12.dp))
         // Mise à jour : petite carte en bas à droite, par-dessus l'écran
-        UpdateBanner(upd, Modifier.align(Alignment.BottomEnd).padding(end = 20.dp, bottom = 20.dp))
+        // (la carte de mise à jour est flottante, gérée par le service : UpdateOverlay)
     }
 }
 
@@ -276,7 +276,7 @@ fun SettingsScreen(upd: UpdateState, onBack: () -> Unit, onSlim: () -> Unit = {}
                 when (Updater.refresh(upd, force = true)) {
                     null -> toast(ctx, "Pas de connexion à GitHub, vérifie le partage de connexion")
                     false -> toast(ctx, "Koackpit est à jour (${BuildConfig.VERSION_NAME})")
-                    true -> toast(ctx, "Nouvelle version disponible : bouton en bas à droite")
+                    true -> toast(ctx, "Nouvelle version disponible : carte en bas à droite")
                 }
                 checking = false
             }

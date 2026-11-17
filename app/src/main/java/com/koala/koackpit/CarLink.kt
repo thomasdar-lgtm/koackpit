@@ -90,6 +90,9 @@ object CarLink {
     /** État Bluetooth : 0 init, 1 inactif (pas de téléphone), 2 connexion…, 3 connecté, 4+ appel. */
     fun hfpState(): Int? = value("state.bt.hfp_state", TYPE_INT)?.takeIf { it.containsKey("value") }?.getInt("value")
 
+    /** Son de l'autoradio coupé (« mute ») ? */
+    fun mainMuted(): Boolean? = value("state.main.mute", TYPE_INT)?.takeIf { it.containsKey("value") }?.getInt("value")?.let { it == 1 }
+
     /** Caméra de recul affichée (marche arrière) : clé gérée par le service de l'autoradio. */
     fun inBackCar(): Boolean? = value("state.app.in_backcar", TYPE_INT)?.takeIf { it.containsKey("value") }?.getInt("value")?.let { it == 1 }
 

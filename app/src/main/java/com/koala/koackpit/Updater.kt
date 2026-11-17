@@ -148,6 +148,34 @@ object Updater {
         )
     }
 
+    private val installScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.Main)
+
+    /** Téléchargement puis installation silencieuse (bouton « Installer » de la carte de mise à jour). */
+    fun startInstall(ctx: Context, upd: UpdateState) {
+        val info = upd.info ?: return
+        if (upd.progress != null || upd.status.startsWith("Installation")) return
+        val app = ctx.applicationContext
+        upd.status = ""
+        upd.progress = 0f
+        installScope.launch {
+            val d = runCatching { download(app, info.url) { upd.progress = it } }
+            upd.progress = null
+            val f = d.getOrElse { e ->
+                // Message précis pour comprendre l'échec (réseau, certificat, délai…)
+                upd.status = "Échec : ${e.javaClass.simpleName} ${e.message?.take(60) ?: ""}"
+                return@launch
+            }
+            // Appli compagnon présente : elle affiche l'écran de mise à jour et installe
+            if (UpdaterApp.handOff(app, f)) return@launch
+            upd.status = "Installation…"
+            val r = withContext(Dispatchers.IO) {
+                // Installation silencieuse via l'accès système : jamais d'écran d'installation Android
+                runCatching { RootAccess.silentInstall(app, f) { st -> upd.status = "Installation : $st" } }
+            }
+            r.exceptionOrNull()?.let { upd.status = "Échec : ${it.message ?: it.javaClass.simpleName}" }
+        }
+    }
+
     fun canInstall(ctx: Context) = ctx.packageManager.canRequestPackageInstalls()
 
     fun askInstallPermission(ctx: Context) {
@@ -177,28 +205,7 @@ object Updater {
 fun UpdateBanner(upd: UpdateState, modifier: Modifier = Modifier) {
     val info = upd.info ?: return
     val ctx = LocalContext.current
-    val scope = rememberCoroutineScope()
-    UpdateChip(modifier, info.version, upd.progress, upd.status) {
-        upd.status = ""
-        upd.progress = 0f
-        scope.launch {
-            val d = runCatching { Updater.download(ctx, info.url) { upd.progress = it } }
-            upd.progress = null
-            val f = d.getOrElse { e ->
-                // Message précis pour comprendre l'échec (réseau, certificat, délai…)
-                upd.status = "Échec : ${e.javaClass.simpleName} ${e.message?.take(60) ?: ""}"
-                return@launch
-            }
-            // Appli compagnon présente : elle affiche l'écran de mise à jour et installe
-            if (UpdaterApp.handOff(ctx, f)) return@launch
-            upd.status = "Installation…"
-            val r = withContext(Dispatchers.IO) {
-                // Installation silencieuse via l'accès système : jamais d'écran d'installation Android
-                runCatching { RootAccess.silentInstall(ctx, f) { st -> upd.status = "Installation : $st" } }
-            }
-            r.exceptionOrNull()?.let { upd.status = "Échec : ${it.message ?: it.javaClass.simpleName}" }
-        }
-    }
+    UpdateChip(modifier, info.version, upd.progress, upd.status) { Updater.startInstall(ctx, upd) }
 }
 
 /** Petite carte « mise à jour » (en bas à droite de l'accueil) : symbole, version, bouton Installer. */

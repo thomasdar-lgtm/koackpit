@@ -83,9 +83,9 @@ object CanBus {
             if (changed) app?.let { WakeLog.add(it, "CAN type $type : $hex") }
         }
         if (now < captureUntil) capture(type, f.copyOfRange(3, 3 + len))
-        // Boutons du volant : action désactivée. Le code 01 pris pour « OK » est en réalité un bouton de gauche
-        // (relevé du 17/11 : 01, 06, 02, 05 pour les 4 boutons de gauche ; OK n'envoie rien sur le CAN).
-        // if (type == TYPE_KEY && len >= 2) onKey(f[3].toInt() and 255, f[4].toInt() and 255)
+        // Boutons du volant (relevé du 17/11) : 01 volume +, 02 volume −, 06 étoile (mute), 05 téléphone.
+        // Le bouton OK n'envoie rien sur le CAN.
+        if (type == TYPE_KEY && len >= 2) onKey(f[3].toInt() and 255, f[4].toInt() and 255)
         if (type == TYPE_DOORS && len >= 2) {
             val m = f[4].toInt() and 0x3F
             main.post { if (doors.value != m) doors.value = m }
@@ -179,17 +179,28 @@ object CanBus {
     private var keyDown = false
     private var lastKeyAt = 0L
 
-    /** Bouton OK du volant (écran « audio » du tableau de bord) → lecture / pause de la musique Bluetooth. */
+    /**
+     * Étoile du volant (code 06) : lecture/pause au lieu de « mute ».
+     * Le mute est fait par le micro-contrôleur de l'autoradio (on ne peut pas l'empêcher) : Koackpit attend
+     * qu'il soit appliqué, l'annule aussitôt (android.car.action.SET_MUTE, sans affichage) puis met en pause.
+     * Pendant un appel, l'étoile garde sa fonction d'origine.
+     */
     private fun onKey(code: Int, state: Int) {
         val now = SystemClock.elapsedRealtime()
-        if (code == 0x01 && state != 0) {
+        if (code == 0x06 && state != 0) {
             if (keyDown || now - lastKeyAt < 400) return
             keyDown = true; lastKeyAt = now
+            val ctx = app ?: return
             Thread {
-                if (CarLink.currentSource() == CarLink.SRC_BT) {
-                    CarLink.playPause()
-                    app?.let { WakeLog.add(it, "Volant : OK → lecture/pause") }
-                }
+                val hfp = CarLink.hfpState() ?: 0
+                if (hfp in 4..6) return@Thread
+                // Attend le mute du micro-contrôleur (jusqu'à 0,8 s), puis le retire
+                var muted = false
+                repeat(8) { if (!muted) { Thread.sleep(100); muted = CarLink.mainMuted() == true } }
+                if (muted) ctx.sendBroadcast(android.content.Intent("android.car.action.SET_MUTE")
+                    .putExtra("arg_boolean", false).putExtra("show_ui", false))
+                if (CarLink.currentSource() == CarLink.SRC_BT) CarLink.playPause()
+                WakeLog.add(ctx, "Volant : étoile → lecture/pause" + if (muted) " (mute annulé)" else "")
             }.start()
         } else if (state == 0) keyDown = false
     }

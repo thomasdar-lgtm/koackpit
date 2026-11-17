@@ -197,6 +197,13 @@ class WakeService : Service() {
         }
     }
 
+    private val overlayTick = object : Runnable {
+        override fun run() {
+            runCatching { UpdateOverlay.tick(this@WakeService) }
+            main.postDelayed(this, 1000)
+        }
+    }
+
     /** Surveillance du son Bluetooth (toutes les 3 s), voir [BtSound]. */
     private val btWatch = object : Runnable {
         override fun run() {
@@ -237,6 +244,7 @@ class WakeService : Service() {
         main.postDelayed(reverseWatch, 3000)
         main.postDelayed(btWatch, 5000)
         main.postDelayed(updWatch, 60_000)
+        main.post(overlayTick)
         main.postDelayed(sourceWatch, 4000)
         // Données de la voiture (vitesse…) lues sur le bus CAN
         main.postDelayed({ CanBus.start(this) }, 2000)
@@ -317,6 +325,8 @@ class WakeService : Service() {
         main.removeCallbacks(reverseWatch)
         main.removeCallbacks(btWatch)
         main.removeCallbacks(updWatch)
+        main.removeCallbacks(overlayTick)
+        UpdateOverlay.hide(this)
         main.removeCallbacks(sourceWatch)
         super.onDestroy()
     }
