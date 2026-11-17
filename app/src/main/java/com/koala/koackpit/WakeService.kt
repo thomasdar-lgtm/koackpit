@@ -110,7 +110,7 @@ class WakeService : Service() {
             // Pas trop tôt : le module Bluetooth se réinitialise ~9 s après le réveil et recoupe alors le son.
             // Le vrai déclencheur est la connexion du téléphone (~30 s, voir btReceiver) ; ceci est le filet de
             // sécurité si le téléphone est resté connecté pendant une courte coupure du contact.
-            h.postDelayed({ ensureBtSource(app, 1, toggle = true) }, 15_000)
+            // (géré par la surveillance btWatch du service, qui survit aux redémarrages de Koackpit)
             val switchBt = false
             val wantDrive = Prefs.autoDrive(app)
             if (wantDrive) {
@@ -176,7 +176,6 @@ class WakeService : Service() {
                 "android.car.action.BT_CONNECT_STATE" -> {
                     val on = i.getBooleanExtra("bt_connected", false)
                     // Téléphone connecté : c'est le bon moment pour (re)ouvrir le son Bluetooth
-                    if (on) main.postDelayed({ ensureBtSource(c.applicationContext, 1, toggle = true) }, 2000)
                     "Bluetooth : " + (if (on) "téléphone connecté" else "TÉLÉPHONE DÉCONNECTÉ")
                 }
                 else -> "Bluetooth : alimentation " + (i.extras?.keySet()?.joinToString { k -> "$k=${i.extras?.get(k)}" } ?: "")
@@ -185,11 +184,20 @@ class WakeService : Service() {
         }
     }
 
+    /** Surveillance du son Bluetooth (toutes les 3 s), voir [BtSound]. */
+    private val btWatch = object : Runnable {
+        override fun run() {
+            BtSound.check(this@WakeService)
+            main.postDelayed(this, 3000)
+        }
+    }
+
     private val accReceiver = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
             if (isInitialStickyBroadcast) return            // ancienne valeur, pas un vrai démarrage
             val v = i.getIntExtra("arg_int", -1)
             WakeLog.add(c, "Signal contact (ACC) = $v")
+            if (v == 0) BtSound.markNeeded(c, "contact coupé")
             if (v != 0) Handler(Looper.getMainLooper()).postDelayed({ WakeLog.addWindows(c, "réveil +1 s") }, 1000)
             if (v != 0) bringToFront(c)
         }
@@ -214,6 +222,7 @@ class WakeService : Service() {
             addAction("android.car.action.BT_POWER_STATE_CHANGED")
         })
         main.postDelayed(reverseWatch, 3000)
+        main.postDelayed(btWatch, 5000)
         main.postDelayed(sourceWatch, 4000)
         // Données de la voiture (vitesse…) lues sur le bus CAN
         main.postDelayed({ CanBus.start(this) }, 2000)
@@ -292,6 +301,7 @@ class WakeService : Service() {
         runCatching { unregisterReceiver(accReceiver) }
         runCatching { unregisterReceiver(btReceiver) }
         main.removeCallbacks(reverseWatch)
+        main.removeCallbacks(btWatch)
         main.removeCallbacks(sourceWatch)
         super.onDestroy()
     }
