@@ -169,6 +169,11 @@ object Diag {
             z.putNextEntry(ZipEntry("systeme-avance.txt"))
             z.write(advanced(ctx).toByteArray())
             z.closeEntry()
+            // Relevés (voiture, appel) et journal des démarrages
+            for ((name, f) in listOf("releve-can.txt" to CanBus.captureFile(ctx), "releve-appel.txt" to CallLog.file(ctx))) if (f.exists()) {
+                z.putNextEntry(ZipEntry(name)); z.write(f.readBytes()); z.closeEntry()
+            }
+            z.putNextEntry(ZipEntry("journal.txt")); z.write(WakeLog.read(ctx).toByteArray()); z.closeEntry()
             val buf = ByteArray(128 * 1024)
             for (a in chosen) {
                 a.apks.forEachIndexed { i, path ->

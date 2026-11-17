@@ -178,6 +178,14 @@ object RootAccess {
                     "| tail -n 14 | tac | cut -c1-160; echo '- Priorité audio actuelle :'; " +
                     "dumpsys audio 2>/dev/null | sed -n '/Audio Focus stack entries/,/^ *\$/p' | head -n 6 | cut -c1-160", 30_000)
             } +
+            "\n--- Relevés (fichier complet dans « Créer le fichier ») :\n" + part {
+                listOf("Voiture" to CanBus.captureFile(ctx), "Dernier appel" to CallLog.file(ctx)).joinToString("\n") { (n, f) ->
+                    if (!f.exists()) "$n : aucun" else {
+                        val l = f.readLines()
+                        "$n : ${l.size} lignes — " + l.firstOrNull().orEmpty() + "\n" + l.takeLast(6).joinToString("\n")
+                    }
+                }
+            } +
             "\n--- Démarrages :\n" + part { WakeLog.read(ctx) } +
             "\n--- Écrans pendant la dernière mise à jour :\n" +
             part { runCatching { File(ctx.filesDir, "update-trace.txt").readText() }.getOrNull() ?: "aucune trace" } +

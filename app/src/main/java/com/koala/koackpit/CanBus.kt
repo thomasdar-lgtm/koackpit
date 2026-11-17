@@ -81,6 +81,7 @@ object CanBus {
             }
             if (changed) app?.let { WakeLog.add(it, "CAN type $type : $hex") }
         }
+        if (now < captureUntil) capture(type, f.copyOfRange(3, 3 + len))
         if (type == TYPE_DOORS && len >= 2) {
             val m = f[4].toInt() and 0x3F
             main.post { if (doors.value != m) doors.value = m }
@@ -97,6 +98,43 @@ object CanBus {
                 }
             }
         }
+    }
+
+    // ---- Relevé à la demande (bouton de l'outil de diagnostic), enregistré dans releve-can.txt ----
+    @Volatile private var captureUntil = 0L
+    private val capLast = HashMap<String, String>()
+    private val capCount = HashMap<String, Int>()
+    private val capCounts = java.util.TreeMap<Int, Int>()
+
+    fun captureFile(ctx: Context) = java.io.File(ctx.filesDir, "releve-can.txt")
+    fun capturing() = SystemClock.elapsedRealtime() < captureUntil
+
+    /** Relevé de [minutes] min : chaque nouveau contenu de chaque trame (40 au plus par trame) avec l'heure. */
+    fun startCapture(ctx: Context, minutes: Int) {
+        app = ctx.applicationContext
+        synchronized(capLast) { capLast.clear(); capCount.clear(); capCounts.clear() }
+        captureFile(ctx).writeText("Relevé CAN démarré ${stamp()} pour $minutes min (Koackpit ${BuildConfig.VERSION_NAME})\n")
+        captureUntil = SystemClock.elapsedRealtime() + minutes * 60_000L
+        WakeLog.add(ctx, "Relevé voiture démarré ($minutes min)")
+        main.postDelayed({
+            val s = synchronized(capLast) { capCounts.entries.joinToString(", ") { "type ${it.key}×${it.value}" } }
+            app?.let {
+                runCatching { captureFile(it).appendText("Fin ${stamp()} — trames : $s\n") }
+                WakeLog.add(it, "Relevé voiture terminé : " + s.ifEmpty { "aucune trame" })
+            }
+        }, minutes * 60_000L)
+    }
+
+    private fun stamp() = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.FRANCE).format(java.util.Date())
+
+    private fun capture(type: Int, data: ByteArray) {
+        val key = if (type == 65 && data.isNotEmpty()) "$type/${data[0].toInt() and 255}" else "$type"
+        val hex = data.joinToString(" ") { "%02X".format(it) }
+        val write = synchronized(capLast) {
+            capCounts[type] = (capCounts[type] ?: 0) + 1
+            if (capLast[key] != hex && (capCount[key] ?: 0) < 40) { capLast[key] = hex; capCount[key] = (capCount[key] ?: 0) + 1; true } else false
+        }
+        if (write) app?.let { runCatching { captureFile(it).appendText("${stamp()} type $key : $hex\n") } }
     }
 
     private fun carService(): IBinder? = runCatching {
