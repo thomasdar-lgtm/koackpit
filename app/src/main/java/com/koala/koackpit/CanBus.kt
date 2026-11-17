@@ -24,6 +24,7 @@ object CanBus {
     private const val TX_REGISTER = 1
     private const val CBK_CANBUS = 64
     private const val TYPE_SPEED = 22
+    private const val TYPE_KEY = 32     // boutons du volant : code, état (1 appuyé, 0 relâché) — OK = 01 (constaté)
     private const val TYPE_DOORS = 36   // 2e octet : ouvrants (confirmé dans la voiture : porte conducteur = bit 0, coffre = bit 4)
 
     /** Vitesse lue dans la voiture (km/h), et quand (pour savoir si elle est encore fraîche). */
@@ -82,6 +83,7 @@ object CanBus {
             if (changed) app?.let { WakeLog.add(it, "CAN type $type : $hex") }
         }
         if (now < captureUntil) capture(type, f.copyOfRange(3, 3 + len))
+        if (type == TYPE_KEY && len >= 2) onKey(f[3].toInt() and 255, f[4].toInt() and 255)
         if (type == TYPE_DOORS && len >= 2) {
             val m = f[4].toInt() and 0x3F
             main.post { if (doors.value != m) doors.value = m }
@@ -170,6 +172,24 @@ object CanBus {
     private fun stopGps(ctx: Context) {
         gpsListener?.let { l -> runCatching { (ctx.getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager).removeUpdates(l) } }
         gpsListener = null; gpsKmh = null
+    }
+
+    private var keyDown = false
+    private var lastKeyAt = 0L
+
+    /** Bouton OK du volant (écran « audio » du tableau de bord) → lecture / pause de la musique Bluetooth. */
+    private fun onKey(code: Int, state: Int) {
+        val now = SystemClock.elapsedRealtime()
+        if (code == 0x01 && state != 0) {
+            if (keyDown || now - lastKeyAt < 400) return
+            keyDown = true; lastKeyAt = now
+            Thread {
+                if (CarLink.currentSource() == CarLink.SRC_BT) {
+                    CarLink.playPause()
+                    app?.let { WakeLog.add(it, "Volant : OK → lecture/pause") }
+                }
+            }.start()
+        } else if (state == 0) keyDown = false
     }
 
     private fun carService(): IBinder? = runCatching {
