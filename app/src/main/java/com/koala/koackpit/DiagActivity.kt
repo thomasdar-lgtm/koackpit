@@ -309,13 +309,11 @@ fun ExportPanel(
                                 Text("Pas de Wi-Fi : active le partage de connexion du S25.", color = Red, fontSize = 14.sp)
                             }
                             Spacer(Modifier.height(10.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(onClick = onCreate, colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Navy)) {
-                                    Text("Recréer", fontWeight = FontWeight.Bold)
-                                }
-                                Button(onClick = { onShare(result) }, colors = ButtonDefaults.buttonColors(containerColor = Navy, contentColor = Yellow)) {
-                                    Text("Partager…")
-                                }
+                            Button(onClick = onCreate, colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Navy)) {
+                                Text("Recréer le fichier", fontWeight = FontWeight.Bold)
+                            }
+                            Button(onClick = { onShare(result) }, colors = ButtonDefaults.buttonColors(containerColor = Navy, contentColor = Yellow)) {
+                                Text("Partager…")
                             }
                         }
                     }
