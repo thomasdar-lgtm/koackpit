@@ -174,6 +174,10 @@ object Diag {
                 z.putNextEntry(ZipEntry(name)); z.write(f.readBytes()); z.closeEntry()
             }
             z.putNextEntry(ZipEntry("journal.txt")); z.write(WakeLog.read(ctx).toByteArray()); z.closeEntry()
+            // Le contenu complet du bouton « Journaux » (son Bluetooth, démarrages, mises à jour…), sans photo à faire
+            onProgress(0.1f, "Journaux…")
+            val logs = runCatching { RootAccess.lastInstallLog(ctx) }.getOrElse { "indisponible : ${it.message}" }
+            z.putNextEntry(ZipEntry("journaux.txt")); z.write(logs.toByteArray()); z.closeEntry()
             val buf = ByteArray(128 * 1024)
             for (a in chosen) {
                 a.apks.forEachIndexed { i, path ->
