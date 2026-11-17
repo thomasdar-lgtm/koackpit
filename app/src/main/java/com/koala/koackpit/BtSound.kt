@@ -24,6 +24,9 @@ object BtSound {
     /** Temps passé en veille depuis le démarrage d'Android : augmente à chaque mise en veille. */
     private fun sleptMs() = SystemClock.elapsedRealtime() - SystemClock.uptimeMillis()
 
+    /** Heure du dernier démarrage complet d'Android (change à chaque redémarrage de l'autoradio). */
+    private fun bootAt() = System.currentTimeMillis() - SystemClock.elapsedRealtime()
+
     fun markNeeded(ctx: Context, why: String) {
         if (!sp(ctx).getBoolean("btFix", true)) WakeLog.add(ctx, "Son Bluetooth : à rouvrir ($why)")
         sp(ctx).edit().putBoolean("btFix", true).apply()
@@ -42,6 +45,9 @@ object BtSound {
             // téléphone vu déconnecté, ou l'autoradio a dormi depuis la dernière correction.
             if (hfp < 3 && lastHfp >= 3) markNeeded(app, "téléphone déconnecté")
             if (sleptMs() - p.getLong("btFixSlept", 0) > 60_000 && !p.getBoolean("btFix", true)) markNeeded(app, "veille")
+            // Redémarrage complet (constaté le 17/11 : pas de son ensuite) : le compteur de veille repart de zéro,
+            // il ne le voyait donc pas.
+            if (Math.abs(bootAt() - p.getLong("btFixBoot", 0)) > 120_000 && !p.getBoolean("btFix", true)) markNeeded(app, "redémarrage")
             lastHfp = hfp
             val awake = (app.getSystemService(Context.POWER_SERVICE) as PowerManager).isInteractive
             if (hfp >= 3 && awake && p.getBoolean("btFix", true)) {
@@ -75,7 +81,7 @@ object BtSound {
         runCatching {
             app.startActivity(Intent().setComponent(SplitScreen.BT_MAIN).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }.onFailure { WakeLog.add(app, "Page Bluetooth refusée : ${it.message}") }
-        sp(app).edit().putBoolean("btFix", false).putLong("btFixSlept", sleptMs()).apply()
+        sp(app).edit().putBoolean("btFix", false).putLong("btFixSlept", sleptMs()).putLong("btFixBoot", bootAt()).apply()
         h.postDelayed({
             if (driving) MusicActivity.restart()
             else app.startActivity(Intent(app, MainActivity::class.java)
