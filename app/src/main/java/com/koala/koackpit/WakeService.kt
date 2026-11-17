@@ -176,6 +176,9 @@ class WakeService : Service() {
                 }
                 "android.car.action.BT_CONNECT_STATE" -> {
                     val on = i.getBooleanExtra("bt_connected", false)
+                    // Le téléphone allume son partage de connexion à ce moment (routine Samsung) : on cherche le
+                    // réseau toutes les 3 s au lieu d'attendre la recherche espacée d'Android (jusqu'à ~1 min).
+                    if (on) kickWifi()
                     // Téléphone connecté : c'est le bon moment pour (re)ouvrir le son Bluetooth
                     "Bluetooth : " + (if (on) "téléphone connecté" else "TÉLÉPHONE DÉCONNECTÉ")
                 }
@@ -242,6 +245,7 @@ class WakeService : Service() {
             addAction("android.car.action.BT_POWER_STATE_CHANGED")
         })
         watchWifi()
+        unthrottleWifiScan()
         main.postDelayed(reverseWatch, 3000)
         main.postDelayed(btWatch, 5000)
         main.postDelayed(updWatch, 60_000)
@@ -336,8 +340,10 @@ class WakeService : Service() {
                 val ssid = info?.ssid?.trim('"')?.takeIf { it.isNotBlank() && it != "<unknown ssid>" } ?: "?"
                 val now = android.os.SystemClock.elapsedRealtime()
                 val gap = if (wifiDownAt > 0) ", coupure ${mins(now - wifiDownAt)}" else ""
-                wifiUpAt = now; wifiRssi = info?.rssi
-                main.post { WakeLog.add(this@WakeService, "Wi-Fi connecté ($ssid, signal ${info?.rssi ?: "?"} dBm$gap)") }
+                wifiUpAt = now; wifiRssi = info?.rssi; wifiOn = true
+                val kick = if (kickStart > 0) ", ${(now - kickStart) / 1000} s après le téléphone" else ""
+                kickStart = 0
+                main.post { WakeLog.add(this@WakeService, "Wi-Fi connecté ($ssid, signal ${info?.rssi ?: "?"} dBm$gap$kick)") }
             }
             override fun onCapabilitiesChanged(network: android.net.Network, caps: android.net.NetworkCapabilities) {
                 runCatching { wm.connectionInfo?.rssi }.getOrNull()?.takeIf { it > -127 }?.let { wifiRssi = it }
@@ -346,13 +352,50 @@ class WakeService : Service() {
                 val now = android.os.SystemClock.elapsedRealtime()
                 val dur = if (wifiUpAt > 0) " après ${mins(now - wifiUpAt)}" else ""
                 val screen = if ((getSystemService(POWER_SERVICE) as android.os.PowerManager).isInteractive) "écran allumé" else "écran éteint"
-                wifiDownAt = now
+                wifiDownAt = now; wifiOn = false
                 main.post { WakeLog.add(this@WakeService, "Wi-Fi PERDU$dur (dernier signal ${wifiRssi ?: "?"} dBm, $screen)") }
             }
         }
         cm.registerNetworkCallback(
             android.net.NetworkRequest.Builder().addTransportType(android.net.NetworkCapabilities.TRANSPORT_WIFI).build(), cb)
         wifiCb = cb
+    }
+
+    @Volatile private var wifiOn = false
+    private var kickStart = 0L
+    /** Recherche rapide du partage de connexion : toutes les 3 s pendant 90 s, tant que le Wi-Fi n'est pas connecté. */
+    private fun kickWifi() {
+        if (wifiOn || kickStart > 0) return
+        val wm = applicationContext.getSystemService(android.net.wifi.WifiManager::class.java)
+        kickStart = android.os.SystemClock.elapsedRealtime()
+        WakeLog.add(this, "Wi-Fi : recherche rapide du partage de connexion")
+        val t0 = kickStart
+        val tick = object : Runnable {
+            override fun run() {
+                if (wifiOn || kickStart != t0) return
+                if (android.os.SystemClock.elapsedRealtime() - t0 > 90_000) {
+                    WakeLog.add(this@WakeService, "Wi-Fi : partage introuvable après 90 s"); kickStart = 0; return
+                }
+                runCatching { if (!wm.isWifiEnabled) wm.isWifiEnabled = true }
+                @Suppress("DEPRECATION") runCatching { wm.startScan(); wm.reconnect() }
+                main.postDelayed(this, 3000)
+            }
+        }
+        main.post(tick)
+    }
+
+    /** Android limite les recherches Wi-Fi des applis (4 par 2 min) : on lève cette limite une fois. */
+    private fun unthrottleWifiScan() {
+        val v = runCatching { Settings.Global.getString(contentResolver, "wifi_scan_throttle_enabled") }.getOrNull()
+        if (v == "0") return
+        val app = applicationContext
+        Thread {
+            Thread.sleep(40_000)
+            runCatching {
+                RootAccess.run(app, "settings put global wifi_scan_throttle_enabled 0")
+                WakeLog.add(app, "Wi-Fi : limite de recherche levée")
+            }
+        }.start()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int) = START_STICKY

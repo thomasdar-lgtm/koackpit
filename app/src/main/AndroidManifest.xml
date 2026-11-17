@@ -5,6 +5,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Adresse du téléphone (passerelle du partage de connexion) pour l'appli compagnon -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Retour automatique de Koackpit au démarrage de la voiture -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
