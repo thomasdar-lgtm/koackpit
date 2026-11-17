@@ -56,10 +56,12 @@ object KeepAlive {
 /** Journal des démarrages (affiché dans l'outil de diagnostic), pour vérifier au lieu de supposer. */
 object WakeLog {
     private const val FILE = "wake-log.txt"
-    fun add(ctx: Context, msg: String) {
+    private val lock = Any()
+    /** Écritures une par une : plusieurs à la fois mélangeaient et tronquaient le journal (constaté le 17/11). */
+    fun add(ctx: Context, msg: String) = synchronized(lock) {
         runCatching {
             val f = File(ctx.filesDir, FILE)
-            val lines = (if (f.exists()) f.readLines() else emptyList()).takeLast(120)
+            val lines = (if (f.exists()) f.readLines() else emptyList()).takeLast(400)
             val t = SimpleDateFormat("dd/MM HH:mm:ss", Locale.FRANCE).format(Date())
             f.writeText((lines + "$t  $msg").joinToString("\n"))
         }
