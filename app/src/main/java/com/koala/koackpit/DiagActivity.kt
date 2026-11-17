@@ -273,7 +273,7 @@ fun ExportPanel(
 
             // Création puis récupération
             Column(
-                Modifier.weight(1.2f).fillMaxHeight().clip(RoundedCornerShape(12.dp)).background(Card)
+                Modifier.weight(1.5f).fillMaxHeight().clip(RoundedCornerShape(12.dp)).background(Card)
                     .verticalScroll(rememberScrollState()).padding(18.dp),
             ) {
                 if (progress != null) {
@@ -290,36 +290,37 @@ fun ExportPanel(
                     ) { Text("Créer le fichier", fontWeight = FontWeight.Black, fontSize = 18.sp) }
                     if (totalMb > LIMIT_MB) Text("Trop lourd : décoche des applis (max $LIMIT_MB Mo)", color = Red, fontSize = 13.sp)
                 } else {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row {
                         if (code != null) {
                             androidx.compose.foundation.Image(
                                 code.asImageBitmap(), "QR code du fichier",
-                                Modifier.size(220.dp).clip(RoundedCornerShape(8.dp)),
+                                Modifier.size(190.dp).clip(RoundedCornerShape(8.dp)),
                             )
                             Spacer(Modifier.width(18.dp))
                         }
                         Column(Modifier.weight(1f)) {
                             Text("Fichier prêt (${result.length() / 1_048_576} Mo)", color = Yellow, fontWeight = FontWeight.Black, fontSize = 18.sp)
-                            Spacer(Modifier.height(8.dp))
+                            Spacer(Modifier.height(6.dp))
                             if (url != null) {
-                                Text("Scanne le QR code avec l'appareil photo du S25 : le fichier se télécharge.", color = Color.White, fontSize = 15.sp)
-                                Spacer(Modifier.height(8.dp))
-                                Text(url, color = Yellow, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                                Text("Garde cette fenêtre ouverte pendant le téléchargement.", color = Muted, fontSize = 12.sp)
+                                Text("Scanne le QR code avec l'appareil photo du S25 : le fichier se télécharge.", color = Color.White, fontSize = 14.sp)
+                                Spacer(Modifier.height(4.dp))
+                                Text(url, color = Muted, fontSize = 12.sp)
                             } else {
-                                Text("Pas de Wi-Fi : active le partage de connexion du S25.", color = Red, fontSize = 15.sp)
+                                Text("Pas de Wi-Fi : active le partage de connexion du S25.", color = Red, fontSize = 14.sp)
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(onClick = onCreate, colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Navy)) {
+                                    Text("Recréer", fontWeight = FontWeight.Bold)
+                                }
+                                Button(onClick = { onShare(result) }, colors = ButtonDefaults.buttonColors(containerColor = Navy, contentColor = Yellow)) {
+                                    Text("Partager…")
+                                }
                             }
                         }
                     }
-                    Spacer(Modifier.height(14.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Button(onClick = onCreate, colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Navy)) {
-                            Text("Recréer le fichier", fontWeight = FontWeight.Bold)
-                        }
-                        Button(onClick = { onShare(result) }, colors = ButtonDefaults.buttonColors(containerColor = Navy, contentColor = Yellow)) {
-                            Text("Partager…")
-                        }
-                    }
+                    Spacer(Modifier.height(10.dp))
+                    Text("Garde cette fenêtre ouverte pendant le téléchargement.", color = Muted, fontSize = 12.sp)
                     savedAt?.let { Spacer(Modifier.height(6.dp)); Text("Copie aussi dans : $it", color = Muted, fontSize = 12.sp) }
                 }
             }
