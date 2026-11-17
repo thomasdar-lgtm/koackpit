@@ -139,7 +139,7 @@ fun Koackpit(screen: androidx.compose.runtime.MutableState<Screen>, upd: UpdateS
                 Screen.APPS -> AppDrawer(onBack = { screen.value = Screen.HOME })
                 Screen.SETTINGS -> SettingsScreen(upd, onBack = { screen.value = Screen.HOME })
                 Screen.CAR -> CarScreen(onBack = { screen.value = Screen.HOME }, onCarInfo = {
-                    if (!Apps.open(this@MainActivity, Targets.CAR_INFO)) toast(this@MainActivity, "Car Info n'est pas installé")
+                    if (!Apps.open(ctx, Targets.CAR_INFO)) toast(ctx, "Car Info n'est pas installé")
                 })
             }
         }
