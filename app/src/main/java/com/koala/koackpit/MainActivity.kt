@@ -66,7 +66,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-enum class Screen { HOME, APPS, SETTINGS }
+enum class Screen { HOME, APPS, SETTINGS, CAR }
 
 class MainActivity : ComponentActivity() {
     companion object { @Volatile var visible = false }
@@ -135,9 +135,12 @@ fun Koackpit(screen: androidx.compose.runtime.MutableState<Screen>, upd: UpdateS
         Column(Modifier.fillMaxSize()) {
             if (!keepAlive) KeepAliveBanner { KeepAlive.request(ctx) }
             when (screen.value) {
-                Screen.HOME -> Home(onApps = { screen.value = Screen.APPS }, onSettings = { screen.value = Screen.SETTINGS })
+                Screen.HOME -> Home(onApps = { screen.value = Screen.APPS }, onSettings = { screen.value = Screen.SETTINGS }, onCar = { screen.value = Screen.CAR })
                 Screen.APPS -> AppDrawer(onBack = { screen.value = Screen.HOME })
                 Screen.SETTINGS -> SettingsScreen(upd, onBack = { screen.value = Screen.HOME })
+                Screen.CAR -> CarScreen(onBack = { screen.value = Screen.HOME }, onCarInfo = {
+                    if (!Apps.open(this@MainActivity, Targets.CAR_INFO)) toast(this@MainActivity, "Car Info n'est pas installé")
+                })
             }
         }
         // Portes / coffre / capot ouverts : alerte en haut, au centre
@@ -148,7 +151,7 @@ fun Koackpit(screen: androidx.compose.runtime.MutableState<Screen>, upd: UpdateS
 }
 
 @Composable
-fun Home(onApps: () -> Unit, onSettings: () -> Unit) {
+fun Home(onApps: () -> Unit, onSettings: () -> Unit, onCar: () -> Unit = {}) {
     val ctx = LocalContext.current
     var now by remember { mutableStateOf(Date()) }
     LaunchedEffect(Unit) { while (true) { now = Date(); delay(5_000) } }
@@ -169,7 +172,7 @@ fun Home(onApps: () -> Unit, onSettings: () -> Unit) {
             onDrive = { SplitScreen.launch(ctx, listOf(nav, Targets.WAZE, Targets.MAPS)) {} },
             onMusic = { ctx.startActivity(Intent(ctx, MusicActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) },
             onPhone = { go(Targets.PHONE, "Le téléphone") },
-            onCar = { go(Targets.CAR_INFO, "Car Info") },
+            onCar = onCar,
             onApps = onApps,
             onSettings = onSettings,
         ),

@@ -74,6 +74,30 @@ class Screenshots {
         }
     } }
 
+    private val carnet = run {
+        fun d(s: String) = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.FRANCE).parse(s)!!.time
+        Carnet.Data(
+            Carnet.DEFAULT_KINDS,
+            listOf(
+                Entry("vidange", d("12/03/2026"), 182_400, "Garage du coin, huile 5W30"),
+                Entry("ct", d("04/12/2024"), 171_900),
+                Entry("air", d("20/05/2024"), 165_000),
+                Entry("distribution", d("15/09/2022"), 140_200, "Kit + pompe à eau"),
+            ),
+            196_850,
+        )
+    }
+
+    @Test
+    fun voiture() = captureRoboImage("build/screens/voiture.png") { Scaled {
+        CarScreenContent(carnet, Doors.FL, {}, {}, {}, {}, {})
+    } }
+
+    @Test
+    fun voiture_vide() = captureRoboImage("build/screens/voiture-vide.png") { Scaled {
+        CarScreenContent(Carnet.Data(Carnet.DEFAULT_KINDS, emptyList(), 0), 0, {}, {}, {}, {}, {})
+    } }
+
     @Test
     fun accueil_sans_musique() = captureRoboImage("build/screens/accueil-vide.png") { Scaled {
         HomeContent("17:42", "Jeudi 12 novembre", "Google Maps", MediaInfo(), RailActions(), {}, {}, {}, {})
