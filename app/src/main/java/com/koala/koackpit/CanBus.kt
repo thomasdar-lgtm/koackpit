@@ -194,12 +194,13 @@ object CanBus {
             Thread {
                 val hfp = CarLink.hfpState() ?: 0
                 if (hfp in 4..6) return@Thread
-                // Attend le mute du micro-contrôleur (jusqu'à 0,8 s), puis le retire
+                // Lecture/pause D'ABORD (relevé du 17/11 : coupure, retour du son, puis pause = désagréable),
+                // ensuite seulement on retire le mute du micro-contrôleur (attendu jusqu'à 0,8 s).
+                if (CarLink.currentSource() == CarLink.SRC_BT) CarLink.playPause()
                 var muted = false
                 repeat(8) { if (!muted) { Thread.sleep(100); muted = CarLink.mainMuted() == true } }
                 if (muted) ctx.sendBroadcast(android.content.Intent("android.car.action.SET_MUTE")
                     .putExtra("arg_boolean", false).putExtra("show_ui", false))
-                if (CarLink.currentSource() == CarLink.SRC_BT) CarLink.playPause()
                 WakeLog.add(ctx, "Volant : étoile → lecture/pause" + if (muted) " (mute annulé)" else "")
             }.start()
         } else if (state == 0) keyDown = false
