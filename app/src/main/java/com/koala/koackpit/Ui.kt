@@ -220,6 +220,7 @@ fun NavCard(
     modifier: Modifier, navName: String, speedKmh: Int?, car: CarStats?,
     onDrive: () -> Unit, onHomeAddr: (() -> Unit)?, onWorkAddr: (() -> Unit)?,
     weather: Weather.Forecast? = Weather.state.value,
+    limit: Int? = null,
 ) {
     Box(
         modifier.clip(RoundedCornerShape(18.dp))
@@ -231,9 +232,14 @@ fun NavCard(
             Spacer(Modifier.height(6.dp))
             // Vitesse + température extérieure
             Row(verticalAlignment = Alignment.Bottom) {
-                Text(speedKmh?.toString() ?: "–", color = Color.White, fontSize = 56.sp, fontWeight = FontWeight.Black, lineHeight = 56.sp)
+                val over = limit != null && speedKmh != null && speedKmh > limit
+                Text(speedKmh?.toString() ?: "–", color = if (over) Red else Color.White, fontSize = 56.sp, fontWeight = FontWeight.Black, lineHeight = 56.sp)
                 Spacer(Modifier.width(6.dp))
                 Text("km/h", color = Muted, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                if (limit != null) {
+                    Spacer(Modifier.width(14.dp))
+                    LimitSign(limit, Modifier.padding(bottom = 4.dp))
+                }
                 Spacer(Modifier.weight(1f))
                 if (car?.outTemp != null) Column(horizontalAlignment = Alignment.End) {
                     Text("%.1f °C".format(car.outTemp).replace('.', ','), color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black)
@@ -271,6 +277,18 @@ fun NavCard(
                 if (onWorkAddr != null) Pill("Travail", Card.copy(alpha = 0.92f), Color.White, onWorkAddr)
             }
         }
+    }
+}
+
+/** Panneau de limitation de vitesse (cercle rouge, chiffre noir sur blanc). */
+@Composable
+fun LimitSign(limit: Int, modifier: Modifier = Modifier) {
+    Box(
+        modifier.size(48.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xFFD62828)).padding(5.dp)
+            .clip(androidx.compose.foundation.shape.CircleShape).background(Color.White),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(limit.toString(), color = Color.Black, fontSize = if (limit >= 100) 16.sp else 19.sp, fontWeight = FontWeight.Black)
     }
 }
 
@@ -320,11 +338,12 @@ fun HomeContent(
     speedKmh: Int? = null, car: CarStats? = null,
     onHomeAddr: (() -> Unit)? = null, onWorkAddr: (() -> Unit)? = null,
     weather: Weather.Forecast? = Weather.state.value,
+    limit: Int? = SpeedLimit.limit.value,
 ) {
     Row(Modifier.fillMaxSize().background(Navy)) {
         AppRail(time, "", rail)
         Row(Modifier.fillMaxSize().padding(10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            NavCard(Modifier.weight(1.25f).fillMaxHeight(), navName, speedKmh, car, rail.onDrive, onHomeAddr, onWorkAddr, weather)
+            NavCard(Modifier.weight(1.25f).fillMaxHeight(), navName, speedKmh, car, rail.onDrive, onHomeAddr, onWorkAddr, weather, limit)
             Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 MediaCardWide(Modifier.weight(1.15f).fillMaxWidth(), media, onPrev, onPlay, onNext, rail.onMusic)
                 TodayCard(Modifier.weight(1f).fillMaxWidth(), time, date, rail.onSettings)

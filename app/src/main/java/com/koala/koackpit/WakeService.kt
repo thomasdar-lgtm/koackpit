@@ -266,6 +266,7 @@ class WakeService : Service() {
         main.postDelayed(updWatch, 60_000)
         main.post(overlayTick)
         main.postDelayed(weatherWatch, 3_000)
+        SpeedLimit.start(this)
         main.postDelayed(sourceWatch, 4000)
         // Données de la voiture (vitesse…) lues sur le bus CAN
         main.postDelayed({ CanBus.start(this) }, 2000)
@@ -462,6 +463,7 @@ class WakeService : Service() {
         main.removeCallbacks(updWatch)
         main.removeCallbacks(overlayTick)
         main.removeCallbacks(weatherWatch)
+        SpeedLimit.stop()
         UpdateOverlay.hide(this)
         CallOverlay.hide(this)
         main.removeCallbacks(sourceWatch)
