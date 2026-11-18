@@ -33,6 +33,52 @@ object CanBus {
     /** Ouvrants ouverts (voir [Doors]). */
     val doors = mutableStateOf(0)
 
+    /**
+     * Infos voiture (écran « Infos carrosserie » de Car Info, type 65 sous-type 2, envoyées seulement sur demande :
+     * trame 0x90 → 65, 2). Code du fabricant : régime, vitesse ×0,01, batterie ×0,01 V, température extérieure
+     * ×0,1 °C, kilométrage, carburant en litres.
+     */
+    data class Info(val rpm: Int, val speed: Float, val battery: Float, val outTemp: Float, val odometer: Int, val fuel: Int)
+    val info = mutableStateOf<Info?>(null)
+    private var infoLogged = 0
+
+    private fun frame(type: Int, vararg data: Int): ByteArray {
+        val f = ByteArray(4 + data.size)
+        f[0] = 0x2E; f[1] = type.toByte(); f[2] = data.size.toByte()
+        data.forEachIndexed { i, v -> f[3 + i] = v.toByte() }
+        var sum = 0; for (i in 1 until f.size - 1) sum += f[i].toInt() and 255
+        f[f.size - 1] = ((sum and 255) xor 255).toByte()
+        return f
+    }
+
+    /** Demande les infos voiture toutes les 2 s (le boîtier ne les envoie pas de lui-même). */
+    private val poll = object : Runnable {
+        override fun run() {
+            Thread { runCatching { CarLink.canbusSend(frame(0x90, 65, 2)) } }.start()
+            main.postDelayed(this, 2000)
+        }
+    }
+
+    private fun onInfo(d: ByteArray) {
+        fun u(i: Int) = d[i].toInt() and 255
+        val i = Info(
+            rpm = u(1) * 256 + u(2),
+            speed = (u(3) * 256 + u(4)) * 0.01f,
+            battery = (u(5) * 256 + u(6)) * 0.01f,
+            outTemp = ((u(7) shl 8) or u(8)).toShort() * 0.1f,
+            odometer = u(9) * 65536 + u(10) * 256 + u(11),
+            fuel = u(12),
+        )
+        main.post { info.value = i }
+        if (infoLogged < 3) {
+            infoLogged++
+            app?.let {
+                WakeLog.add(it, "Infos voiture : ${i.fuel} L, ${i.odometer} km, ${"%.1f".format(i.outTemp)} °C, " +
+                    "${"%.2f".format(i.battery)} V, ${i.rpm} tr/min, ${"%.1f".format(i.speed)} km/h")
+            }
+        }
+    }
+
     fun freshSpeed(): Int? = speed.value?.takeIf { SystemClock.elapsedRealtime() - speedAt < 3000 }
 
     private val main = Handler(Looper.getMainLooper())
@@ -85,6 +131,7 @@ object CanBus {
         if (now < captureUntil) capture(type, f.copyOfRange(3, 3 + len))
         // Boutons du volant (relevé du 17/11) : 01 volume +, 02 volume −, 06 étoile (mute), 05 téléphone.
         // Le bouton OK n'envoie rien sur le CAN.
+        if (type == 65 && len >= 13 && f[3].toInt() == 2) onInfo(f.copyOfRange(3, 3 + len))
         if (type == TYPE_KEY && len >= 2) onKey(f[3].toInt() and 255, f[4].toInt() and 255)
         if (type == TYPE_DOORS && len >= 2) {
             val m = f[4].toInt() and 0x3F
@@ -250,5 +297,6 @@ object CanBus {
             app?.let { WakeLog.add(it, "CAN, trames en 2 min : " + s.ifEmpty { "aucune (contact coupé ou boîtier muet ?)" }) }
         }, 120_000)
         WakeLog.add(ctx, "CAN : abonné")
+        main.removeCallbacks(poll); main.postDelayed(poll, 1500)
     }
 }

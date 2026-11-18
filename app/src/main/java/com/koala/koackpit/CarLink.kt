@@ -100,6 +100,9 @@ object CarLink {
     fun avrcpInfo(): Array<String>? = value("state.bt.avrcp_info", TYPE_STRING_ARRAY)?.getStringArray("value")
 
     /** Demande au module Bluetooth de se connecter au dernier téléphone (fonction « Connect » sans adresse). */
+    /** Envoie une trame au boîtier CAN (comme l'appli Car Info du fabricant : service car, requête 64). */
+    fun canbusSend(frame: ByteArray) = request(64, 1, Bundle().apply { putByteArray("arg_byte_array", frame) }) != null
+
     fun btConnectLast() = request(4, 2, Bundle().apply { putInt("bt_fun", 0); putInt("arg_int", 0) }) != null
 
     private fun btFun(f: Int) = request(4, 2, Bundle().apply { putInt("bt_fun", f); putInt("arg_int", 0) }) != null
