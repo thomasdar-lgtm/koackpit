@@ -55,8 +55,11 @@ object PhoneLink {
     /** Commande du lecteur du téléphone : toggle, play, pause, next, prev, seek (ms). */
     fun command(a: String, ms: Long = 0) {
         val gw = gateway() ?: return
-        Thread { get("http://$gw:$PORT/cmd?a=$a&ms=$ms") }.start()
-        if (a == "seek") { pos = ms; posAt = android.os.SystemClock.elapsedRealtime() }
+        Thread {
+            get("http://$gw:$PORT/cmd?a=$a&ms=$ms")
+            app?.let { WakeLog.add(it, "Commande lecture envoyée au téléphone : $a" + if (a == "seek") " ${ms / 1000} s" else "") }
+        }.start()
+        // Pas de position supposée : la barre suit ce que le téléphone renvoie (si Deezer refuse, elle ne bouge pas)
     }
 
     private var artId = ""

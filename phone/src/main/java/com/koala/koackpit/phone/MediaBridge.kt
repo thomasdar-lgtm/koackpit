@@ -130,14 +130,22 @@ class MediaBridge : NotificationListenerService() {
         return (if (level >= 0) level * 100 / scale else -1) to plugged
     }
 
+    /**
+     * Commande du lecteur. Constat (18/11) : avec le téléphone déverrouillé, Deezer ignorait l'avance demandée,
+     * alors qu'écran verrouillé ça marchait. Deezer peut avoir plusieurs sessions de lecture ouvertes en même temps :
+     * l'avance est donc envoyée à toutes les sessions de l'appli qui joue.
+     */
     private fun command(a: String, ms: Long) {
-        val tc = current?.transportControls ?: return
+        val cur = current ?: return
         main.post {
+            val all = runCatching { msm?.getActiveSessions(ComponentName(this, MediaBridge::class.java)) }.getOrNull().orEmpty()
+                .filter { it.packageName == cur.packageName }.ifEmpty { listOf(cur) }
             runCatching {
+                val tc = cur.transportControls
                 when (a) {
                     "play" -> tc.play(); "pause" -> tc.pause(); "next" -> tc.skipToNext(); "prev" -> tc.skipToPrevious()
                     "toggle" -> if (playing) tc.pause() else tc.play()
-                    "seek" -> tc.seekTo(ms)
+                    "seek" -> all.forEach { c -> runCatching { c.transportControls.seekTo(ms) } }
                 }
             }
         }
