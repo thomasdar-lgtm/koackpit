@@ -76,13 +76,14 @@ data class RailActions(
 // ---------- Barre d'applis (gauche) ----------
 
 @Composable
-fun AppRail(time: String, active: String, a: RailActions) {
+fun AppRail(time: String, active: String, a: RailActions, links: Links? = LinkStatus.state.value) {
     Column(
         Modifier.width(66.dp).fillMaxHeight().background(Rail).padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(time, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Black)
+        LinkIcons(links)
         RailIcon(Icons.Filled.Place, NavBlue, Color.White, active == "drive", a.onDrive)
         RailIcon(null, Yellow, Navy, active == "music", a.onMusic, note = true)
         RailIcon(Icons.Filled.Phone, PhoneGreen, Color.White, active == "phone", a.onPhone)
@@ -333,6 +334,8 @@ fun DrivePanel(
                 SmallRound(Icons.Filled.Home, onHome)
                 Spacer(Modifier.weight(1f))
                 Text(time, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Black)
+                Spacer(Modifier.width(8.dp))
+                LinkIcons(LinkStatus.state.value)
                 Spacer(Modifier.weight(1f))
                 SmallRound(Icons.Filled.Close, onClose)
             }

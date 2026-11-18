@@ -206,6 +206,7 @@ class WakeService : Service() {
         override fun run() {
             runCatching { UpdateOverlay.tick(this@WakeService) }
             runCatching { CallOverlay.tick(this@WakeService) }
+            runCatching { LinkStatus.tick(this@WakeService) }
             main.postDelayed(this, 1000)
         }
     }
