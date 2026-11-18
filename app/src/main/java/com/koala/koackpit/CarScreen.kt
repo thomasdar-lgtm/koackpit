@@ -113,10 +113,11 @@ fun CarScreenContent(
         Row(Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             // La Golf
             Column(
-                Modifier.width(200.dp).fillMaxHeight().clip(RoundedCornerShape(18.dp)).background(Card).padding(12.dp),
+                Modifier.width(400.dp).fillMaxHeight().clip(RoundedCornerShape(18.dp)).background(Card).padding(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                CarTopView(doors, Modifier.fillMaxWidth().weight(1f))
+                // Golf en 3D : tourner au doigt, pincer pour zoomer, toucher une pièce pour sa fiche
+                Golf3D(doors, Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(12.dp)))
                 Spacer(Modifier.height(6.dp))
                 Text(
                     if (doors == 0) "Tout est fermé" else Doors.label(doors),

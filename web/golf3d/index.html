@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Golf 5 — Vue 360°</title>
+<style>
+  :root { --bg1:#1b2230; --bg2:#07090d; --fg:#e8edf5; --mut:#8a94a6; --acc:#3d8bff; --card:rgba(20,26,36,.72); }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; height:100%; overflow:hidden; background:radial-gradient(ellipse at 50% 40%, var(--bg1), var(--bg2)); color:var(--fg); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  canvas { display:block; touch-action:none; }
+  #top { position:fixed; top:0; left:0; right:0; padding:14px 18px; display:flex; justify-content:space-between; align-items:center; pointer-events:none; }
+  #top h1 { margin:0; font-size:18px; font-weight:600; letter-spacing:.3px; }
+  #top h1 small { display:block; font-size:12px; color:var(--mut); font-weight:400; margin-top:2px; }
+  #bar { position:fixed; left:50%; bottom:16px; transform:translateX(-50%); display:flex; gap:6px; flex-wrap:wrap; justify-content:center; padding:8px; background:var(--card); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,.08); border-radius:18px; max-width:calc(100% - 24px); }
+  button { appearance:none; border:0; background:rgba(255,255,255,.06); color:var(--fg); font:inherit; font-size:13px; padding:9px 12px; border-radius:12px; cursor:pointer; }
+  button:active { transform:scale(.96); }
+  button.on { background:var(--acc); }
+  .row { flex-basis:100%; display:flex; gap:6px; justify-content:center; align-items:center; flex-wrap:wrap; }
+  .lbl { font-size:12px; color:var(--mut); margin-right:2px; }
+  .sep { width:1px; background:rgba(255,255,255,.1); margin:4px 2px; }
+  .sw { width:30px; height:30px; padding:0; border-radius:50%; border:2px solid rgba(255,255,255,.25); }
+  .sw.on { border-color:#fff; box-shadow:0 0 0 2px var(--acc); }
+  #load { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; color:var(--mut); font-size:14px; }
+  #prog { width:180px; height:4px; background:rgba(255,255,255,.1); border-radius:2px; overflow:hidden; }
+  #prog i { display:block; height:100%; width:0; background:var(--acc); transition:width .2s; }
+  #credit { position:fixed; right:10px; top:56px; font-size:10px; color:var(--mut); text-align:right; }
+  #credit a { color:var(--mut); }
+  #info { position:fixed; top:70px; left:12px; right:12px; max-width:420px; margin:0 auto; padding:14px 16px 12px; background:var(--card); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border:1px solid rgba(255,255,255,.1); border-radius:16px; transform:translateY(-12px); opacity:0; pointer-events:none; transition:opacity .25s, transform .25s; z-index:5; }
+  #info.show { opacity:1; transform:none; pointer-events:auto; }
+  #info h2 { margin:0 0 6px; font-size:16px; font-weight:600; padding-right:70px; }
+  #info p { margin:0; font-size:13.5px; line-height:1.45; color:#c7cfdb; }
+  #info button { position:absolute; top:10px; right:10px; font-size:12px; padding:7px 10px; }
+  #tip { position:fixed; top:56px; left:50%; transform:translateX(-50%); font-size:12px; color:var(--mut); background:var(--card); padding:6px 12px; border-radius:20px; opacity:0; transition:opacity .4s; pointer-events:none; white-space:nowrap; }
+  #tip.show { opacity:1; }
+  @media (max-width: 600px) {
+    #top { padding:10px 12px; } #top h1 { font-size:16px; } #top h1 small { font-size:11px; }
+    #hint { display:none; }
+    #credit { top:auto; bottom:4px; right:6px; font-size:9px; }
+    #bar { bottom:18px; gap:4px; padding:6px; border-radius:14px; }
+    button { font-size:12px; padding:7px 8px; border-radius:10px; }
+    .sw { width:24px; height:24px; }
+    .lbl { display:none; }
+    #info { top:58px; }
+  }
+  #hint { position:fixed; top:56px; left:18px; font-size:12px; color:var(--mut); transition:opacity 1s; }
+  body.embed { background:transparent; }
+  body.embed #top, body.embed #bar, body.embed #hint { display:none; }
+  body.embed #credit { top:auto; bottom:4px; right:6px; font-size:8px; opacity:.7; }
+  body.embed #info { top:8px; left:8px; right:8px; }
+  body.embed #tip { top:8px; }
+</style>
+</head>
+<body>
+<div id="top"><h1>Volkswagen Golf 5<small>1.9 TDI · vue 360°</small></h1></div>
+<div id="hint">Glisser pour tourner · pincer pour zoomer</div>
+<div id="credit">Modèle 3D : <a href="https://sketchfab.com/3d-models/volkswagen-golf-5-20-tdi-2ef3655a2b6e4af8b7709624673ea884">bimboit34 (Sketchfab)</a><br>Licence <a href="http://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a></div>
+<div id="info"><h2></h2><p></p><button id="infoBack">↩ Vue générale</button></div>
+<div id="tip">Touchez une pièce pour la voir de près</div>
+<div id="load"><div>Chargement de la Golf…</div><div id="prog"><i></i></div></div>
+<div id="bar">
+  <button data-view="front">Avant</button>
+  <button data-view="side">Côté</button>
+  <button data-view="back">Arrière</button>
+  <button data-view="top">Dessus</button>
+  <button id="rot" class="on">⟳ Auto</button>
+  <button id="lights">Feux</button>
+  <span id="colors" style="display:flex;gap:6px;align-items:center"></span>
+  <div class="row" id="doors">
+    <span class="lbl">Ouvrants</span>
+    <button data-door="FL">AV G</button>
+    <button data-door="FR">AV D</button>
+    <button data-door="RL">AR G</button>
+    <button data-door="RR">AR D</button>
+    <button data-door="HOOD">Capot</button>
+    <button data-door="TAIL">Coffre</button>
+    <button id="allDoors">Tout</button>
+  </div>
+</div>
+
+<script src="golf3d.js"></script>
+</body>
+</html>

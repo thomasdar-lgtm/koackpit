@@ -12,8 +12,8 @@ android {
         applicationId = "com.koala.koackpit"
         minSdk = 26
         targetSdk = 35
-        versionCode = 117
-        versionName = "0.12.0"
+        versionCode = 118
+        versionName = "0.13.0"
     }
 
     signingConfigs {
@@ -59,6 +59,8 @@ dependencies {
     implementation("androidx.compose.material:material-icons-core")
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.core:core-ktx:1.15.0")
+    // Vue 3D de la Golf : pages locales servies en https (assets/golf3d)
+    implementation("androidx.webkit:webkit:1.12.1")
     // QR code du fichier de diagnostic (génération seule, sans appareil photo)
     implementation("com.google.zxing:core:3.5.3")
 
