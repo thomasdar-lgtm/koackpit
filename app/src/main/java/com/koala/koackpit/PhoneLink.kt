@@ -55,6 +55,7 @@ object PhoneLink {
     /** Commande du lecteur du téléphone : toggle, play, pause, next, prev, seek (ms). */
     fun command(a: String, ms: Long = 0) {
         val gw = gateway() ?: return
+        fastUntil = android.os.SystemClock.elapsedRealtime() + 4000
         Thread {
             get("http://$gw:$PORT/cmd?a=$a&ms=$ms")
             app?.let { WakeLog.add(it, "Commande lecture envoyée au téléphone : $a" + if (a == "seek") " ${ms / 1000} s" else "") }
@@ -150,7 +151,9 @@ object PhoneLink {
             // Coupure du Wi-Fi : on garde les dernières infos 3 min (la position continue d'avancer sur place)
             else if (android.os.SystemClock.elapsedRealtime() - lastOk > 180_000) main.post { connected.value = false }
             // 1,5 s quand le téléphone répond ; sinon on retente toutes les 2 s pour reprendre vite
-            Thread.sleep(if (ok) 1500 else 2000)
+            // Juste après une commande (avance, lecture…) : interrogation rapide pour que la barre suive tout de suite
+            val fast = android.os.SystemClock.elapsedRealtime() < fastUntil
+            Thread.sleep(if (fast) 250 else if (ok) 1500 else 2000)
         }
     }
 
@@ -159,6 +162,7 @@ object PhoneLink {
      * en milieu de titre). null si l'appli du téléphone ne répond pas ou ne donne pas la position.
      */
     @Volatile private var lastOk = 0L
+    @Volatile private var fastUntil = 0L
 
     /**
      * [btPlaying] : lecture/pause d'après le Bluetooth. Pendant une coupure du Wi-Fi, c'est lui qui dit si la
