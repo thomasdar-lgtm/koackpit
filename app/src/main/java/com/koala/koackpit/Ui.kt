@@ -274,7 +274,7 @@ fun NavCard(
     }
 }
 
-/** Météo de la route : temps actuel, pluie à venir, et les 4 prochaines heures. */
+/** Météo de la route : temps actuel et pluie à venir (les heures suivantes : retirées, pas utiles). */
 @Composable
 fun WeatherStrip(w: Weather.Forecast) {
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.06f)).padding(horizontal = 12.dp, vertical = 10.dp)) {
@@ -284,17 +284,6 @@ fun WeatherStrip(w: Weather.Forecast) {
             Column(Modifier.weight(1f)) {
                 Text("${Weather.label(w.code)} · ${w.temp} °C", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Black, maxLines = 1)
                 Text(w.rainNote, color = if (w.rainSoon) Yellow else Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-            }
-        }
-        if (w.hours.isNotEmpty()) {
-            Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                for (h in w.hours) Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(h.label, color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    Text(Weather.icon(h.code), fontSize = 18.sp)
-                    Text("${h.temp}°", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    Text(if (h.rain >= 20) "${h.rain} %" else " ", color = Yellow, fontSize = 11.sp)
-                }
             }
         }
     }
