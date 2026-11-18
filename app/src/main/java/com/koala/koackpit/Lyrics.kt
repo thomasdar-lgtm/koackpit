@@ -142,7 +142,7 @@ fun LyricsView(
     val p = pos
     if (ls.isNullOrEmpty() || p == null) {
         // Panneau des paroles : on dit pourquoi il n'y a rien plutôt qu'un cadre vide
-        if (placeholder) Text(
+        if (placeholder) androidx.compose.foundation.layout.Box(modifier, contentAlignment = Alignment.Center) { Text(
             when {
                 !connected -> "Koackpit Téléphone n'est pas relié (partage de connexion ?)"
                 title.isBlank() -> "Rien en lecture"
@@ -150,8 +150,8 @@ fun LyricsView(
                 ls.isEmpty() -> "Paroles introuvables pour ce titre"
                 else -> "Lance la lecture sur le téléphone"
             },
-            color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp, textAlign = TextAlign.Center, modifier = modifier.fillMaxWidth(),
-        )
+            color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
+        ) }
         return
     }
     LyricsLines(ls, Lyrics.indexAt(ls, p + 300), big, modifier)   // +0,3 s : la ligne s'allume au moment où elle est chantée
