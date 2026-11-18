@@ -274,7 +274,9 @@ fun SettingsScreen(upd: UpdateState, onBack: () -> Unit, onSlim: () -> Unit = {}
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     var nav by remember { mutableStateOf(Prefs.nav(ctx)) }
     var checking by remember { mutableStateOf(false) }
+    var hideCallBar by remember { mutableStateOf(Prefs.hideVendorCall(ctx)) }
     SettingsContent(
+        hideCallBar = hideCallBar, onHideCallBar = { hideCallBar = it; Prefs.setHideVendorCall(ctx, it) },
         nav = nav, installed = { Apps.installed(ctx, it) }, version = BuildConfig.VERSION_NAME,
         update = upd.info?.version, checking = checking,
         onNav = { nav = it; Prefs.setNav(ctx, it) },
@@ -299,6 +301,7 @@ fun SettingsScreen(upd: UpdateState, onBack: () -> Unit, onSlim: () -> Unit = {}
 fun SettingsContent(
     nav: String, installed: (String) -> Boolean, version: String, update: String?, checking: Boolean,
     onNav: (String) -> Unit, onCheck: () -> Unit, onDiag: () -> Unit, onSlim: () -> Unit, onBack: () -> Unit,
+    hideCallBar: Boolean = true, onHideCallBar: (Boolean) -> Unit = {},
 ) {
     Column(Modifier.fillMaxSize()) {
         Header("Réglages", onBack)
@@ -328,6 +331,21 @@ fun SettingsContent(
                 }
             }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SettingsSection("Appels") {
+                    Text("Barre d'appel de l'autoradio", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        for ((v, label) in listOf(true to "Masquée", false to "Affichée")) {
+                            val on = hideCallBar == v
+                            Text(
+                                label, color = if (on) Navy else Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(if (on) Yellow else Navy)
+                                    .clickable { onHideCallBar(v) }.padding(horizontal = 12.dp, vertical = 10.dp),
+                            )
+                        }
+                    }
+                    Text("Masquée : la fiche d'appel Koackpit la remplace.", color = Muted, fontSize = 12.sp)
+                }
                 SettingsSection("Autoradio") {
                     SettingButton("Alléger l'autoradio", onSlim)
                     Spacer(Modifier.height(8.dp))

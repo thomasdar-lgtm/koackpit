@@ -20,7 +20,8 @@ import android.widget.TextView
  */
 object CallOverlay {
     /** Ce que la fiche affiche (séparé de l'affichage pour les captures d'écran). */
-    data class Call(val state: Int, val name: String?, val number: String?, val seconds: Int, val voiceInCar: Boolean, val vocal: Boolean = false)
+    data class Call(val state: Int, val name: String?, val number: String?, val seconds: Int, val voiceInCar: Boolean, val vocal: Boolean = false,
+                    val keypad: Boolean = false, val typed: String = "")
 
     private var root: LinearLayout? = null
     private var shown: Call? = null
@@ -29,6 +30,10 @@ object CallOverlay {
     /** Vocal ou assistant : passage direct de « connecté » à « en appel », sans sonnerie ni numérotation (journal du 17/11). */
     private var vocal = false
     private var duration: TextView? = null
+    private var keypad = false
+    private var typed = ""
+    private var vendorLogged = false
+    private val BT_BACK = android.content.ComponentName("android.car.app.bt", "android.car.app.bt.BtBackService")
 
     /** Appelée chaque seconde par le service. */
     fun tick(ctx: Context) {
@@ -38,7 +43,13 @@ object CallOverlay {
         if (hfp == 6 && lastHfp == 3) vocal = true
         if (hfp < 4) vocal = false
         if (hfp in 0..6) lastHfp = hfp
+        if (hfp < 4) { keypad = false; typed = ""; vendorLogged = false }
         if (hfp < 4 || !awake) { talkingSince = 0; hide(app); return }
+        // Barre d'appel de l'autoradio : son service est public, on l'arrête (la fiche Koackpit la remplace)
+        if (Prefs.hideVendorCall(app)) {
+            val was = runCatching { app.stopService(android.content.Intent().setComponent(BT_BACK)) }.getOrElse { false }
+            if (was && !vendorLogged) { vendorLogged = true; WakeLog.add(app, "Barre d'appel de l'autoradio coupée") }
+        }
         if (hfp == 6 && talkingSince == 0L) talkingSince = SystemClock.elapsedRealtime()
         if (hfp != 6) talkingSince = 0
         val call = Call(
@@ -48,6 +59,7 @@ object CallOverlay {
             seconds = if (talkingSince > 0) ((SystemClock.elapsedRealtime() - talkingSince) / 1000).toInt() else 0,
             voiceInCar = CarLink.voiceInCar() != false,
             vocal = vocal,
+            keypad = keypad, typed = typed,
         )
         // Seule la durée change chaque seconde : on met le texte à jour sans recréer la fiche (elle scintillait)
         if (root != null && shown?.copy(seconds = 0) == call.copy(seconds = 0)) {
@@ -66,6 +78,13 @@ object CallOverlay {
                     "answer" -> CarLink.answer()
                     "hangup" -> CarLink.rejectOrHangup()
                     "switch" -> CarLink.voiceSwitch()
+                    "keypad" -> { keypad = !keypad; android.os.Handler(android.os.Looper.getMainLooper()).post { tick(app) } }
+                    else -> if (action.startsWith("key:")) {
+                        val c = action[4]
+                        CarLink.dtmf(c)
+                        typed = (typed + c).takeLast(16)
+                        android.os.Handler(android.os.Looper.getMainLooper()).post { tick(app) }
+                    }
                 }
             }.start()
         }
@@ -163,8 +182,33 @@ object CallOverlay {
             setOnClickListener { onAction(action) }
         }
         if (call.state == 5) row.addView(button("Décrocher", GREEN, NAVY, "answer"))
+        if (call.state == 6) row.addView(button("Clavier", if (call.keypad) YELLOW else NAVY, if (call.keypad) NAVY else YELLOW, "keypad"))
         if (call.state == 6) row.addView(button(if (call.voiceInCar) "Téléphone" else "Voiture", NAVY, YELLOW, "switch"))
         row.addView(button(if (call.state == 5) "Refuser" else "Raccrocher", RED, Color.WHITE, "hangup"))
-        return row
+        if (!call.keypad || call.state != 6) return row
+        // Clavier (touches envoyées au téléphone : répondeurs, services clients…)
+        val box = LinearLayout(app).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            background = row.background; elevation = row.elevation
+            setPadding(dp(app, 10), dp(app, 8), dp(app, 10), dp(app, 10))
+        }
+        row.background = null; row.elevation = 0f; row.setPadding(0, 0, 0, 0)
+        box.addView(row)
+        box.addView(TextView(app).apply {
+            text = call.typed.ifEmpty { " " }; textSize = 18f; setTextColor(Color.WHITE); typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER; setPadding(0, dp(app, 6), 0, dp(app, 4))
+        })
+        for (line in listOf("123", "456", "789", "*0#")) {
+            val r = LinearLayout(app).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+            for (c in line) r.addView(TextView(app).apply {
+                text = c.toString(); textSize = 18f; setTextColor(Color.WHITE); typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER
+                background = round(NAVY, dp(app, 10).toFloat())
+                layoutParams = LinearLayout.LayoutParams(dp(app, 64), dp(app, 34)).apply { setMargins(dp(app, 4), dp(app, 3), dp(app, 4), dp(app, 3)) }
+                setOnClickListener { onAction("key:$c") }
+            })
+            box.addView(r)
+        }
+        return box
     }
 }

@@ -124,7 +124,9 @@ object CarLink {
     fun rejectOrHangup() = btFun(6)
     fun voiceSwitch() = btFun(10)
 
-    private fun btFun(f: Int) = request(4, 2, Bundle().apply { putInt("bt_fun", f); putInt("arg_int", 0) }) != null
+    private fun btFun(f: Int, arg: Int = 0) = request(4, 2, Bundle().apply { putInt("bt_fun", f); putInt("arg_int", arg) }) != null
+    /** Touche du clavier pendant un appel (0-9, *, #). */
+    fun dtmf(c: Char) = "0123456789*#".indexOf(c).takeIf { it >= 0 }?.let { btFun(9, it) } ?: false
     fun playPause() = btFun(FUN_PLAY_PAUSE)
     fun next() = btFun(FUN_NEXT)
     fun prev() = btFun(FUN_PREV)

@@ -29,6 +29,9 @@ object Prefs {
     /** Au démarrage de la voiture : lancer la conduite (GPS + lecteur). Désactivé par défaut : accueil Koackpit. */
     fun autoDrive(ctx: Context) = sp(ctx).getBoolean("autoDrive2", false)
     fun setAutoDrive(ctx: Context, on: Boolean) = sp(ctx).edit().putBoolean("autoDrive2", on).apply()
+    /** Barre d'appel de l'autoradio coupée pendant les appels (la fiche Koackpit la remplace). Activé par défaut. */
+    fun hideVendorCall(ctx: Context) = sp(ctx).getBoolean("hideVendorCall", true)
+    fun setHideVendorCall(ctx: Context, on: Boolean) = sp(ctx).edit().putBoolean("hideVendorCall", on).apply()
     fun splitLog(ctx: Context): String = sp(ctx).getString("splitLog", "") ?: ""
     fun setSplitLog(ctx: Context, s: String) = sp(ctx).edit().putString("splitLog", s).apply()
 }
