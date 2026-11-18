@@ -219,6 +219,7 @@ data class CarStats(val fuelL: Int, val rangeKm: Int, val outTemp: Float?, val l
 fun NavCard(
     modifier: Modifier, navName: String, speedKmh: Int?, car: CarStats?,
     onDrive: () -> Unit, onHomeAddr: (() -> Unit)?, onWorkAddr: (() -> Unit)?,
+    weather: Weather.Forecast? = Weather.state.value,
 ) {
     Box(
         modifier.clip(RoundedCornerShape(18.dp))
@@ -240,6 +241,7 @@ fun NavCard(
                 }
             }
             Spacer(Modifier.weight(1f))
+            if (weather != null) { WeatherStrip(weather); Spacer(Modifier.weight(1f)) }
             // Carburant : jauge + litres + autonomie estimée
             if (car != null) {
                 val frac = (car.fuelL.toFloat() / FuelStats.TANK_L).coerceIn(0f, 1f)
@@ -267,6 +269,32 @@ fun NavCard(
                 Pill("Conduite", Yellow, Navy, onDrive)
                 if (onHomeAddr != null) Pill("Maison", Card.copy(alpha = 0.92f), Color.White, onHomeAddr)
                 if (onWorkAddr != null) Pill("Travail", Card.copy(alpha = 0.92f), Color.White, onWorkAddr)
+            }
+        }
+    }
+}
+
+/** Météo de la route : temps actuel, pluie à venir, et les 4 prochaines heures. */
+@Composable
+fun WeatherStrip(w: Weather.Forecast) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.06f)).padding(horizontal = 12.dp, vertical = 10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(Weather.icon(w.code), fontSize = 28.sp)
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text("${Weather.label(w.code)} · ${w.temp} °C", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                Text(w.rainNote, color = if (w.rainSoon) Yellow else Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+            }
+        }
+        if (w.hours.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                for (h in w.hours) Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(h.label, color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(Weather.icon(h.code), fontSize = 18.sp)
+                    Text("${h.temp}°", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(if (h.rain >= 20) "${h.rain} %" else " ", color = Yellow, fontSize = 11.sp)
+                }
             }
         }
     }
@@ -302,11 +330,12 @@ fun HomeContent(
     onGpsOnly: () -> Unit, onPrev: () -> Unit, onPlay: () -> Unit, onNext: () -> Unit,
     speedKmh: Int? = null, car: CarStats? = null,
     onHomeAddr: (() -> Unit)? = null, onWorkAddr: (() -> Unit)? = null,
+    weather: Weather.Forecast? = Weather.state.value,
 ) {
     Row(Modifier.fillMaxSize().background(Navy)) {
         AppRail(time, "", rail)
         Row(Modifier.fillMaxSize().padding(10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            NavCard(Modifier.weight(1.25f).fillMaxHeight(), navName, speedKmh, car, rail.onDrive, onHomeAddr, onWorkAddr)
+            NavCard(Modifier.weight(1.25f).fillMaxHeight(), navName, speedKmh, car, rail.onDrive, onHomeAddr, onWorkAddr, weather)
             Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 MediaCardWide(Modifier.weight(1.15f).fillMaxWidth(), media, onPrev, onPlay, onNext, rail.onMusic)
                 TodayCard(Modifier.weight(1f).fillMaxWidth(), time, date, rail.onSettings)

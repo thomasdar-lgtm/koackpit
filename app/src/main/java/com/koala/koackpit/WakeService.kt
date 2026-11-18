@@ -194,6 +194,14 @@ class WakeService : Service() {
      * Recherche de mise à jour toutes les 90 s quand l'écran est allumé, quel que soit l'écran affiché :
      * la petite carte apparaît sans avoir à quitter puis revenir sur Koackpit.
      */
+    /** Météo de la route : vérifiée chaque minute (rafraîchie toutes les 10 min ou après 5 km), écran allumé. */
+    private val weatherWatch = object : Runnable {
+        override fun run() {
+            if ((getSystemService(POWER_SERVICE) as android.os.PowerManager).isInteractive) runCatching { Weather.tick(this@WakeService) }
+            main.postDelayed(this, 60_000)
+        }
+    }
+
     private val updWatch = object : Runnable {
         override fun run() {
             val awake = (getSystemService(Context.POWER_SERVICE) as android.os.PowerManager).isInteractive
@@ -257,6 +265,7 @@ class WakeService : Service() {
         main.postDelayed(btWatch, 5000)
         main.postDelayed(updWatch, 60_000)
         main.post(overlayTick)
+        main.postDelayed(weatherWatch, 20_000)
         main.postDelayed(sourceWatch, 4000)
         // Données de la voiture (vitesse…) lues sur le bus CAN
         main.postDelayed({ CanBus.start(this) }, 2000)
@@ -450,6 +459,7 @@ class WakeService : Service() {
         main.removeCallbacks(btWatch)
         main.removeCallbacks(updWatch)
         main.removeCallbacks(overlayTick)
+        main.removeCallbacks(weatherWatch)
         UpdateOverlay.hide(this)
         CallOverlay.hide(this)
         main.removeCallbacks(sourceWatch)

@@ -48,6 +48,14 @@ class Screenshots {
     } }
 
     @Test
+    fun accueil_meteo() = captureRoboImage("build/screens/accueil-meteo.png") { Scaled {
+        val w = Weather.Forecast(3, 14, "Pluie vers 21:30", true, listOf(
+            Weather.Hour("22 h", 61, 13, 70), Weather.Hour("23 h", 80, 12, 85), Weather.Hour("00 h", 3, 12, 30), Weather.Hour("01 h", 2, 11, 10)))
+        HomeContent("21:04", "Mercredi 18 novembre", "Waze", media, RailActions(), {}, {}, {}, {},
+            speedKmh = 87, car = CarStats(45, 690, 13.5f, true), onHomeAddr = {}, onWorkAddr = {}, weather = w)
+    } }
+
+    @Test
     fun accueil_porte() = captureRoboImage("build/screens/accueil-porte.png") { Scaled {
         Box(Modifier.fillMaxSize()) {
             HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {})
