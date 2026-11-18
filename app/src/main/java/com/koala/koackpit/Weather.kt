@@ -24,21 +24,40 @@ object Weather {
     private var where: Location? = null
     @Volatile private var busy = false
 
-    /** Appelée chaque minute par le service. */
+    private fun sp(ctx: Context) = ctx.getSharedPreferences("meteo", Context.MODE_PRIVATE)
+
+    /**
+     * Appelée toutes les 15 s par le service, et dès que le Wi-Fi revient. Au démarrage, la dernière météo
+     * (moins de 2 h) s'affiche tout de suite, sans attendre Internet ; en cas d'échec, nouvel essai au tick suivant.
+     */
     fun tick(ctx: Context) {
         if (busy) return
-        val loc = lastLocation(ctx) ?: return
+        if (state.value == null) runCatching {
+            val p = sp(ctx)
+            if (System.currentTimeMillis() - p.getLong("at", 0) < 2 * 3600_000L) state.value = parse(JSONObject(p.getString("json", "")!!))
+        }
+        val loc = lastLocation(ctx) ?: savedLocation(ctx) ?: return
         val moved = where?.distanceTo(loc)?.let { it > 5000f } ?: true
         if (!moved && SystemClock.elapsedRealtime() - at < 10 * 60_000L) return
         busy = true
         Thread {
             try {
-                val f = fetch(loc.latitude, loc.longitude)
+                val txt = fetch(loc.latitude, loc.longitude)
+                val f = parse(JSONObject(txt))
                 state.value = f
+                sp(ctx).edit().putString("json", txt).putLong("at", System.currentTimeMillis())
+                    .putFloat("lat", loc.latitude.toFloat()).putFloat("lon", loc.longitude.toFloat()).apply()
                 at = SystemClock.elapsedRealtime(); where = loc
             } catch (_: Exception) {
             } finally { busy = false }
         }.start()
+    }
+
+    /** Dernière position connue de Koackpit (le GPS n'a pas toujours de position juste après le démarrage). */
+    private fun savedLocation(ctx: Context): Location? {
+        val p = sp(ctx)
+        if (!p.contains("lat")) return null
+        return Location("koackpit").apply { latitude = p.getFloat("lat", 0f).toDouble(); longitude = p.getFloat("lon", 0f).toDouble() }
     }
 
     @SuppressLint("MissingPermission")
@@ -49,15 +68,14 @@ object Weather {
             .maxByOrNull { it.time }
     }.getOrNull()
 
-    private fun fetch(lat: Double, lon: Double): Forecast {
+    private fun fetch(lat: Double, lon: Double): String {
         val url = "https://api.open-meteo.com/v1/forecast?latitude=%.3f&longitude=%.3f".format(java.util.Locale.US, lat, lon) +
             "&current=temperature_2m,weather_code&minutely_15=precipitation&forecast_minutely_15=8" +
             "&hourly=temperature_2m,weather_code,precipitation_probability&forecast_hours=6&timezone=auto"
-        val txt = (URL(url).openConnection() as HttpURLConnection).run {
+        return (URL(url).openConnection() as HttpURLConnection).run {
             connectTimeout = 8000; readTimeout = 8000
             try { inputStream.bufferedReader().readText() } finally { disconnect() }
         }
-        return parse(JSONObject(txt))
     }
 
     fun parse(js: JSONObject): Forecast {

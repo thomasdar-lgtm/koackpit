@@ -194,11 +194,11 @@ class WakeService : Service() {
      * Recherche de mise à jour toutes les 90 s quand l'écran est allumé, quel que soit l'écran affiché :
      * la petite carte apparaît sans avoir à quitter puis revenir sur Koackpit.
      */
-    /** Météo de la route : vérifiée chaque minute (rafraîchie toutes les 10 min ou après 5 km), écran allumé. */
+    /** Météo de la route : vérifiée toutes les 15 s (rafraîchie toutes les 10 min ou après 5 km), écran allumé. */
     private val weatherWatch = object : Runnable {
         override fun run() {
             if ((getSystemService(POWER_SERVICE) as android.os.PowerManager).isInteractive) runCatching { Weather.tick(this@WakeService) }
-            main.postDelayed(this, 60_000)
+            main.postDelayed(this, 15_000)
         }
     }
 
@@ -265,7 +265,7 @@ class WakeService : Service() {
         main.postDelayed(btWatch, 5000)
         main.postDelayed(updWatch, 60_000)
         main.post(overlayTick)
-        main.postDelayed(weatherWatch, 20_000)
+        main.postDelayed(weatherWatch, 3_000)
         main.postDelayed(sourceWatch, 4000)
         // Données de la voiture (vitesse…) lues sur le bus CAN
         main.postDelayed({ CanBus.start(this) }, 2000)
@@ -371,6 +371,8 @@ class WakeService : Service() {
                 wifiUpAt = now; wifiRssi = info?.rssi; wifiOn = true
                 val kick = if (kickStart > 0) ", ${(now - kickStart) / 1000} s après le téléphone" else ""
                 kickStart = 0
+                // Internet revenu : météo tout de suite (2 s, le temps que la connexion soit utilisable)
+                main.postDelayed({ runCatching { Weather.tick(this@WakeService) } }, 2000)
                 main.post { WakeLog.add(this@WakeService, "Wi-Fi connecté ($ssid, signal ${info?.rssi ?: "?"} dBm$gap$kick)") }
             }
             override fun onCapabilitiesChanged(network: android.net.Network, caps: android.net.NetworkCapabilities) {
