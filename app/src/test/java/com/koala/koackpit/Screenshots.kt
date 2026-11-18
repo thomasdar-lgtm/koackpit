@@ -160,4 +160,18 @@ class Screenshots {
     fun diagnostic_creer() = captureRoboImage("build/screens/diagnostic-creer.png") { Scaled {
         ExportPanel(diagApps, emptyList(), false, null, "", null, null, null, {}, {}, {}, {})
     } }
+
+    private fun appel(name: String, call: CallOverlay.Call) = captureRoboImage("build/screens/$name.png") { Scaled {
+        Box(Modifier.fillMaxSize()) {
+            HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {})
+            androidx.compose.ui.viewinterop.AndroidView(
+                { ctx -> CallOverlay.build(ctx, call) {} },
+                Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 12.dp),
+            )
+        }
+    } }
+
+    @Test fun appel_entrant() = appel("appel-entrant", CallOverlay.Call(5, "Cindy", "06 12 34 56 78", 0, true))
+    @Test fun appel_en_cours() = appel("appel-en-cours", CallOverlay.Call(6, "Garage Dupont", "05 58 00 00 00", 83, true))
+    @Test fun appel_vocal() = appel("appel-vocal", CallOverlay.Call(6, null, null, 12, true))
 }

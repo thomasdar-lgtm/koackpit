@@ -205,6 +205,7 @@ class WakeService : Service() {
     private val overlayTick = object : Runnable {
         override fun run() {
             runCatching { UpdateOverlay.tick(this@WakeService) }
+            runCatching { CallOverlay.tick(this@WakeService) }
             main.postDelayed(this, 1000)
         }
     }
@@ -449,6 +450,7 @@ class WakeService : Service() {
         main.removeCallbacks(updWatch)
         main.removeCallbacks(overlayTick)
         UpdateOverlay.hide(this)
+        CallOverlay.hide(this)
         main.removeCallbacks(sourceWatch)
         super.onDestroy()
     }

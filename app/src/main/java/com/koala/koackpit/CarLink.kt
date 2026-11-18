@@ -112,6 +112,18 @@ object CarLink {
 
     fun btConnectLast() = request(4, 2, Bundle().apply { putInt("bt_fun", 0); putInt("arg_int", 0) }) != null
 
+    private const val TYPE_STRING = 6
+    private fun string(key: String): String? = value(key, TYPE_STRING)?.getString("value")
+    /** Appel en cours : nom (répertoire du téléphone) et numéro, donnés par le module Bluetooth. */
+    fun callName(): String? = string("state.bt.call_name")
+    fun callNumber(): String? = string("state.bt.call_number")
+    /** Voix de l'appel dans la voiture (1) ou sur le téléphone (0). */
+    fun voiceInCar(): Boolean? = getInt("state.bt.voice_state")?.let { it == 1 }
+    // Fonctions d'appel du module Bluetooth (ordre de BtDefine.BtFun du fabricant)
+    fun answer() = btFun(3)
+    fun rejectOrHangup() = btFun(6)
+    fun voiceSwitch() = btFun(10)
+
     private fun btFun(f: Int) = request(4, 2, Bundle().apply { putInt("bt_fun", f); putInt("arg_int", 0) }) != null
     fun playPause() = btFun(FUN_PLAY_PAUSE)
     fun next() = btFun(FUN_NEXT)
