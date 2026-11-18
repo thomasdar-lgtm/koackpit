@@ -51,11 +51,11 @@ object CanBus {
         return f
     }
 
-    /** Demande les infos voiture toutes les 2 s (le boîtier ne les envoie pas de lui-même). */
+    /** Demande les infos voiture chaque seconde (le boîtier ne les envoie pas de lui-même). */
     private val poll = object : Runnable {
         override fun run() {
             Thread { runCatching { CarLink.canbusSend(frame(0x90, 65, 2)) } }.start()
-            main.postDelayed(this, 2000)
+            main.postDelayed(this, 1000)
         }
     }
 
@@ -69,7 +69,12 @@ object CanBus {
             odometer = u(9) * 65536 + u(10) * 256 + u(11),
             fuel = u(12),
         )
-        main.post { info.value = i }
+        main.post {
+            info.value = i
+            // Vitesse du compteur de la voiture (plus juste que le GPS de l'autoradio)
+            if (i.rpm > 0 || i.speed > 0f) { speed.value = Math.round(i.speed); speedAt = SystemClock.elapsedRealtime() }
+        }
+        app?.let { FuelStats.update(it, i.odometer, i.fuel) }
         if (infoLogged < 3) {
             infoLogged++
             app?.let {

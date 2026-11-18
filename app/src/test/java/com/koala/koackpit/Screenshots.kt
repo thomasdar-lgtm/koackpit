@@ -43,7 +43,7 @@ class Screenshots {
     @Test
     fun accueil_guidage() = captureRoboImage("build/screens/accueil-guidage.png") { Scaled {
         HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {},
-            guidance = Guidance("350 m", "Tourner à droite · Avenue du Maréchal Foch", "Arrivée 18:04 · 12 km"), speedKmh = 48)
+            speedKmh = 48, car = CarStats(45, 690, 16.5f, false), onHomeAddr = {}, onWorkAddr = {})
     } }
 
     @Test

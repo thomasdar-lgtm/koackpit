@@ -179,8 +179,10 @@ fun Home(onApps: () -> Unit, onSettings: () -> Unit, onCar: () -> Unit = {}) {
         ),
         onGpsOnly = { go(listOf(nav, Targets.WAZE, Targets.MAPS), "Le GPS") },
         onPrev = { CarLink.prev() }, onPlay = { CarLink.playPause() }, onNext = { CarLink.next() },
-        guidance = NavState.guidance,
         speedKmh = rememberSpeedKmh(),
+        car = CanBus.info.value?.takeIf { it.fuel > 0 }?.let { i ->
+            CarStats(i.fuel, FuelStats.rangeKm(ctx, i.fuel), i.outTemp.takeIf { it > -50f && it < 70f }, FuelStats.consumption(ctx).second)
+        },
         // Favoris Maison / Travail de Waze : la conduite s'ouvre directement en guidage
         onHomeAddr = wazeFav(ctx, nav, "home"),
         onWorkAddr = wazeFav(ctx, nav, "work"),

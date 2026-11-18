@@ -207,14 +207,16 @@ fun MediaCardWide(modifier: Modifier, m: MediaInfo, onPrev: () -> Unit, onPlay: 
 /** Guidage en cours, lu dans la notification de Waze ou Google Maps. */
 data class Guidance(val distance: String, val street: String, val eta: String, val arrow: androidx.compose.ui.graphics.ImageBitmap? = null)
 
+/** Infos de la voiture pour l'accueil (boîtier CAN). [learned] : consommation apprise (sinon estimation par défaut). */
+data class CarStats(val fuelL: Int, val rangeKm: Int, val outTemp: Float?, val learned: Boolean)
+
 /**
- * Carte navigation de l'accueil, sans fausse carte : Android n'autorise pas l'affichage de Waze dans
- * Koackpit. Pendant un trajet : la prochaine instruction (lue dans la notification du GPS).
- * Sinon : vitesse et raccourcis. La vraie carte est dans le mode conduite.
+ * Carte conduite de l'accueil : vitesse de la voiture, carburant et autonomie estimée, température extérieure,
+ * et les raccourcis de conduite. (Les indications du GPS n'y figurent plus : utiles seulement avec la carte.)
  */
 @Composable
 fun NavCard(
-    modifier: Modifier, navName: String, guidance: Guidance?, speedKmh: Int?,
+    modifier: Modifier, navName: String, speedKmh: Int?, car: CarStats?,
     onDrive: () -> Unit, onHomeAddr: (() -> Unit)?, onWorkAddr: (() -> Unit)?,
 ) {
     Box(
@@ -223,41 +225,47 @@ fun NavCard(
             .clickable(onClick = onDrive).padding(14.dp)
     ) {
         Column(Modifier.fillMaxSize()) {
-            Caption(if (guidance != null) "Guidage · $navName" else "Navigation · $navName")
-            Spacer(Modifier.height(10.dp))
-            if (guidance != null) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(72.dp).clip(RoundedCornerShape(16.dp)).background(NavBlue), contentAlignment = Alignment.Center) {
-                        if (guidance.arrow != null) androidx.compose.foundation.Image(guidance.arrow, null, Modifier.size(56.dp))
-                        else Icon(Icons.Filled.Place, null, tint = Color.White, modifier = Modifier.size(40.dp))
-                    }
-                    Spacer(Modifier.width(14.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(guidance.distance, color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Black, maxLines = 1)
-                        Text(guidance.street, color = Color.White.copy(alpha = 0.85f), fontSize = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    }
+            Caption("Conduite · $navName")
+            Spacer(Modifier.height(6.dp))
+            // Vitesse + température extérieure
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(speedKmh?.toString() ?: "–", color = Color.White, fontSize = 56.sp, fontWeight = FontWeight.Black, lineHeight = 56.sp)
+                Spacer(Modifier.width(6.dp))
+                Text("km/h", color = Muted, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                Spacer(Modifier.weight(1f))
+                if (car?.outTemp != null) Column(horizontalAlignment = Alignment.End) {
+                    Text("%.1f °C".format(car.outTemp).replace('.', ','), color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                    Text("Extérieur", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
-                if (guidance.eta.isNotEmpty()) {
-                    Spacer(Modifier.height(10.dp))
-                    Text(guidance.eta, color = Yellow, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                }
-            } else {
-                Text("Où va-t-on ?", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black)
-                Spacer(Modifier.height(4.dp))
-                Text("La carte s'ouvre avec la conduite, à côté de la musique.", color = Muted, fontSize = 13.sp)
             }
             Spacer(Modifier.weight(1f))
-            // Vitesse (GPS de l'autoradio)
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(speedKmh?.toString() ?: "–", color = Color.White, fontSize = 44.sp, fontWeight = FontWeight.Black, lineHeight = 44.sp)
-                Spacer(Modifier.width(6.dp))
-                Text("km/h", color = Muted, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp))
+            // Carburant : jauge + litres + autonomie estimée
+            if (car != null) {
+                val frac = (car.fuelL.toFloat() / FuelStats.TANK_L).coerceIn(0f, 1f)
+                val low = car.fuelL <= 8
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Column {
+                        Text("Carburant", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("${car.fuelL} L", color = if (low) Red else Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(if (car.learned) "Autonomie" else "Autonomie estimée", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("≈ ${car.rangeKm} km", color = if (low) Red else Yellow, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+                Box(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp)).background(Color.White.copy(alpha = 0.12f))) {
+                    Box(Modifier.fillMaxWidth(frac).fillMaxHeight().clip(RoundedCornerShape(5.dp)).background(if (low) Red else Yellow))
+                }
+            } else {
+                Text("Infos voiture au démarrage du moteur", color = Muted, fontSize = 13.sp)
             }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Pill(if (guidance != null) "Voir la carte" else "Conduite", Yellow, Navy, onDrive)
-                if (guidance == null && onHomeAddr != null) Pill("Maison", Card.copy(alpha = 0.92f), Color.White, onHomeAddr)
-                if (guidance == null && onWorkAddr != null) Pill("Travail", Card.copy(alpha = 0.92f), Color.White, onWorkAddr)
+                Pill("Conduite", Yellow, Navy, onDrive)
+                if (onHomeAddr != null) Pill("Maison", Card.copy(alpha = 0.92f), Color.White, onHomeAddr)
+                if (onWorkAddr != null) Pill("Travail", Card.copy(alpha = 0.92f), Color.White, onWorkAddr)
             }
         }
     }
@@ -291,13 +299,13 @@ fun TodayCard(modifier: Modifier, time: String, date: String, onSettings: () -> 
 fun HomeContent(
     time: String, date: String, navName: String, media: MediaInfo, rail: RailActions,
     onGpsOnly: () -> Unit, onPrev: () -> Unit, onPlay: () -> Unit, onNext: () -> Unit,
-    guidance: Guidance? = null, speedKmh: Int? = null,
+    speedKmh: Int? = null, car: CarStats? = null,
     onHomeAddr: (() -> Unit)? = null, onWorkAddr: (() -> Unit)? = null,
 ) {
     Row(Modifier.fillMaxSize().background(Navy)) {
         AppRail(time, "", rail)
         Row(Modifier.fillMaxSize().padding(10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            NavCard(Modifier.weight(1.25f).fillMaxHeight(), navName, guidance, speedKmh, rail.onDrive, onHomeAddr, onWorkAddr)
+            NavCard(Modifier.weight(1.25f).fillMaxHeight(), navName, speedKmh, car, rail.onDrive, onHomeAddr, onWorkAddr)
             Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 MediaCardWide(Modifier.weight(1.15f).fillMaxWidth(), media, onPrev, onPlay, onNext, rail.onMusic)
                 TodayCard(Modifier.weight(1f).fillMaxWidth(), time, date, rail.onSettings)
