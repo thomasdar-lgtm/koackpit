@@ -9,7 +9,7 @@ import java.util.Calendar
 /** Un type d'entretien et son intervalle (modifiable). 0 = pas d'intervalle. */
 data class Kind(val id: String, val name: String, val km: Int, val months: Int)
 
-/** Un entretien fait : type, date (jj/mm/aaaa → millisecondes), kilométrage, note. */
+/** Un entretien fait : type, date (jj/mm/aaaa → millisecondes, 0 = date inconnue), kilométrage, note. */
 data class Entry(val kind: String, val date: Long, val km: Int, val note: String = "")
 
 enum class DueState { OK, SOON, LATE, NEVER }
@@ -48,7 +48,7 @@ object Carnet {
         val entries = (0 until arr.length()).map { i ->
             arr.getJSONObject(i).let { Entry(it.getString("kind"), it.getLong("date"), it.getInt("km"), it.optString("note")) }
         }
-        Data(kinds, entries.sortedByDescending { it.date }, js.optInt("odometer", 0))
+        Data(kinds, entries.sortedByDescending { it.km }, js.optInt("odometer", 0))
     }.getOrElse { Data(DEFAULT_KINDS, emptyList(), 0) }
 
     fun save(ctx: Context, d: Data) {
@@ -65,10 +65,11 @@ object Carnet {
 
     /** Échéances, les plus urgentes d'abord. « Bientôt » : moins de 1 500 km ou de 30 jours. */
     fun dues(d: Data, now: Long = System.currentTimeMillis()): List<Due> = d.kinds.filter { it.km > 0 || it.months > 0 }.map { k ->
-        val last = d.entries.filter { it.kind == k.id }.maxByOrNull { it.date }
+        // Le dernier = le plus haut kilométrage (la date peut être inconnue)
+        val last = d.entries.filter { it.kind == k.id }.maxByOrNull { it.km }
         if (last == null) Due(k, null, null, null, DueState.NEVER) else {
             val dueKm = if (k.km > 0) last.km + k.km else null
-            val dueDate = if (k.months > 0) addMonths(last.date, k.months) else null
+            val dueDate = if (k.months > 0 && last.date > 0) addMonths(last.date, k.months) else null
             val late = (dueKm != null && d.odometer >= dueKm) || (dueDate != null && now >= dueDate)
             val soon = (dueKm != null && d.odometer >= dueKm - 1500) || (dueDate != null && now >= dueDate - 30L * 86_400_000)
             Due(k, last, dueKm, dueDate, if (late) DueState.LATE else if (soon) DueState.SOON else DueState.OK)

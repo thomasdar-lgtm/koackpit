@@ -82,7 +82,7 @@ class Screenshots {
                 Entry("vidange", d("12/03/2026"), 182_400, "Garage du coin, huile 5W30"),
                 Entry("ct", d("04/12/2024"), 171_900),
                 Entry("air", d("20/05/2024"), 165_000),
-                Entry("distribution", d("15/09/2022"), 140_200, "Kit + pompe à eau"),
+                Entry("distribution", 0L, 140_200, "Kit + pompe à eau"),
             ),
             196_850,
         )

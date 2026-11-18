@@ -48,6 +48,8 @@ import java.util.Locale
 
 private val Green = Color(0xFF2ECC71)
 private val dayFmt get() = SimpleDateFormat("dd/MM/yyyy", Locale.FRANCE)
+/** Date d'un entretien, ou « Date inconnue ». */
+private fun day(t: Long) = if (t > 0) dayFmt.format(t) else "Date inconnue"
 private val monthFmt get() = SimpleDateFormat("MMMM yyyy", Locale.FRANCE)
 private fun km(n: Int) = String.format(Locale.FRANCE, "%,d km", n).replace(' ', ' ').replace(' ', ' ')
 
@@ -71,13 +73,13 @@ fun CarScreen(onBack: () -> Unit, onCarInfo: () -> Unit) {
 
     if (showAdd) AddDialog(data, adding, onDismiss = { showAdd = false }) { e, kind ->
         val kinds = data.kinds.map { if (it.id == kind.id) kind else it }
-        update(Data(kinds, (data.entries + listOfNotNull(e)).sortedByDescending { it.date }, maxOf(data.odometer, e?.km ?: 0)))
+        update(Data(kinds, (data.entries + listOfNotNull(e)).sortedByDescending { it.km }, maxOf(data.odometer, e?.km ?: 0)))
         showAdd = false
     }
     removing?.let { e ->
         Confirm(
             "Supprimer cet entretien ?",
-            "${data.kinds.firstOrNull { it.id == e.kind }?.name ?: e.kind} — ${dayFmt.format(e.date)} — ${km(e.km)}",
+            "${data.kinds.firstOrNull { it.id == e.kind }?.name ?: e.kind} — ${day(e.date)} — ${km(e.km)}",
             "Supprimer", onDismiss = { removing = null },
         ) { update(data.copy(entries = data.entries - e)); removing = null }
     }
@@ -186,7 +188,7 @@ private fun EntryRow(e: Entry, name: String, onClick: () -> Unit) {
         Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(dayFmt.format(e.date), color = Muted, fontSize = 13.sp, modifier = Modifier.width(88.dp))
+        Text(day(e.date), color = Muted, fontSize = 13.sp, modifier = Modifier.width(88.dp))
         Column(Modifier.weight(1f)) {
             Text(name, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             if (e.note.isNotBlank()) Text(e.note, color = Muted, fontSize = 12.sp)
@@ -252,7 +254,16 @@ private fun AddDialog(data: Carnet.Data, preset: Kind?, onDismiss: () -> Unit, o
             }
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Field("Date (jj/mm/aaaa)", date, Modifier.weight(1f)) { date = it }
+                Column(Modifier.weight(1f)) {
+                    Field("Date (jj/mm/aaaa, vide = inconnue)", date, Modifier.fillMaxWidth()) { date = it }
+                    Text(
+                        if (date.isBlank()) "Date inconnue ✓" else "Date inconnue",
+                        color = if (date.isBlank()) Navy else Yellow, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 6.dp).clip(RoundedCornerShape(50))
+                            .background(if (date.isBlank()) Yellow else Navy).clickable { date = "" }
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                    )
+                }
                 Field("Kilométrage", kmTxt, Modifier.weight(1f), number = true) { kmTxt = it }
             }
             Spacer(Modifier.height(8.dp))
@@ -264,9 +275,9 @@ private fun AddDialog(data: Carnet.Data, preset: Kind?, onDismiss: () -> Unit, o
             }
             if (error.isNotEmpty()) Text(error, color = Red, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
             Buttons("Enregistrer", onDismiss) {
-                val d = runCatching { dayFmt.apply { isLenient = false }.parse(date)?.time }.getOrNull()
+                val d = if (date.isBlank()) 0L else runCatching { dayFmt.apply { isLenient = false }.parse(date.trim())?.time }.getOrNull()
                 val k = kmTxt.toIntOrNull()
-                if (d == null) { error = "Date invalide (ex. 17/11/2026)"; return@Buttons }
+                if (d == null) { error = "Date invalide (ex. 17/11/2026), ou touche « Date inconnue »"; return@Buttons }
                 if (k == null) { error = "Kilométrage manquant"; return@Buttons }
                 onSave(Entry(kind.id, d, k, note.trim()), kind.copy(km = ivKm.toIntOrNull() ?: 0, months = ivMonths.toIntOrNull() ?: 0))
             }
