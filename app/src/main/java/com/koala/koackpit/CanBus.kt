@@ -88,7 +88,13 @@ object CanBus {
         if (type == TYPE_KEY && len >= 2) onKey(f[3].toInt() and 255, f[4].toInt() and 255)
         if (type == TYPE_DOORS && len >= 2) {
             val m = f[4].toInt() and 0x3F
-            main.post { if (doors.value != m) doors.value = m }
+            main.post {
+                if (doors.value != m) {
+                    // Porte qui s'ouvre : on relève quelle appli affiche son alerte par-dessus Koackpit
+                    if (m and doors.value.inv() != 0) app?.let { WakeLog.addOverlays(it, "porte ouverte") }
+                    doors.value = m
+                }
+            }
         }
         if (type == TYPE_SPEED && len >= 2) {
             val raw = ((f[4].toInt() and 255) shl 8) or (f[3].toInt() and 255)

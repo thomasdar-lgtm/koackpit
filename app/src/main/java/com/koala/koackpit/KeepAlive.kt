@@ -70,6 +70,29 @@ object WakeLog {
     fun read(ctx: Context): String =
         runCatching { File(ctx.filesDir, FILE).readLines().reversed().joinToString("\n") }.getOrNull() ?: "vide"
 
+    private val overlayAt = mutableMapOf<String, Long>()
+    /**
+     * Relevé des fenêtres affichées par-dessus (barre d'appel, alerte de porte de l'autoradio…) 2 s après
+     * l'évènement, pour savoir à quelle appli elles appartiennent. Une fois par minute et par évènement.
+     */
+    fun addOverlays(ctx: Context, label: String) {
+        val app = ctx.applicationContext
+        val now = android.os.SystemClock.elapsedRealtime()
+        synchronized(overlayAt) {
+            if (now - (overlayAt[label] ?: -120_000L) < 60_000) return
+            overlayAt[label] = now
+        }
+        Thread {
+            Thread.sleep(2000)
+            val r = runCatching {
+                RootAccess.run(app, "dumpsys window windows 2>&1 | grep -E 'Window #[0-9]+ Window|mOwnerUid|ty=' | head -n 60", 20_000)
+            }.getOrElse { "indisponible : ${it.message}" }
+            val wins = r.lines().map { it.trim() }.filter { it.startsWith("Window #") }
+                .map { it.substringAfter("Window{").substringAfter(' ').substringAfter(' ').substringBefore('}') }
+            add(app, "Fenêtres affichées ($label) : " + wins.joinToString(" | ").take(900))
+        }.start()
+    }
+
     /** Ajoute l'état des fenêtres (relevé système) au journal, pour comprendre ce qui s'affiche. */
     fun addWindows(ctx: Context, label: String) {
         val app = ctx.applicationContext

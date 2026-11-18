@@ -161,6 +161,7 @@ class WakeService : Service() {
                 "android.car.action.BT_HFP_STATE_CHANGED" -> {
                     val cur = i.getIntExtra("current_state", -1); val last = i.getIntExtra("last_state", -1)
                     CallLog.onHfp(c, cur)   // relevé automatique pendant les appels
+                    if (cur >= 4) WakeLog.addOverlays(c, "appel")   // quelle appli affiche la barre d'appel ?
                     // Module Bluetooth prêt (init → inactif) : on lui demande tout de suite de se reconnecter au
                     // téléphone, sans attendre sa propre reconnexion automatique (~20 s constatées). Second essai à +8 s.
                     if (last == 0 && cur == 1) for (d in longArrayOf(500, 8000)) main.postDelayed({
