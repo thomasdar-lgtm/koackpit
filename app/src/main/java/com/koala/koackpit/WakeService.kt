@@ -257,6 +257,18 @@ class WakeService : Service() {
         main.postDelayed(sourceWatch, 4000)
         // Données de la voiture (vitesse…) lues sur le bus CAN
         main.postDelayed({ CanBus.start(this) }, 2000)
+        // Pas de radars de stationnement branchés (dit par Thomas le 18/11) : la fenêtre « CarRadar » de l'autoradio
+        // ne servait qu'à afficher les portes par-dessus Koackpit. Réglage d'usine « désactiver radar ».
+        main.postDelayed({
+            Thread {
+                val key = "data.factory.canbus.disable_radar"
+                if (CarLink.getInt(key) != 1) {
+                    val ok = CarLink.setInt(key, 1)
+                    WakeLog.add(this, "Fenêtre radars/portes de l'autoradio : désactivation " + (if (ok) "demandée" else "refusée") +
+                        ", relu = ${CarLink.getInt(key)}")
+                }
+            }.start()
+        }, 4000)
         // Appli compagnon du téléphone (pochette, morceau en cours)
         PhoneLink.start(this)
         // Outil fenêtres résident lancé à l'avance (la conduite s'ouvre et se ferme alors sans attente)

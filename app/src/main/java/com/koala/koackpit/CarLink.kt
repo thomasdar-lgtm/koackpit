@@ -90,6 +90,13 @@ object CarLink {
     /** État Bluetooth : 0 init, 1 inactif (pas de téléphone), 2 connexion…, 3 connecté, 4+ appel. */
     fun hfpState(): Int? = value("state.bt.hfp_state", TYPE_INT)?.takeIf { it.containsKey("value") }?.getInt("value")
 
+    fun getInt(key: String): Int? = value(key, TYPE_INT)?.takeIf { it.containsKey("value") }?.getInt("value")
+
+    /** Réglage de l'autoradio (même requête que CarDataManager.setInt du fabricant). */
+    fun setInt(key: String, v: Int): Boolean = request(1, 103, Bundle().apply {
+        putString("key", key); putInt("value", v); putInt("type", TYPE_INT); putInt("arg_flag", 1)
+    })?.first?.let { it != 0 } ?: false
+
     /** Son de l'autoradio coupé (« mute ») ? */
     fun mainMuted(): Boolean? = value("state.main.mute", TYPE_INT)?.takeIf { it.containsKey("value") }?.getInt("value")?.let { it == 1 }
 
