@@ -22,7 +22,10 @@ import java.net.Socket
  *   GET /state → {"title","artist","album","app","playing","art","pos","dur"}   (art = empreinte de la pochette,
  *                pos = position dans le morceau en ms au moment de la réponse, dur = durée en ms)
  *   GET /art   → pochette en JPEG
- * Rien n'est envoyé ailleurs ; seules ces deux lectures sont possibles.
+ *   GET /notifs?since=N → messages et appels manqués reçus depuis N (numéro croissant)
+ *   GET /cmd?a=toggle|play|pause|next|prev|seek&ms=… → commande du lecteur en cours
+ * /state donne aussi la batterie du téléphone et sa position GPS.
+ * Rien n'est envoyé ailleurs : seul l'autoradio, connecté au partage de connexion, interroge ce serveur.
  */
 class MediaBridge : NotificationListenerService() {
     companion object {
@@ -36,6 +39,13 @@ class MediaBridge : NotificationListenerService() {
         @Volatile var artId = ""
         // Position de lecture (pour les paroles synchronisées sur l'autoradio)
         @Volatile var pos = 0L; @Volatile var posAt = 0L; @Volatile var speed = 1f; @Volatile var dur = 0L
+
+        // Notifications utiles en voiture (messages, appels manqués) : les 20 dernières
+        data class Notif(val seq: Int, val app: String, val appName: String, val title: String, val text: String, val kind: String, val time: Long)
+        val notifs = java.util.concurrent.CopyOnWriteArrayList<Notif>()
+        @Volatile var notifSeq = 0
+        // Position GPS du téléphone
+        @Volatile var loc: android.location.Location? = null
 
         /** Position actuelle en ms (Android donne la position au dernier changement + l'heure de ce changement). */
         fun positionNow(): Long {
@@ -58,8 +68,84 @@ class MediaBridge : NotificationListenerService() {
 
     private val sessions = MediaSessionManager.OnActiveSessionsChangedListener { pick() }
 
+    private val locListener = object : android.location.LocationListener {
+        override fun onLocationChanged(l: android.location.Location) { loc = l }
+        @Deprecated("Deprecated in Java")
+        override fun onStatusChanged(provider: String?, status: Int, extras: android.os.Bundle?) {}
+        override fun onProviderEnabled(provider: String) {}
+        override fun onProviderDisabled(provider: String) {}
+    }
+
+    @Volatile private var locStarted = false
+
+    /** Aussi relancée à chaque visite de l'autoradio : la position peut avoir été autorisée après coup. */
+    @android.annotation.SuppressLint("MissingPermission")
+    private fun startLocation() {
+        if (locStarted) return
+        if (checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED) return
+        locStarted = true
+        runCatching {
+            getSystemService(android.location.LocationManager::class.java)
+                .requestLocationUpdates(android.location.LocationManager.GPS_PROVIDER, 1000L, 0f, locListener, Looper.getMainLooper())
+        }
+    }
+
+    // ---- Notifications : messages et appels manqués ----
+    override fun onNotificationPosted(sbn: android.service.notification.StatusBarNotification) {
+        runCatching {
+            val n = sbn.notification
+            if (sbn.isOngoing || (n.flags and android.app.Notification.FLAG_GROUP_SUMMARY) != 0) return
+            if (sbn.packageName == packageName) return
+            val missed = n.category == "missed_call" ||
+                (sbn.packageName.contains("dialer") || sbn.packageName.contains("telecom") || sbn.packageName.contains("incallui")) &&
+                n.category != android.app.Notification.CATEGORY_CALL
+            val msg = n.category == android.app.Notification.CATEGORY_MESSAGE
+            if (!missed && !msg) return
+            val ex = n.extras
+            // Messages groupés (WhatsApp…) : le dernier message de la conversation
+            val lines = ex.getParcelableArray(android.app.Notification.EXTRA_MESSAGES)
+            val lastMsg = (lines?.lastOrNull() as? android.os.Bundle)
+            val title = (ex.getCharSequence(android.app.Notification.EXTRA_CONVERSATION_TITLE)
+                ?: ex.getCharSequence(android.app.Notification.EXTRA_TITLE))?.toString().orEmpty()
+            val sender = lastMsg?.getCharSequence("sender")?.toString()
+            val text = (lastMsg?.getCharSequence("text") ?: ex.getCharSequence(android.app.Notification.EXTRA_TEXT))?.toString().orEmpty()
+            if (title.isEmpty() && text.isEmpty()) return
+            val appName = runCatching { packageManager.getApplicationLabel(packageManager.getApplicationInfo(sbn.packageName, 0)).toString() }
+                .getOrDefault(sbn.packageName)
+            val shownTitle = if (sender != null && sender != title && title.isNotEmpty()) "$sender · $title" else (sender ?: title)
+            // Même message déjà reçu (Android renvoie souvent la notification mise à jour) : ignoré
+            if (notifs.any { it.app == sbn.packageName && it.title == shownTitle && it.text == text }) return
+            val seq = notifSeq + 1
+            notifs.add(Notif(seq, sbn.packageName, appName, shownTitle, text.take(300), if (missed) "call" else "msg", System.currentTimeMillis()))
+            while (notifs.size > 20) notifs.removeAt(0)
+            notifSeq = seq
+        }
+    }
+
+    private fun battery(): Pair<Int, Boolean> {
+        val i = registerReceiver(null, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED))
+        val level = i?.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) ?: -1
+        val scale = i?.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100) ?: 100
+        val plugged = (i?.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0) ?: 0) != 0
+        return (if (level >= 0) level * 100 / scale else -1) to plugged
+    }
+
+    private fun command(a: String, ms: Long) {
+        val tc = current?.transportControls ?: return
+        main.post {
+            runCatching {
+                when (a) {
+                    "play" -> tc.play(); "pause" -> tc.pause(); "next" -> tc.skipToNext(); "prev" -> tc.skipToPrevious()
+                    "toggle" -> if (playing) tc.pause() else tc.play()
+                    "seek" -> tc.seekTo(ms)
+                }
+            }
+        }
+    }
+
     override fun onListenerConnected() {
         running = true
+        startLocation()
         msm = getSystemService(MediaSessionManager::class.java)
         runCatching { msm?.addOnActiveSessionsChangedListener(sessions, ComponentName(this, MediaBridge::class.java), main) }
         pick()
@@ -70,6 +156,8 @@ class MediaBridge : NotificationListenerService() {
         running = false
         runCatching { msm?.removeOnActiveSessionsChangedListener(sessions) }
         current?.unregisterCallback(cb); current = null
+        runCatching { getSystemService(android.location.LocationManager::class.java).removeUpdates(locListener) }
+        locStarted = false
         runCatching { server?.close() }; server = null
         // Android peut déconnecter le service : on redemande à être relié
         runCatching { requestRebind(ComponentName(this, MediaBridge::class.java)) }
@@ -144,11 +232,36 @@ class MediaBridge : NotificationListenerService() {
                     out.write(body); out.flush()
                 }
                 when {
-                    path.startsWith("/state") -> reply("application/json", JSONObject().apply {
+                    path.startsWith("/state") -> { if (!locStarted) main.post { startLocation() }; reply("application/json", JSONObject().apply {
                         put("v", 1); put("title", title); put("artist", artist); put("album", album)
                         put("app", app); put("playing", playing); put("art", artId)
                         put("pos", positionNow()); put("dur", dur)
-                    }.toString().toByteArray())
+                        val (b, ch) = battery(); put("batt", b); put("charging", ch)
+                        put("notif", notifSeq)
+                        loc?.let { l ->
+                            put("loc", JSONObject().apply {
+                                put("lat", l.latitude); put("lon", l.longitude); put("acc", l.accuracy.toDouble())
+                                put("speed", if (l.hasSpeed()) l.speed.toDouble() else -1.0)
+                                put("bearing", if (l.hasBearing()) l.bearing.toDouble() else -1.0)
+                                put("age", (android.os.SystemClock.elapsedRealtimeNanos() - l.elapsedRealtimeNanos) / 1_000_000)
+                            })
+                        }
+                    }.toString().toByteArray()) }
+                    path.startsWith("/notifs") -> {
+                        val since = Regex("since=(\\d+)").find(path)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                        val arr = org.json.JSONArray()
+                        for (n in notifs) if (n.seq > since) arr.put(JSONObject().apply {
+                            put("seq", n.seq); put("app", n.app); put("appName", n.appName); put("title", n.title)
+                            put("text", n.text); put("kind", n.kind); put("time", n.time)
+                        })
+                        reply("application/json", arr.toString().toByteArray())
+                    }
+                    path.startsWith("/cmd") -> {
+                        val a = Regex("a=(\\w+)").find(path)?.groupValues?.get(1).orEmpty()
+                        val ms = Regex("ms=(\\d+)").find(path)?.groupValues?.get(1)?.toLongOrNull() ?: 0L
+                        command(a, ms)
+                        reply("text/plain", "OK".toByteArray())
+                    }
                     path.startsWith("/art") && art != null -> reply("image/jpeg", art!!)
                     else -> out.write("HTTP/1.0 404 Not Found\r\nContent-Length: 0\r\n\r\n".toByteArray())
                 }

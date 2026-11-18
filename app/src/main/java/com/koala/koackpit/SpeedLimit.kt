@@ -52,7 +52,17 @@ object SpeedLimit {
         lm = null
     }
 
+    /** Position du téléphone (plus précise) : utilisée en priorité quand elle arrive. */
+    fun onPhoneLocation(loc: Location) { phoneAt = SystemClock.elapsedRealtime(); handle(loc) }
+    private var phoneAt = 0L
+
     private fun onLocation(loc: Location) {
+        // GPS de l'autoradio seulement si le téléphone ne donne pas sa position
+        if (SystemClock.elapsedRealtime() - phoneAt < 4000) return
+        handle(loc)
+    }
+
+    private fun handle(loc: Location) {
         val c = center
         val now = SystemClock.elapsedRealtime()
         if (!busy && (c == null || c.distanceTo(loc) > 600f) && now - lastFetch > 15_000) {

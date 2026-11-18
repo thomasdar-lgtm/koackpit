@@ -83,3 +83,21 @@ private fun DrawScope.slash() {
     drawLine(Color(0xFFE63946), Offset(size.width * 0.1f, size.height * 0.1f), Offset(size.width * 0.9f, size.height * 0.9f),
         strokeWidth = size.width * 0.12f, cap = StrokeCap.Round)
 }
+
+/** Batterie du téléphone (appli Koackpit Téléphone) : pile + pourcentage ; jaune en charge, rouge sous 20 %. */
+@Composable
+fun PhoneBattery(batt: Pair<Int, Boolean>? = PhoneLink.battery.value) {
+    val (level, charging) = batt ?: return
+    val c = when { charging -> Color(0xFFFFCC00); level < 20 -> Color(0xFFE63946); else -> Color.White }
+    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        Canvas(Modifier.size(width = 9.dp, height = 15.dp)) {
+            val w = size.width; val h = size.height
+            drawRect(c, Offset(w * 0.3f, 0f), Size(w * 0.4f, h * 0.1f))
+            drawRoundRect(c, Offset(0f, h * 0.1f), Size(w, h * 0.9f), androidx.compose.ui.geometry.CornerRadius(w * 0.2f), style = Stroke(w * 0.16f))
+            val fill = (h * 0.9f - w * 0.32f) * (level.coerceIn(0, 100) / 100f)
+            drawRect(c, Offset(w * 0.16f, h - w * 0.16f - fill), Size(w * 0.68f, fill))
+        }
+        androidx.compose.material3.Text("$level%", color = c, fontSize = androidx.compose.ui.unit.TextUnit(11f, androidx.compose.ui.unit.TextUnitType.Sp),
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+    }
+}

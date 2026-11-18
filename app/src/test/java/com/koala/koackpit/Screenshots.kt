@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -184,4 +185,42 @@ class Screenshots {
     @Test fun appel_en_cours() = appel("appel-en-cours", CallOverlay.Call(6, "Garage Dupont", "05 58 00 00 00", 83, true))
     @Test fun appel_clavier() = appel("appel-clavier", CallOverlay.Call(6, "Service client", "3900", 45, true, keypad = true, typed = "12"))
     @Test fun appel_vocal() = appel("appel-vocal", CallOverlay.Call(6, null, "+33612345678", 12, true, vocal = true))
+
+    @Test
+    fun paroles() = captureRoboImage("build/screens/paroles.png") { Scaled {
+        val l = Lyrics.parse("[00:10.00]Première ligne de la chanson\n[00:14.50]La ligne chantée en ce moment\n[00:19.00]Et celle qui arrive juste après\n[00:23.00]Encore une")
+        androidx.compose.foundation.layout.Row(Modifier.fillMaxSize().background(Navy)) {
+            androidx.compose.foundation.layout.Box(Modifier.weight(2f).fillMaxHeight().background(Color(0xFF2A3F5C)))
+            androidx.compose.foundation.layout.Column(Modifier.weight(1f).fillMaxHeight().padding(8.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center) {
+                LyricsLines(l, 1, 0, 1, big = false)
+                androidx.compose.foundation.layout.Spacer(Modifier.height(30.dp))
+                PhoneBattery(78 to false)
+                PhoneBattery(15 to false)
+                PhoneBattery(54 to true)
+            }
+        }
+    } }
+
+    @Test
+    fun paroles_grand() = captureRoboImage("build/screens/paroles-grand.png") { Scaled {
+        val l = Lyrics.parse("[00:10.00]Première ligne de la chanson\n[00:14.50]La ligne chantée en ce moment\n[00:19.00]Et celle qui arrive juste après")
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().background(Navy), contentAlignment = androidx.compose.ui.Alignment.Center) {
+            LyricsLines(l, 1, 1, 1, big = true)
+        }
+    } }
+
+    @Test
+    fun message() = captureRoboImage("build/screens/message.png") { Scaled {
+        Box(Modifier.fillMaxSize()) {
+            HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {})
+            androidx.compose.ui.viewinterop.AndroidView(
+                { ctx -> NotifOverlay.build(ctx, NotifOverlay.Notif("WhatsApp", "Cindy", "J'arrive dans 10 minutes, tu veux que je prenne du pain ?", false)) {} },
+                Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 12.dp),
+            )
+            androidx.compose.ui.viewinterop.AndroidView(
+                { ctx -> NotifOverlay.build(ctx, NotifOverlay.Notif("Téléphone", "Garage Dupont", "", true)) {} },
+                Modifier.align(androidx.compose.ui.Alignment.BottomCenter).padding(bottom = 12.dp),
+            )
+        }
+    } }
 }

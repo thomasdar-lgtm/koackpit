@@ -2,6 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Petit serveur local : l'autoradio, connecté au partage de connexion, vient y lire le morceau en cours -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Position du téléphone (plus précise que le GPS de l'autoradio), envoyée seulement à l'autoradio -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <application
         android:label="Koackpit Téléphone"
         android:icon="@android:drawable/ic_media_play"

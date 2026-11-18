@@ -30,6 +30,34 @@ object PhoneLink {
     @Volatile private var pos = 0L
     @Volatile private var posAt = 0L
     val duration = mutableStateOf(0L)
+    /** Appli qui joue sur le téléphone (Deezer, YouTube, TikTok…). */
+    val appName = mutableStateOf("")
+    /** Batterie du téléphone : pourcentage et en charge ou non (null si inconnue). */
+    val battery = mutableStateOf<Pair<Int, Boolean>?>(null)
+    /** Position GPS du téléphone, plus précise que celle de l'autoradio, et l'heure locale de sa mesure. */
+    @Volatile var phoneLoc: android.location.Location? = null
+    @Volatile var phoneLocAt = 0L
+    /** Dernière notification déjà récupérée (-1 : pas encore de contact, on ne réaffiche pas l'historique). */
+    @Volatile private var notifSeq = -1
+
+    fun phoneLocation(): android.location.Location? =
+        phoneLoc?.takeIf { android.os.SystemClock.elapsedRealtime() - phoneLocAt < 5000 }
+
+    private fun friendly(pkg: String) = when {
+        pkg.contains("deezer") -> "Deezer"; pkg.contains("spotify") -> "Spotify"
+        pkg.contains("youtube.music") || pkg.contains("apps.youtube.music") -> "YouTube Music"
+        pkg.contains("youtube") -> "YouTube"; pkg.contains("musically") || pkg.contains("trill") -> "TikTok"
+        pkg.contains("soundcloud") -> "SoundCloud"; pkg.contains("radiofrance") -> "Radio France"
+        pkg.contains("podcast") -> "Podcasts"; pkg.isEmpty() -> ""
+        else -> pkg.substringAfterLast('.').replaceFirstChar { it.uppercase() }
+    }
+
+    /** Commande du lecteur du téléphone : toggle, play, pause, next, prev, seek (ms). */
+    fun command(a: String, ms: Long = 0) {
+        val gw = gateway() ?: return
+        Thread { get("http://$gw:$PORT/cmd?a=$a&ms=$ms") }.start()
+        if (a == "seek") { pos = ms; posAt = android.os.SystemClock.elapsedRealtime() }
+    }
 
     private var artId = ""
     private var app: Context? = null
@@ -75,7 +103,36 @@ object PhoneLink {
                         ?.let { b -> runCatching { BitmapFactory.decodeByteArray(b, 0, b.size)?.asImageBitmap() }.getOrNull() } else null
                     val p = js.optLong("pos", -1L)
                     if (p >= 0) { pos = p; posAt = android.os.SystemClock.elapsedRealtime() }
+                    // Position GPS du téléphone (si autorisée sur le téléphone)
+                    js.optJSONObject("loc")?.let { l ->
+                        val age = l.optLong("age", 99_999)
+                        if (age < 5000) {
+                            val loc = android.location.Location("telephone").apply {
+                                latitude = l.optDouble("lat"); longitude = l.optDouble("lon"); accuracy = l.optDouble("acc", 10.0).toFloat()
+                                l.optDouble("speed", -1.0).takeIf { it >= 0 }?.let { speed = it.toFloat() }
+                                l.optDouble("bearing", -1.0).takeIf { it >= 0 }?.let { bearing = it.toFloat() }
+                            }
+                            phoneLoc = loc; phoneLocAt = android.os.SystemClock.elapsedRealtime() - age
+                            main.post { SpeedLimit.onPhoneLocation(loc) }
+                        }
+                    }
+                    // Nouveaux messages / appels manqués
+                    val seq = js.optInt("notif", 0)
+                    if (notifSeq < 0) notifSeq = seq
+                    else if (seq > notifSeq) {
+                        val arr = get("http://$gw:$PORT/notifs?since=$notifSeq")?.let { runCatching { org.json.JSONArray(String(it)) }.getOrNull() }
+                        if (arr != null) {
+                            notifSeq = seq
+                            val list = (0 until arr.length()).map { arr.getJSONObject(it) }.map {
+                                NotifOverlay.Notif(it.optString("appName"), it.optString("title"), it.optString("text"), it.optString("kind") == "call")
+                            }
+                            app?.let { a -> main.post { NotifOverlay.show(a, list) } }
+                        }
+                    }
                     main.post {
+                        appName.value = friendly(js.optString("app"))
+                        val b = js.optInt("batt", -1)
+                        battery.value = if (b >= 0) b to js.optBoolean("charging") else null
                         duration.value = js.optLong("dur", 0L)
                         connected.value = true
                         title.value = js.optString("title"); artist.value = js.optString("artist")

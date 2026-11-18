@@ -22,6 +22,7 @@ class MainActivity : Activity() {
     private lateinit var track: TextView
     private lateinit var grant: Button
     private lateinit var restricted: Button
+    private lateinit var location: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,6 +50,18 @@ class MainActivity : Activity() {
             }
         }
         col.addView(restricted)
+        // Position : « Toujours autoriser », pour que l'autoradio la reçoive écran du téléphone éteint
+        location = Button(this).apply {
+            text = "Autoriser la position (choisir « Toujours autoriser »)"
+            isAllCaps = false
+            setOnClickListener {
+                if (checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+                    requestPermissions(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION), 1)
+                else
+                    startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+            }
+        }
+        col.addView(location)
         col.addView(text(14f, Color.rgb(138, 150, 176)).apply {
             text = "2. Active le partage de connexion du téléphone : l'autoradio s'y connecte et Koackpit vient chercher " +
                 "ici le morceau en cours et sa pochette. Rien d'autre ne sort du téléphone."
@@ -67,6 +80,8 @@ class MainActivity : Activity() {
             val ok = granted()
             grant.visibility = if (ok) android.view.View.GONE else android.view.View.VISIBLE
             restricted.visibility = grant.visibility
+            val always = checkSelfPermission(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            location.visibility = if (always) android.view.View.GONE else android.view.View.VISIBLE
             val ago = (System.currentTimeMillis() - MediaBridge.lastClient) / 1000
             status.text = when {
                 !ok -> "⚠ Accès aux notifications non autorisé"

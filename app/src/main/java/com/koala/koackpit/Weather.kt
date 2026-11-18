@@ -36,7 +36,7 @@ object Weather {
             val p = sp(ctx)
             if (System.currentTimeMillis() - p.getLong("at", 0) < 2 * 3600_000L) state.value = parse(JSONObject(p.getString("json", "")!!))
         }
-        val loc = lastLocation(ctx) ?: savedLocation(ctx) ?: return
+        val loc = PhoneLink.phoneLocation() ?: lastLocation(ctx) ?: savedLocation(ctx) ?: return
         val moved = where?.distanceTo(loc)?.let { it > 5000f } ?: true
         if (!moved && SystemClock.elapsedRealtime() - at < 10 * 60_000L) return
         busy = true

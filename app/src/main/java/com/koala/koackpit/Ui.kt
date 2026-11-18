@@ -33,6 +33,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -87,6 +89,7 @@ fun AppRail(time: String, active: String, a: RailActions, links: Links? = LinkSt
     ) {
         Text(time, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Black)
         LinkIcons(links)
+        PhoneBattery()
         RailIcon(Icons.Filled.Place, NavBlue, Color.White, active == "drive", a.onDrive)
         RailIcon(null, Yellow, Navy, active == "music", a.onMusic, note = true)
         RailIcon(Icons.Filled.Phone, PhoneGreen, Color.White, active == "phone", a.onPhone)
@@ -190,7 +193,7 @@ fun MediaControls(m: MediaInfo, onPrev: () -> Unit, onPlay: () -> Unit, onNext: 
 fun MediaCardWide(modifier: Modifier, m: MediaInfo, onPrev: () -> Unit, onPlay: () -> Unit, onNext: () -> Unit, onOpen: () -> Unit) {
     CardBox(modifier, onOpen) {
         Column {
-            Caption("En écoute · Bluetooth")
+            Caption("En écoute · " + (PhoneLink.appName.value.takeIf { it.isNotEmpty() && PhoneLink.matches(m.title) } ?: "Bluetooth"))
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Artwork(Modifier.size(64.dp), m.title, m.artist)
@@ -202,7 +205,7 @@ fun MediaCardWide(modifier: Modifier, m: MediaInfo, onPrev: () -> Unit, onPlay: 
                         fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
-            TrackProgress(m.title, m.playing, Modifier.padding(top = 8.dp))
+            TrackProgress(m.title, m.playing, Modifier.padding(top = 4.dp))
             Spacer(Modifier.height(8.dp))
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { MediaControls(m, onPrev, onPlay, onNext, big = false) }
         }
@@ -224,8 +227,15 @@ fun TrackProgress(title: String, btPlaying: Boolean, modifier: Modifier = Modifi
     if (d <= 0) return
     fun fmt(ms: Long) = "%d:%02d".format(ms / 60000, (ms / 1000) % 60)
     Column(modifier.fillMaxWidth()) {
-        Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = 0.15f))) {
-            Box(Modifier.fillMaxWidth((p.toFloat() / d).coerceIn(0f, 1f)).fillMaxHeight().background(Yellow))
+        // Un appui sur la barre avance ou recule dans le morceau (commande envoyée au téléphone)
+        Box(
+            Modifier.fillMaxWidth().height(18.dp)
+                .pointerInput(d) { detectTapGestures { o -> PhoneLink.command("seek", (o.x / size.width * d).toLong().coerceIn(0, d)) } },
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = 0.15f))) {
+                Box(Modifier.fillMaxWidth((p.toFloat() / d).coerceIn(0f, 1f)).fillMaxHeight().background(Yellow))
+            }
         }
         Row(Modifier.fillMaxWidth().padding(top = 2.dp)) {
             Text(fmt(p), color = Muted, fontSize = 10.sp)
@@ -413,7 +423,7 @@ fun DrivePanel(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceEvenly,
                 ) {
-                    Caption("Bluetooth")
+                    Caption(PhoneLink.appName.value.takeIf { it.isNotEmpty() && PhoneLink.matches(media.title) } ?: "Bluetooth")
                     // Pochette plus petite si un bouton ou un message doit aussi tenir dans la carte
                     val extra = onBtSource != null || media.warning.isNotEmpty()
                     Artwork(Modifier.size(if (narrow || extra) 72.dp else 110.dp), media.title, media.artist)
@@ -424,6 +434,9 @@ fun DrivePanel(
                             fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     MediaControls(media, onPrev, onPlay, onNext, big = !narrow)
+                    // Paroles synchronisées (appli Koackpit Téléphone reliée) : ligne en cours + suivante
+                    LyricsView(media.title, media.artist, media.playing, before = if (narrow) 0 else 1, after = 1, big = !narrow,
+                        modifier = Modifier.padding(horizontal = 6.dp))
                     if (onBtSource != null) Pill("Activer le Bluetooth", Yellow, Navy, onBtSource)
                     if (media.warning.isNotEmpty()) Text(media.warning, color = Red, fontSize = 11.sp, textAlign = TextAlign.Center)
                 }
