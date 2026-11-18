@@ -115,6 +115,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        fullScreen()
         visible = true
         resumes.value++
     }

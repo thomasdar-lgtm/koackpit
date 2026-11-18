@@ -170,6 +170,7 @@ class MusicActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        fullScreen()
         shown = true
     }
 

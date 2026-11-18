@@ -60,6 +60,11 @@ class DiagActivity : ComponentActivity() {
     private var zip: File? = null
     private val server = FileServer { zip }
 
+    override fun onResume() {
+        super.onResume()
+        fullScreen()
+    }
+
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) fullScreen()

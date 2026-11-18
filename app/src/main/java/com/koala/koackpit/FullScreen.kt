@@ -11,6 +11,10 @@ import androidx.core.view.WindowInsetsControllerCompat
  */
 fun Activity.fullScreen() {
     runCatching {
+        // Contenu dessiné sous l'emplacement des barres : quand elles apparaissent un instant (retour d'un autre
+        // écran), Koackpit ne se redimensionne plus. Et « plein écran » dès l'ouverture de la fenêtre.
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
         WindowCompat.getInsetsController(window, window.decorView).apply {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             hide(WindowInsetsCompat.Type.systemBars())
@@ -49,6 +53,7 @@ class TopEdgeGuard(private val activity: Activity) {
 
     private fun showBarsBriefly() {
         runCatching {
+            activity.window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
             WindowCompat.getInsetsController(activity.window, activity.window.decorView).show(WindowInsetsCompat.Type.systemBars())
         }
         h.removeCallbacksAndMessages(null)
