@@ -95,6 +95,7 @@ fun AppRail(time: String, active: String, a: RailActions, links: Links? = LinkSt
         RailIcon(Icons.Filled.Phone, PhoneGreen, Color.White, active == "phone", a.onPhone)
         RailIcon(Icons.Filled.Info, CardHi, Yellow, active == "car", a.onCar)
         Spacer(Modifier.weight(1f))
+        RailIcon(Icons.Filled.Settings, CardHi, Yellow, active == "settings", a.onSettings)
         RailIcon(null, CardHi, Color.White, active == "apps", a.onApps, grid = true)
     }
 }
@@ -224,6 +225,38 @@ fun MediaCardWide(
     }
 }
 
+/** Carte « En écoute » sur toute la hauteur de droite : grande pochette, titre, progression, commandes. */
+@Composable
+fun MediaCardTall(
+    modifier: Modifier, m: MediaInfo, onPrev: () -> Unit, onPlay: () -> Unit, onNext: () -> Unit, onOpen: () -> Unit,
+    onLyrics: (() -> Unit)? = null,
+) {
+    CardBox(modifier, onOpen) {
+        Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Caption("En écoute · " + (PhoneLink.appName.value.takeIf { it.isNotEmpty() && PhoneLink.matches(m.title) } ?: "Bluetooth"))
+                Spacer(Modifier.weight(1f))
+                if (onLyrics != null) Text(
+                    "♪ Paroles", color = Navy, fontSize = 15.sp, fontWeight = FontWeight.Black,
+                    modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(Yellow).clickable(onClick = onLyrics)
+                        .padding(horizontal = 16.dp, vertical = 7.dp),
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            Artwork(Modifier.size(150.dp), m.title, m.artist)
+            Spacer(Modifier.height(12.dp))
+            Text(m.title.ifEmpty { "Rien en lecture" }, color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Black,
+                maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+            Text(m.artist.ifEmpty { "Musique du téléphone" }, color = Yellow, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.weight(1f))
+            TrackProgress(m.title, m.playing, Modifier.padding(horizontal = 8.dp))
+            Spacer(Modifier.height(4.dp))
+            MediaControls(m, onPrev, onPlay, onNext, big = true)
+        }
+    }
+}
+
 /** Barre de progression du morceau, donnée par l'appli Koackpit Téléphone (rien si elle n'est pas connectée). */
 @Composable
 fun TrackProgress(title: String, btPlaying: Boolean, modifier: Modifier = Modifier) {
@@ -302,7 +335,6 @@ fun NavCard(
             if (weather != null) { WeatherStrip(weather); Spacer(Modifier.weight(1f)) }
             // Carburant : jauge + litres + autonomie estimée
             if (car != null) {
-                val frac = (car.fuelL.toFloat() / FuelStats.TANK_L).coerceIn(0f, 1f)
                 val low = car.fuelL <= 8
                 Row(verticalAlignment = Alignment.Bottom) {
                     Column {
@@ -315,18 +347,12 @@ fun NavCard(
                         Text("≈ ${car.rangeKm} km", color = if (low) Red else Yellow, fontSize = 22.sp, fontWeight = FontWeight.Black)
                     }
                 }
-                Spacer(Modifier.height(6.dp))
-                Box(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp)).background(Color.White.copy(alpha = 0.12f))) {
-                    Box(Modifier.fillMaxWidth(frac).fillMaxHeight().clip(RoundedCornerShape(5.dp)).background(if (low) Red else Yellow))
-                }
             } else {
                 Text("Infos voiture au démarrage du moteur", color = Muted, fontSize = 13.sp)
             }
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Pill("Conduite", Yellow, Navy, onDrive)
-                if (onHomeAddr != null) Pill("Maison", Card.copy(alpha = 0.92f), Color.White, onHomeAddr)
-                if (onWorkAddr != null) Pill("Travail", Card.copy(alpha = 0.92f), Color.White, onWorkAddr)
             }
         }
     }
@@ -399,11 +425,8 @@ fun HomeContent(
         Row(Modifier.fillMaxSize().padding(10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             NavCard(Modifier.weight(1.25f).fillMaxHeight(), navName, speedKmh, car, rail.onDrive, onHomeAddr, onWorkAddr, weather, limit)
             if (lyrics) LyricsPanel(Modifier.weight(1f).fillMaxHeight(), media, onPrev, onPlay, onNext, lyricsPreview) { lyrics = false }
-            else Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                MediaCardWide(Modifier.weight(1.15f).fillMaxWidth(), media, onPrev, onPlay, onNext, rail.onMusic,
-                    onLyrics = if (PhoneLink.connected.value || lyricsPreview != null) ({ lyrics = true }) else null)
-                TodayCard(Modifier.weight(1f).fillMaxWidth(), time, date, rail.onSettings)
-            }
+            else MediaCardTall(Modifier.weight(1f).fillMaxHeight(), media, onPrev, onPlay, onNext, rail.onMusic,
+                onLyrics = if (PhoneLink.connected.value || lyricsPreview != null) ({ lyrics = true }) else null)
         }
     }
 }
