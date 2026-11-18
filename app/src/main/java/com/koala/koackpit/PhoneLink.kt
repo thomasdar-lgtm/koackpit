@@ -86,9 +86,11 @@ object PhoneLink {
                     if (!loggedConnect) { loggedConnect = true; app?.let { WakeLog.add(it, "Téléphone compagnon connecté ($gw)") } }
                 }
             }
-            if (!ok) main.post { connected.value = false }
-            // 1,5 s quand le téléphone répond ; sinon on retente toutes les 5 s (rien n'est envoyé ailleurs)
-            Thread.sleep(if (ok) 1500 else 5000)
+            if (ok) lastOk = android.os.SystemClock.elapsedRealtime()
+            // Coupure du Wi-Fi : on garde les dernières infos 3 min (la position continue d'avancer sur place)
+            else if (android.os.SystemClock.elapsedRealtime() - lastOk > 180_000) main.post { connected.value = false }
+            // 1,5 s quand le téléphone répond ; sinon on retente toutes les 2 s pour reprendre vite
+            Thread.sleep(if (ok) 1500 else 2000)
         }
     }
 
@@ -96,9 +98,21 @@ object PhoneLink {
      * Position actuelle du morceau en ms, d'après le téléphone (exacte, même après une avance ou une reprise
      * en milieu de titre). null si l'appli du téléphone ne répond pas ou ne donne pas la position.
      */
-    fun positionMs(): Long? {
+    @Volatile private var lastOk = 0L
+
+    /**
+     * [btPlaying] : lecture/pause d'après le Bluetooth. Pendant une coupure du Wi-Fi, c'est lui qui dit si la
+     * position doit continuer d'avancer (le téléphone ne répond plus) : on repart de la position estimée.
+     */
+    fun positionMs(btPlaying: Boolean): Long? {
         if (!connected.value || posAt == 0L) return null
-        val p = if (playing.value) pos + (android.os.SystemClock.elapsedRealtime() - posAt) else pos
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - lastOk > 4000 && btPlaying != playing.value) {
+            pos = if (playing.value) pos + (now - posAt) else pos
+            posAt = now
+            playing.value = btPlaying
+        }
+        val p = if (playing.value) pos + (now - posAt) else pos
         val d = duration.value
         return if (d > 0) p.coerceIn(0, d) else p
     }

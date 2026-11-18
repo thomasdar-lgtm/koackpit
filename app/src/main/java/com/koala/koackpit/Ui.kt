@@ -202,7 +202,7 @@ fun MediaCardWide(modifier: Modifier, m: MediaInfo, onPrev: () -> Unit, onPlay: 
                         fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
-            TrackProgress(m.title, Modifier.padding(top = 8.dp))
+            TrackProgress(m.title, m.playing, Modifier.padding(top = 8.dp))
             Spacer(Modifier.height(8.dp))
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { MediaControls(m, onPrev, onPlay, onNext, big = false) }
         }
@@ -211,13 +211,13 @@ fun MediaCardWide(modifier: Modifier, m: MediaInfo, onPrev: () -> Unit, onPlay: 
 
 /** Barre de progression du morceau, donnée par l'appli Koackpit Téléphone (rien si elle n'est pas connectée). */
 @Composable
-fun TrackProgress(title: String, modifier: Modifier = Modifier) {
+fun TrackProgress(title: String, btPlaying: Boolean, modifier: Modifier = Modifier) {
     val connected = PhoneLink.connected.value
     var pos by remember { mutableStateOf<Long?>(null) }
     // Boucle seulement quand le téléphone est relié (aucun travail sinon)
-    androidx.compose.runtime.LaunchedEffect(title, connected) {
+    androidx.compose.runtime.LaunchedEffect(title, connected, btPlaying) {
         if (!connected) { pos = null; return@LaunchedEffect }
-        while (true) { pos = if (PhoneLink.matches(title)) PhoneLink.positionMs() else null; kotlinx.coroutines.delay(500) }
+        while (true) { pos = if (PhoneLink.matches(title)) PhoneLink.positionMs(btPlaying) else null; kotlinx.coroutines.delay(500) }
     }
     val p = pos ?: return
     val d = PhoneLink.duration.value
