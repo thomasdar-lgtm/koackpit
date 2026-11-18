@@ -113,7 +113,7 @@ fun CarScreenContent(
         Row(Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             // La Golf
             Column(
-                Modifier.width(400.dp).fillMaxHeight().clip(RoundedCornerShape(18.dp)).background(Card).padding(12.dp),
+                Modifier.width(330.dp).fillMaxHeight().clip(RoundedCornerShape(18.dp)).background(Card).padding(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 // Golf en 3D : tourner au doigt, pincer pour zoomer, toucher une pièce pour sa fiche
