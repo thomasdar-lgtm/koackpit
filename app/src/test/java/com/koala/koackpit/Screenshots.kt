@@ -173,5 +173,5 @@ class Screenshots {
 
     @Test fun appel_entrant() = appel("appel-entrant", CallOverlay.Call(5, "Cindy", "06 12 34 56 78", 0, true))
     @Test fun appel_en_cours() = appel("appel-en-cours", CallOverlay.Call(6, "Garage Dupont", "05 58 00 00 00", 83, true))
-    @Test fun appel_vocal() = appel("appel-vocal", CallOverlay.Call(6, null, null, 12, true))
+    @Test fun appel_vocal() = appel("appel-vocal", CallOverlay.Call(6, null, "+33612345678", 12, true, vocal = true))
 }

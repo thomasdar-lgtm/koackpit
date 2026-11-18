@@ -20,17 +20,24 @@ import android.widget.TextView
  */
 object CallOverlay {
     /** Ce que la fiche affiche (séparé de l'affichage pour les captures d'écran). */
-    data class Call(val state: Int, val name: String?, val number: String?, val seconds: Int, val voiceInCar: Boolean)
+    data class Call(val state: Int, val name: String?, val number: String?, val seconds: Int, val voiceInCar: Boolean, val vocal: Boolean = false)
 
     private var root: LinearLayout? = null
     private var shown: Call? = null
     private var talkingSince = 0L
+    private var lastHfp = -1
+    /** Vocal ou assistant : passage direct de « connecté » à « en appel », sans sonnerie ni numérotation (journal du 17/11). */
+    private var vocal = false
+    private var duration: TextView? = null
 
     /** Appelée chaque seconde par le service. */
     fun tick(ctx: Context) {
         val app = ctx.applicationContext
         val hfp = CarLink.hfpState() ?: -1
         val awake = (app.getSystemService(Context.POWER_SERVICE) as PowerManager).isInteractive
+        if (hfp == 6 && lastHfp == 3) vocal = true
+        if (hfp < 4) vocal = false
+        if (hfp in 0..6) lastHfp = hfp
         if (hfp < 4 || !awake) { talkingSince = 0; hide(app); return }
         if (hfp == 6 && talkingSince == 0L) talkingSince = SystemClock.elapsedRealtime()
         if (hfp != 6) talkingSince = 0
@@ -40,8 +47,14 @@ object CallOverlay {
             number = CarLink.callNumber()?.trim()?.takeIf { it.isNotEmpty() },
             seconds = if (talkingSince > 0) ((SystemClock.elapsedRealtime() - talkingSince) / 1000).toInt() else 0,
             voiceInCar = CarLink.voiceInCar() != false,
+            vocal = vocal,
         )
-        if (call == shown && root != null) return
+        // Seule la durée change chaque seconde : on met le texte à jour sans recréer la fiche (elle scintillait)
+        if (root != null && shown?.copy(seconds = 0) == call.copy(seconds = 0)) {
+            if (call.seconds != shown?.seconds) duration?.text = subText(call)
+            shown = call
+            return
+        }
         show(app, call)
     }
 
@@ -73,7 +86,7 @@ object CallOverlay {
     fun hide(ctx: Context) {
         val v = root ?: return
         runCatching { (ctx.getSystemService(Context.WINDOW_SERVICE) as WindowManager).removeView(v) }
-        root = null; shown = null
+        root = null; shown = null; duration = null
     }
 
     private fun dp(ctx: Context, v: Int) = (v * ctx.resources.displayMetrics.density * 1.18f).toInt()
@@ -88,6 +101,15 @@ object CallOverlay {
     private val RED = Color.rgb(235, 64, 64)
     private val MUTED = Color.rgb(160, 172, 196)
 
+    private fun subText(call: Call): String {
+        val sub = when (call.state) {
+            5 -> "Appel entrant"
+            4 -> "Appel en cours…"
+            else -> "%d:%02d".format(call.seconds / 60, call.seconds % 60) + if (call.voiceInCar) "" else " · sur le téléphone"
+        }
+        return if (call.name != null && call.number != null && call.state != 6) "$sub · ${call.number}" else sub
+    }
+
     /** Vue de la fiche (ou de la pastille « Micro actif »). [onAction] : "answer", "hangup", "switch". */
     fun build(app: Context, call: Call, onAction: (String) -> Unit): LinearLayout {
         val row = LinearLayout(app).apply {
@@ -96,8 +118,7 @@ object CallOverlay {
             background = round(CARD, dp(app, 22).toFloat(), Color.argb(170, 255, 204, 0), dp(app, 1))
             elevation = dp(app, 10).toFloat()
         }
-        val vocal = call.state == 6 && call.name == null && call.number == null
-        if (vocal) {
+        if (call.vocal) {
             // Vocal / assistant : pastille discrète
             row.setPadding(dp(app, 8), dp(app, 6), dp(app, 14), dp(app, 6))
             row.addView(TextView(app).apply {
@@ -126,15 +147,11 @@ object CallOverlay {
             text = who; textSize = 16f; setTextColor(Color.WHITE); typeface = Typeface.DEFAULT_BOLD
             maxWidth = dp(app, 230); maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
         })
-        val sub = when (call.state) {
-            5 -> "Appel entrant"
-            4 -> "Appel en cours…"
-            else -> "%d:%02d".format(call.seconds / 60, call.seconds % 60) + if (call.voiceInCar) "" else " · sur le téléphone"
-        }
         texts.addView(TextView(app).apply {
-            text = if (call.name != null && call.number != null && call.state != 6) "$sub · ${call.number}" else sub
+            text = subText(call)
             textSize = 12f; setTextColor(if (call.state == 5) YELLOW else MUTED)
             maxWidth = dp(app, 260); maxLines = 1
+            duration = this
         })
         row.addView(texts)
         fun button(label: String, color: Int, textColor: Int, action: String) = TextView(app).apply {
