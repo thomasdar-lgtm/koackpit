@@ -85,7 +85,7 @@ fun AppRail(time: String, active: String, a: RailActions, links: Links? = LinkSt
     Column(
         Modifier.width(66.dp).fillMaxHeight().background(Rail).padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(time, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Black)
         LinkIcons(links)
@@ -106,7 +106,7 @@ fun RailIcon(
     note: Boolean = false, grid: Boolean = false,
 ) {
     Box(
-        Modifier.size(52.dp).clip(RoundedCornerShape(16.dp))
+        Modifier.size(46.dp).clip(RoundedCornerShape(16.dp))
             .background(if (active) Yellow.copy(alpha = 0.9f) else Color.Transparent).padding(3.dp),
         contentAlignment = Alignment.Center,
     ) {

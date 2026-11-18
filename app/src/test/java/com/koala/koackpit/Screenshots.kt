@@ -50,6 +50,8 @@ class Screenshots {
 
     @Test
     fun accueil_meteo() = captureRoboImage("build/screens/accueil-meteo.png") { Scaled {
+        LinkStatus.state.value = Links(bt = true, wifi = true, wifiLevel = 3)
+        PhoneLink.battery.value = 64 to false
         val w = Weather.Forecast(3, 14, "Pluie vers 21:30", true, listOf(
             Weather.Hour("22 h", 61, 13, 70), Weather.Hour("23 h", 80, 12, 85), Weather.Hour("00 h", 3, 12, 30), Weather.Hour("01 h", 2, 11, 10)))
         HomeContent("21:04", "Mercredi 18 novembre", "Waze", media, RailActions(), {}, {}, {}, {},
