@@ -17,3 +17,19 @@ fun Activity.fullScreen() {
         }
     }
 }
+
+/**
+ * Geste partant du bord haut de l'écran (glisser pour faire descendre la barre d'état) : il ne doit pas
+ * « toucher » Koackpit (constaté le 18/11 : ça lançait la conduite). Renvoie true si le geste est à ignorer.
+ */
+class TopEdgeGuard(private val activity: Activity) {
+    private var ignoring = false
+    fun shouldIgnore(ev: android.view.MotionEvent): Boolean {
+        if (ev.actionMasked == android.view.MotionEvent.ACTION_DOWN) {
+            ignoring = ev.rawY < 14 * activity.resources.displayMetrics.density
+        }
+        val r = ignoring
+        if (ev.actionMasked == android.view.MotionEvent.ACTION_UP || ev.actionMasked == android.view.MotionEvent.ACTION_CANCEL) ignoring = false
+        return r
+    }
+}

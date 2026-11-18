@@ -74,6 +74,10 @@ class MainActivity : ComponentActivity() {
     private val upd = UpdateHub.state
     private val resumes = mutableStateOf(0)
 
+    private val topEdge by lazy { TopEdgeGuard(this) }
+    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean =
+        if (topEdge.shouldIgnore(ev)) true else super.dispatchTouchEvent(ev)
+
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) fullScreen()

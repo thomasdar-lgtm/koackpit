@@ -54,7 +54,7 @@ object PhoneLink {
 
     private fun get(url: String): ByteArray? = runCatching {
         (URL(url).openConnection() as HttpURLConnection).run {
-            connectTimeout = 800; readTimeout = 1500; useCaches = false
+            connectTimeout = 2000; readTimeout = 3000; useCaches = false
             try { if (responseCode == 200) inputStream.readBytes() else null } finally { disconnect() }
         }
     }.getOrNull()

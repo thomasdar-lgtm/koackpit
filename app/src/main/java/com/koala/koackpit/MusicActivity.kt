@@ -78,6 +78,10 @@ class MusicActivity : ComponentActivity() {
     }
     private var createdAt = 0L
 
+    private val topEdge by lazy { TopEdgeGuard(this) }
+    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean =
+        if (topEdge.shouldIgnore(ev)) true else super.dispatchTouchEvent(ev)
+
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) fullScreen()
