@@ -131,24 +131,35 @@ class MediaBridge : NotificationListenerService() {
     }
 
     /**
-     * Commande du lecteur. Constat (18/11) : avec le téléphone déverrouillé, Deezer ignorait l'avance demandée,
-     * alors qu'écran verrouillé ça marchait. Deezer peut avoir plusieurs sessions de lecture ouvertes en même temps :
-     * l'avance est donc envoyée à toutes les sessions de l'appli qui joue.
+     * Commande du lecteur. Constats du 18/11 : l'avance marche écran verrouillé, mais Deezer l'ignore parfois
+     * téléphone déverrouillé ; l'envoyer à toutes ses sessions d'un coup empirait les choses (1.3).
+     * Donc : d'abord la session suivie seule (comme en 1.2) ; si 1 s plus tard la position n'a pas bougé,
+     * on essaie les autres sessions de la même appli, une par une.
      */
     private fun command(a: String, ms: Long) {
         val cur = current ?: return
         main.post {
-            val all = runCatching { msm?.getActiveSessions(ComponentName(this, MediaBridge::class.java)) }.getOrNull().orEmpty()
-                .filter { it.packageName == cur.packageName }.ifEmpty { listOf(cur) }
             runCatching {
                 val tc = cur.transportControls
                 when (a) {
                     "play" -> tc.play(); "pause" -> tc.pause(); "next" -> tc.skipToNext(); "prev" -> tc.skipToPrevious()
                     "toggle" -> if (playing) tc.pause() else tc.play()
-                    "seek" -> all.forEach { c -> runCatching { c.transportControls.seekTo(ms) } }
+                    "seek" -> { tc.seekTo(ms); retrySeek(cur, ms, 0) }
                 }
             }
         }
+    }
+
+    private fun retrySeek(first: MediaController, ms: Long, i: Int) {
+        main.postDelayed({
+            read()
+            if (kotlin.math.abs(positionNow() - ms) <= 3000) return@postDelayed
+            val others = runCatching { msm?.getActiveSessions(ComponentName(this, MediaBridge::class.java)) }.getOrNull().orEmpty()
+                .filter { it.packageName == first.packageName && it.sessionToken != first.sessionToken }
+            val c = others.getOrNull(i) ?: return@postDelayed
+            runCatching { c.transportControls.seekTo(ms) }
+            retrySeek(first, ms, i + 1)
+        }, 1000)
     }
 
     override fun onListenerConnected() {
