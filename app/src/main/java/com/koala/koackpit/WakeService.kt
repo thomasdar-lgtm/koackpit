@@ -162,6 +162,7 @@ class WakeService : Service() {
                     val cur = i.getIntExtra("current_state", -1); val last = i.getIntExtra("last_state", -1)
                     CallLog.onHfp(c, cur)   // relevé automatique pendant les appels
                     if (cur >= 4) WakeLog.addOverlays(c, "appel")   // quelle appli affiche la barre d'appel ?
+                    if (last >= 4 && cur == 3) backAfterCall(c)
                     // Module Bluetooth prêt (init → inactif) : on lui demande tout de suite de se reconnecter au
                     // téléphone, sans attendre sa propre reconnexion automatique (~20 s constatées). Second essai à +8 s.
                     if (last == 0 && cur == 1) for (d in longArrayOf(500, 8000)) main.postDelayed({
@@ -410,6 +411,29 @@ class WakeService : Service() {
             runCatching {
                 RootAccess.run(app, "settings put global wifi_scan_throttle_enabled 0")
                 WakeLog.add(app, "Wi-Fi : limite de recherche levée")
+            }
+        }.start()
+    }
+
+    /**
+     * Fin d'appel ou de vocal : si l'autoradio a laissé sa page d'appel ou sa page Bluetooth en plein écran
+     * (constaté le 18/11 pendant une mise à jour), Koackpit revient devant. Rien si une autre appli (Waze…) est devant.
+     */
+    private fun backAfterCall(c: Context) {
+        val app = c.applicationContext
+        Thread {
+            Thread.sleep(1500)
+            val top = runCatching {
+                RootAccess.run(app, "dumpsys activity activities 2>&1 | grep -m 1 mResumedActivity", 15_000)
+            }.getOrDefault("")
+            if (!top.contains("android.car.app.bt/")) return@Thread
+            WakeLog.add(app, "Fin d'appel : page de l'autoradio restée devant → retour sur Koackpit")
+            main.post {
+                runCatching {
+                    if (MusicActivity.isOpen()) MusicActivity.restart()
+                    else app.startActivity(Intent(app, MainActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
+                }
             }
         }.start()
     }
