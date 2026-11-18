@@ -190,10 +190,22 @@ fun MediaControls(m: MediaInfo, onPrev: () -> Unit, onPlay: () -> Unit, onNext: 
 
 /** Carte musique de l'accueil (horizontale). */
 @Composable
-fun MediaCardWide(modifier: Modifier, m: MediaInfo, onPrev: () -> Unit, onPlay: () -> Unit, onNext: () -> Unit, onOpen: () -> Unit) {
+fun MediaCardWide(
+    modifier: Modifier, m: MediaInfo, onPrev: () -> Unit, onPlay: () -> Unit, onNext: () -> Unit, onOpen: () -> Unit,
+    onLyrics: (() -> Unit)? = null,
+) {
     CardBox(modifier, onOpen) {
         Column {
-            Caption("En écoute · " + (PhoneLink.appName.value.takeIf { it.isNotEmpty() && PhoneLink.matches(m.title) } ?: "Bluetooth"))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Caption("En écoute · " + (PhoneLink.appName.value.takeIf { it.isNotEmpty() && PhoneLink.matches(m.title) } ?: "Bluetooth"))
+                Spacer(Modifier.weight(1f))
+                // Paroles : ouvre le panneau à la place des cartes de droite
+                if (onLyrics != null) Text(
+                    "♪ Paroles", color = Navy, fontSize = 11.sp, fontWeight = FontWeight.Black,
+                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(Yellow).clickable(onClick = onLyrics)
+                        .padding(horizontal = 9.dp, vertical = 3.dp),
+                )
+            }
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Artwork(Modifier.size(64.dp), m.title, m.artist)
@@ -379,15 +391,46 @@ fun HomeContent(
     onHomeAddr: (() -> Unit)? = null, onWorkAddr: (() -> Unit)? = null,
     weather: Weather.Forecast? = Weather.state.value,
     limit: Int? = SpeedLimit.limit.value,
+    lyricsOpen: Boolean = false, lyricsPreview: List<Lyrics.Line>? = null,
 ) {
+    var lyrics by remember { mutableStateOf(lyricsOpen) }
     Row(Modifier.fillMaxSize().background(Navy)) {
         AppRail(time, "", rail)
         Row(Modifier.fillMaxSize().padding(10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             NavCard(Modifier.weight(1.25f).fillMaxHeight(), navName, speedKmh, car, rail.onDrive, onHomeAddr, onWorkAddr, weather, limit)
-            Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                MediaCardWide(Modifier.weight(1.15f).fillMaxWidth(), media, onPrev, onPlay, onNext, rail.onMusic)
+            if (lyrics) LyricsPanel(Modifier.weight(1f).fillMaxHeight(), media, onPrev, onPlay, onNext, lyricsPreview) { lyrics = false }
+            else Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                MediaCardWide(Modifier.weight(1.15f).fillMaxWidth(), media, onPrev, onPlay, onNext, rail.onMusic,
+                    onLyrics = if (PhoneLink.connected.value || lyricsPreview != null) ({ lyrics = true }) else null)
                 TodayCard(Modifier.weight(1f).fillMaxWidth(), time, date, rail.onSettings)
             }
+        }
+    }
+}
+
+/** Paroles à la place des cartes « En écoute » et du jour : titre, paroles, commandes de lecture. */
+@Composable
+fun LyricsPanel(
+    modifier: Modifier, m: MediaInfo, onPrev: () -> Unit, onPlay: () -> Unit, onNext: () -> Unit,
+    preview: List<Lyrics.Line>? = null, onClose: () -> Unit,
+) {
+    CardBox(modifier) {
+        Column(Modifier.fillMaxSize()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Caption("Paroles")
+                    Text(m.title.ifEmpty { "Rien en lecture" }, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Black,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (m.artist.isNotEmpty()) Text(m.artist, color = Yellow, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                }
+                SmallRound(Icons.Filled.Close, onClose)
+            }
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                if (preview != null) LyricsLines(preview, 2, 2, 3, big = false)
+                else LyricsView(m.title, m.artist, m.playing, before = 2, after = 3, big = false, placeholder = true)
+            }
+            TrackProgress(m.title, m.playing)
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { MediaControls(m, onPrev, onPlay, onNext, big = false) }
         }
     }
 }
@@ -435,14 +478,14 @@ fun DrivePanel(
                     }
                     MediaControls(media, onPrev, onPlay, onNext, big = !narrow)
                     // Paroles synchronisées (appli Koackpit Téléphone reliée) : ligne en cours + suivante
-                    LyricsView(media.title, media.artist, media.playing, before = if (narrow) 0 else 1, after = 1, big = !narrow,
+                    LyricsView(media.title, media.artist, media.playing, before = if (narrow) 0 else 2, after = if (narrow) 1 else 2, big = !narrow,
                         modifier = Modifier.padding(horizontal = 6.dp))
                     if (onBtSource != null) Pill("Activer le Bluetooth", Yellow, Navy, onBtSource)
                     if (media.warning.isNotEmpty()) Text(media.warning, color = Red, fontSize = 11.sp, textAlign = TextAlign.Center)
                 }
             }
-            // Barre d'applis du bas (comme la barre des tâches d'Android Auto)
-            Row(
+            // Barre d'applis du bas (comme la barre des tâches d'Android Auto) : seulement à côté du GPS
+            if (narrow) Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Rail).padding(6.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {

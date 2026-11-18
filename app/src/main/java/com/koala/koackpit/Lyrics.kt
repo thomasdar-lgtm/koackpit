@@ -111,7 +111,10 @@ object Lyrics {
  * ou si les paroles sont introuvables.
  */
 @Composable
-fun LyricsView(title: String, artist: String, btPlaying: Boolean, before: Int, after: Int, big: Boolean, modifier: Modifier = Modifier) {
+fun LyricsView(
+    title: String, artist: String, btPlaying: Boolean, before: Int, after: Int, big: Boolean, modifier: Modifier = Modifier,
+    placeholder: Boolean = false,
+) {
     val ctx = LocalContext.current
     val connected = PhoneLink.connected.value
     val dur = PhoneLink.duration.value
@@ -133,7 +136,20 @@ fun LyricsView(title: String, artist: String, btPlaying: Boolean, before: Int, a
     }
     val ls = lines
     val p = pos
-    if (ls.isNullOrEmpty() || p == null) return
+    if (ls.isNullOrEmpty() || p == null) {
+        // Panneau des paroles : on dit pourquoi il n'y a rien plutôt qu'un cadre vide
+        if (placeholder) Text(
+            when {
+                !connected -> "Koackpit Téléphone n'est pas relié (partage de connexion ?)"
+                title.isBlank() -> "Rien en lecture"
+                ls == null -> "Recherche des paroles…"
+                ls.isEmpty() -> "Paroles introuvables pour ce titre"
+                else -> "Lance la lecture sur le téléphone"
+            },
+            color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp, textAlign = TextAlign.Center, modifier = modifier.fillMaxWidth(),
+        )
+        return
+    }
     LyricsLines(ls, Lyrics.indexAt(ls, p + 300), before, after, big, modifier)   // +0,3 s : la ligne s'allume au moment où elle est chantée
 }
 

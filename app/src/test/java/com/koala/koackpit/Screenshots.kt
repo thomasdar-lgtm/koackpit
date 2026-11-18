@@ -223,4 +223,15 @@ class Screenshots {
             )
         }
     } }
+
+    @Test
+    fun accueil_paroles() = captureRoboImage("build/screens/accueil-paroles.png") { Scaled {
+        val l = Lyrics.parse((1..8).joinToString("\\n") { "[00:%02d.00]Ligne de paroles numéro $it pour l'essai".format(it * 4) })
+        HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {}, lyricsOpen = true, lyricsPreview = l)
+    } }
+
+    @Test
+    fun accueil_bouton_paroles() = captureRoboImage("build/screens/accueil-bouton-paroles.png") { Scaled {
+        HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {}, lyricsPreview = emptyList())
+    } }
 }
