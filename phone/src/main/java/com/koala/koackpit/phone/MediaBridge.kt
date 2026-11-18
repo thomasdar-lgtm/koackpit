@@ -19,7 +19,8 @@ import java.net.Socket
  * Lit le lecteur en cours sur le téléphone (Deezer, Spotify…) et le met à disposition de Koackpit.
  *
  * Koackpit (sur l'autoradio, connecté au partage de connexion du téléphone) interroge ce petit serveur :
- *   GET /state → {"title","artist","album","app","playing","art"}   (art = empreinte de la pochette)
+ *   GET /state → {"title","artist","album","app","playing","art","pos","dur"}   (art = empreinte de la pochette,
+ *                pos = position dans le morceau en ms au moment de la réponse, dur = durée en ms)
  *   GET /art   → pochette en JPEG
  * Rien n'est envoyé ailleurs ; seules ces deux lectures sont possibles.
  */
@@ -33,6 +34,15 @@ class MediaBridge : NotificationListenerService() {
         @Volatile var playing = false
         @Volatile var art: ByteArray? = null
         @Volatile var artId = ""
+        // Position de lecture (pour les paroles synchronisées sur l'autoradio)
+        @Volatile var pos = 0L; @Volatile var posAt = 0L; @Volatile var speed = 1f; @Volatile var dur = 0L
+
+        /** Position actuelle en ms (Android donne la position au dernier changement + l'heure de ce changement). */
+        fun positionNow(): Long {
+            if (posAt <= 0L) return pos
+            val p = if (playing) pos + ((android.os.SystemClock.elapsedRealtime() - posAt) * speed).toLong() else pos
+            return if (dur > 0) p.coerceIn(0, dur) else maxOf(0, p)
+        }
     }
 
     private val main = Handler(Looper.getMainLooper())
@@ -85,6 +95,10 @@ class MediaBridge : NotificationListenerService() {
         album = md?.getString(MediaMetadata.METADATA_KEY_ALBUM).orEmpty()
         app = c?.packageName.orEmpty()
         playing = c?.playbackState?.state == PlaybackState.STATE_PLAYING
+        c?.playbackState?.let { st ->
+            pos = st.position; posAt = st.lastPositionUpdateTime; speed = if (st.playbackSpeed > 0f) st.playbackSpeed else 1f
+        }
+        dur = md?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0L
         val bmp = md?.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART) ?: md?.getBitmap(MediaMetadata.METADATA_KEY_ART)
             ?: md?.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
         val id = if (bmp == null) "" else "$title|$album|${bmp.width}x${bmp.height}".hashCode().toString(16)
@@ -133,6 +147,7 @@ class MediaBridge : NotificationListenerService() {
                     path.startsWith("/state") -> reply("application/json", JSONObject().apply {
                         put("v", 1); put("title", title); put("artist", artist); put("album", album)
                         put("app", app); put("playing", playing); put("art", artId)
+                        put("pos", positionNow()); put("dur", dur)
                     }.toString().toByteArray())
                     path.startsWith("/art") && art != null -> reply("image/jpeg", art!!)
                     else -> out.write("HTTP/1.0 404 Not Found\r\nContent-Length: 0\r\n\r\n".toByteArray())

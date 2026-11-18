@@ -30,6 +30,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -199,8 +202,35 @@ fun MediaCardWide(modifier: Modifier, m: MediaInfo, onPrev: () -> Unit, onPlay: 
                         fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
+            TrackProgress(m.title, Modifier.padding(top = 8.dp))
             Spacer(Modifier.height(8.dp))
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { MediaControls(m, onPrev, onPlay, onNext, big = false) }
+        }
+    }
+}
+
+/** Barre de progression du morceau, donnée par l'appli Koackpit Téléphone (rien si elle n'est pas connectée). */
+@Composable
+fun TrackProgress(title: String, modifier: Modifier = Modifier) {
+    val connected = PhoneLink.connected.value
+    var pos by remember { mutableStateOf<Long?>(null) }
+    // Boucle seulement quand le téléphone est relié (aucun travail sinon)
+    androidx.compose.runtime.LaunchedEffect(title, connected) {
+        if (!connected) { pos = null; return@LaunchedEffect }
+        while (true) { pos = if (PhoneLink.matches(title)) PhoneLink.positionMs() else null; kotlinx.coroutines.delay(500) }
+    }
+    val p = pos ?: return
+    val d = PhoneLink.duration.value
+    if (d <= 0) return
+    fun fmt(ms: Long) = "%d:%02d".format(ms / 60000, (ms / 1000) % 60)
+    Column(modifier.fillMaxWidth()) {
+        Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = 0.15f))) {
+            Box(Modifier.fillMaxWidth((p.toFloat() / d).coerceIn(0f, 1f)).fillMaxHeight().background(Yellow))
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 2.dp)) {
+            Text(fmt(p), color = Muted, fontSize = 10.sp)
+            Spacer(Modifier.weight(1f))
+            Text(fmt(d), color = Muted, fontSize = 10.sp)
         }
     }
 }

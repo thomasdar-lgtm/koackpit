@@ -26,6 +26,10 @@ object PhoneLink {
     val artist = mutableStateOf("")
     val playing = mutableStateOf(false)
     val art = mutableStateOf<ImageBitmap?>(null)
+    /** Position dans le morceau (ms) reçue du téléphone, l'heure de réception, et la durée (ms). */
+    @Volatile private var pos = 0L
+    @Volatile private var posAt = 0L
+    val duration = mutableStateOf(0L)
 
     private var artId = ""
     private var app: Context? = null
@@ -69,7 +73,10 @@ object PhoneLink {
                     val newArt = js.optString("art")
                     val bmp = if (newArt.isNotEmpty() && newArt != artId) get("http://$gw:$PORT/art")
                         ?.let { b -> runCatching { BitmapFactory.decodeByteArray(b, 0, b.size)?.asImageBitmap() }.getOrNull() } else null
+                    val p = js.optLong("pos", -1L)
+                    if (p >= 0) { pos = p; posAt = android.os.SystemClock.elapsedRealtime() }
                     main.post {
+                        duration.value = js.optLong("dur", 0L)
                         connected.value = true
                         title.value = js.optString("title"); artist.value = js.optString("artist")
                         playing.value = js.optBoolean("playing")
@@ -83,6 +90,24 @@ object PhoneLink {
             // 1,5 s quand le téléphone répond ; sinon on retente toutes les 5 s (rien n'est envoyé ailleurs)
             Thread.sleep(if (ok) 1500 else 5000)
         }
+    }
+
+    /**
+     * Position actuelle du morceau en ms, d'après le téléphone (exacte, même après une avance ou une reprise
+     * en milieu de titre). null si l'appli du téléphone ne répond pas ou ne donne pas la position.
+     */
+    fun positionMs(): Long? {
+        if (!connected.value || posAt == 0L) return null
+        val p = if (playing.value) pos + (android.os.SystemClock.elapsedRealtime() - posAt) else pos
+        val d = duration.value
+        return if (d > 0) p.coerceIn(0, d) else p
+    }
+
+    /** Le téléphone joue-t-il ce titre (celui annoncé par le Bluetooth) ? */
+    fun matches(btTitle: String): Boolean {
+        if (!connected.value) return false
+        val p = title.value.trim().lowercase(); val b = btTitle.trim().lowercase()
+        return b.isEmpty() || p == b || p.contains(b) || b.contains(p)
     }
 
     /** Pochette à afficher pour ce titre (null si le téléphone ne joue pas ce morceau). */
