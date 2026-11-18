@@ -74,6 +74,11 @@ class MainActivity : ComponentActivity() {
     private val upd = UpdateHub.state
     private val resumes = mutableStateOf(0)
 
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) fullScreen()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Sécurité accès système : vérifiée après 20 s seulement. Juste après une mise à jour, l'appli
@@ -94,6 +99,7 @@ class MainActivity : ComponentActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { screen.value = Screen.HOME }
         })
+        fullScreen()
         setContent { Scaled { Koackpit(screen, upd, resumes.value) } }
     }
 

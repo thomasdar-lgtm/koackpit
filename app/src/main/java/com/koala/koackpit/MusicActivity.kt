@@ -78,6 +78,11 @@ class MusicActivity : ComponentActivity() {
     }
     private var createdAt = 0L
 
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) fullScreen()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         createdAt = SystemClock.uptimeMillis()
@@ -86,6 +91,7 @@ class MusicActivity : ComponentActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() = goHome()
         })
+        fullScreen()
         setContent { Scaled {
             var now by remember { mutableStateOf(Date()) }
             LaunchedEffect(Unit) { while (true) { now = Date(); kotlinx.coroutines.delay(5_000) } }
