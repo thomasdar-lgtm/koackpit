@@ -5,6 +5,10 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -112,7 +116,7 @@ object Lyrics {
  */
 @Composable
 fun LyricsView(
-    title: String, artist: String, btPlaying: Boolean, before: Int, after: Int, big: Boolean, modifier: Modifier = Modifier,
+    title: String, artist: String, btPlaying: Boolean, big: Boolean, modifier: Modifier = Modifier,
     placeholder: Boolean = false,
 ) {
     val ctx = LocalContext.current
@@ -150,27 +154,52 @@ fun LyricsView(
         )
         return
     }
-    LyricsLines(ls, Lyrics.indexAt(ls, p + 300), before, after, big, modifier)   // +0,3 s : la ligne s'allume au moment où elle est chantée
+    LyricsLines(ls, Lyrics.indexAt(ls, p + 300), big, modifier)   // +0,3 s : la ligne s'allume au moment où elle est chantée
 }
 
-/** Affichage seul (séparé pour les captures d'écran). */
+/**
+ * Affichage seul (séparé pour les captures d'écran) : toutes les lignes dans une liste qui défile en douceur
+ * pour garder la ligne chantée au centre, comme dans Deezer. La ligne chantée grossit et passe en jaune
+ * progressivement (pas de changement brusque d'une ligne à l'autre).
+ */
 @Composable
-fun LyricsLines(lines: List<Lyrics.Line>, cur: Int, before: Int, after: Int, big: Boolean, modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(if (big) 8.dp else 4.dp)) {
-        for (i in (cur - before)..(cur + after)) {
-            val text = when {
-                i < 0 -> if (i == cur) "♪" else ""
-                i >= lines.size -> ""
-                else -> lines[i].text.ifBlank { "♪" }
-            }
-            val now = i == cur
-            val color by animateColorAsState(if (now) Yellow else Color.White.copy(alpha = if (kotlin.math.abs(i - cur) == 1) 0.55f else 0.3f), label = "ligne")
-            Text(
-                text, color = color, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                fontSize = if (now) (if (big) 24.sp else 16.sp) else (if (big) 17.sp else 13.sp),
-                fontWeight = if (now) FontWeight.Black else FontWeight.Bold,
-                lineHeight = if (now) (if (big) 28.sp else 19.sp) else (if (big) 20.sp else 15.sp),
+fun LyricsLines(lines: List<Lyrics.Line>, cur: Int, big: Boolean, modifier: Modifier = Modifier) {
+    val state = androidx.compose.foundation.lazy.rememberLazyListState()
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier.fillMaxWidth()) {
+        val h = constraints.maxHeight
+        val pad = maxHeight / 2
+        // Centre la ligne chantée : défilement animé (~0,6 s) à chaque nouvelle ligne
+        LaunchedEffect(cur, h) {
+            val target = cur.coerceAtLeast(0)
+            val info = state.layoutInfo.visibleItemsInfo.firstOrNull { it.index == target }
+            val itemH = info?.size ?: 0
+            state.animateScrollBy(
+                (info?.let { (it.offset + itemH / 2) - (state.layoutInfo.viewportStartOffset + h / 2) }?.toFloat())
+                    ?: run { state.scrollToItem(target); 0f },
+                androidx.compose.animation.core.tween(600, easing = androidx.compose.animation.core.FastOutSlowInEasing),
             )
+        }
+        androidx.compose.foundation.lazy.LazyColumn(
+            state = state, userScrollEnabled = false, modifier = Modifier.fillMaxWidth().height(maxHeight),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = pad),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            items(lines.size) { i ->
+                val now = i == cur
+                val dist = kotlin.math.abs(i - cur)
+                val color by animateColorAsState(
+                    if (now) Yellow else Color.White.copy(alpha = when (dist) { 1 -> 0.6f; 2 -> 0.4f; else -> 0.25f }),
+                    androidx.compose.animation.core.tween(500), label = "couleur",
+                )
+                val scale by androidx.compose.animation.core.animateFloatAsState(if (now) 1.12f else 1f,
+                    androidx.compose.animation.core.tween(500), label = "taille")
+                Text(
+                    lines[i].text.ifBlank { "♪" }, color = color, textAlign = TextAlign.Center,
+                    fontSize = if (big) 20.sp else 15.sp, fontWeight = FontWeight.Bold, lineHeight = if (big) 25.sp else 19.sp,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = if (big) 6.dp else 4.dp)
+                        .graphicsLayer { scaleX = scale; scaleY = scale },
+                )
+            }
         }
     }
 }

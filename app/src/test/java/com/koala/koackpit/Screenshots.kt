@@ -192,7 +192,7 @@ class Screenshots {
         androidx.compose.foundation.layout.Row(Modifier.fillMaxSize().background(Navy)) {
             androidx.compose.foundation.layout.Box(Modifier.weight(2f).fillMaxHeight().background(Color(0xFF2A3F5C)))
             androidx.compose.foundation.layout.Column(Modifier.weight(1f).fillMaxHeight().padding(8.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center) {
-                LyricsLines(l, 1, 0, 1, big = false)
+                LyricsLines(l, 1, big = false, modifier = Modifier.height(64.dp))
                 androidx.compose.foundation.layout.Spacer(Modifier.height(30.dp))
                 PhoneBattery(78 to false)
                 PhoneBattery(15 to false)
@@ -205,7 +205,7 @@ class Screenshots {
     fun paroles_grand() = captureRoboImage("build/screens/paroles-grand.png") { Scaled {
         val l = Lyrics.parse("[00:10.00]Première ligne de la chanson\n[00:14.50]La ligne chantée en ce moment\n[00:19.00]Et celle qui arrive juste après")
         androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().background(Navy), contentAlignment = androidx.compose.ui.Alignment.Center) {
-            LyricsLines(l, 1, 1, 1, big = true)
+            LyricsLines(l, 1, big = true, modifier = Modifier.fillMaxSize())
         }
     } }
 
@@ -233,5 +233,10 @@ class Screenshots {
     @Test
     fun accueil_bouton_paroles() = captureRoboImage("build/screens/accueil-bouton-paroles.png") { Scaled {
         HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {}, lyricsPreview = emptyList())
+    } }
+
+    @Test
+    fun musique_plein_ecran() = captureRoboImage("build/screens/musique.png") { Scaled {
+        DrivePanel("17:42", media, {}, {}, {}, {}, {}, {}, {}, {}, null)
     } }
 }

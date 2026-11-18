@@ -201,9 +201,9 @@ fun MediaCardWide(
                 Spacer(Modifier.weight(1f))
                 // Paroles : ouvre le panneau à la place des cartes de droite
                 if (onLyrics != null) Text(
-                    "♪ Paroles", color = Navy, fontSize = 11.sp, fontWeight = FontWeight.Black,
-                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(Yellow).clickable(onClick = onLyrics)
-                        .padding(horizontal = 9.dp, vertical = 3.dp),
+                    "♪ Paroles", color = Navy, fontSize = 15.sp, fontWeight = FontWeight.Black,
+                    modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(Yellow).clickable(onClick = onLyrics)
+                        .padding(horizontal = 16.dp, vertical = 7.dp),
                 )
             }
             Spacer(Modifier.height(8.dp))
@@ -426,8 +426,8 @@ fun LyricsPanel(
                 SmallRound(Icons.Filled.Close, onClose)
             }
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                if (preview != null) LyricsLines(preview, 2, 2, 3, big = false)
-                else LyricsView(m.title, m.artist, m.playing, before = 2, after = 3, big = false, placeholder = true)
+                if (preview != null) LyricsLines(preview, 2, big = false, modifier = Modifier.fillMaxSize())
+                else LyricsView(m.title, m.artist, m.playing, big = false, modifier = Modifier.fillMaxSize(), placeholder = true)
             }
             TrackProgress(m.title, m.playing)
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { MediaControls(m, onPrev, onPlay, onNext, big = false) }
@@ -459,29 +459,34 @@ fun DrivePanel(
                 Spacer(Modifier.weight(1f))
                 SmallRound(Icons.Filled.Close, onClose)
             }
-            // Carte musique
+            // Carte musique. En plein écran : lecture à gauche, paroles à droite (tout l'écran est utilisé)
             CardBox(Modifier.weight(1f).fillMaxWidth()) {
-                Column(
-                    Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.SpaceEvenly,
-                ) {
-                    Caption(PhoneLink.appName.value.takeIf { it.isNotEmpty() && PhoneLink.matches(media.title) } ?: "Bluetooth")
-                    // Pochette plus petite si un bouton ou un message doit aussi tenir dans la carte
-                    val extra = onBtSource != null || media.warning.isNotEmpty()
-                    Artwork(Modifier.size(if (narrow || extra) 72.dp else 110.dp), media.title, media.artist)
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(media.title.ifEmpty { "Rien en lecture" }, color = Color.White, fontSize = 16.sp,
-                            fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
-                        if (media.artist.isNotEmpty()) Text(media.artist, color = Yellow, fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Row(Modifier.fillMaxSize()) {
+                    Column(
+                        Modifier.weight(1f).fillMaxHeight(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.SpaceEvenly,
+                    ) {
+                        Caption(PhoneLink.appName.value.takeIf { it.isNotEmpty() && PhoneLink.matches(media.title) } ?: "Bluetooth")
+                        // Pochette plus petite si un bouton ou un message doit aussi tenir dans la carte
+                        val extra = onBtSource != null || media.warning.isNotEmpty()
+                        Artwork(Modifier.size(if (narrow || extra) 72.dp else 150.dp), media.title, media.artist)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(media.title.ifEmpty { "Rien en lecture" }, color = Color.White, fontSize = if (narrow) 16.sp else 19.sp,
+                                fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                            if (media.artist.isNotEmpty()) Text(media.artist, color = Yellow, fontSize = if (narrow) 12.sp else 14.sp,
+                                fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        if (!narrow) TrackProgress(media.title, media.playing, Modifier.padding(horizontal = 24.dp))
+                        MediaControls(media, onPrev, onPlay, onNext, big = !narrow)
+                        // À côté du GPS : la ligne chantée et la suivante, sous les commandes
+                        if (narrow) LyricsView(media.title, media.artist, media.playing, big = false, modifier = Modifier.height(64.dp))
+                        if (onBtSource != null) Pill("Activer le Bluetooth", Yellow, Navy, onBtSource)
+                        if (media.warning.isNotEmpty()) Text(media.warning, color = Red, fontSize = 11.sp, textAlign = TextAlign.Center)
                     }
-                    MediaControls(media, onPrev, onPlay, onNext, big = !narrow)
-                    // Paroles synchronisées (appli Koackpit Téléphone reliée) : ligne en cours + suivante
-                    LyricsView(media.title, media.artist, media.playing, before = if (narrow) 0 else 2, after = if (narrow) 1 else 2, big = !narrow,
-                        modifier = Modifier.padding(horizontal = 6.dp))
-                    if (onBtSource != null) Pill("Activer le Bluetooth", Yellow, Navy, onBtSource)
-                    if (media.warning.isNotEmpty()) Text(media.warning, color = Red, fontSize = 11.sp, textAlign = TextAlign.Center)
+                    if (!narrow) Box(Modifier.weight(1.2f).fillMaxHeight().padding(start = 8.dp), contentAlignment = Alignment.Center) {
+                        LyricsView(media.title, media.artist, media.playing, big = true, modifier = Modifier.fillMaxSize(), placeholder = true)
+                    }
                 }
             }
             // Barre d'applis du bas (comme la barre des tâches d'Android Auto) : seulement à côté du GPS
