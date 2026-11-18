@@ -20,7 +20,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /** État des liaisons (remplace les icônes de la barre d'état de l'autoradio, masquée par Koackpit). */
-data class Links(val bt: Boolean, val wifi: Boolean)
+/** [wifiLevel] : barres de signal Wi-Fi, 1 à 3 (0 si non connecté). */
+data class Links(val bt: Boolean, val wifi: Boolean, val wifiLevel: Int = 3)
 
 fun readLinks(ctx: Context): Links {
     val bt = (runCatching { CarLink.hfpState() }.getOrNull() ?: 0) >= 3
@@ -29,7 +30,14 @@ fun readLinks(ctx: Context): Links {
     val wifi = runCatching {
         cm.allNetworks.any { cm.getNetworkCapabilities(it)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true }
     }.getOrDefault(false)
-    return Links(bt, wifi)
+    // Niveau du signal : le partage de connexion du S25 (comme les barres d'Android, ramenées à 3)
+    val level = if (!wifi) 0 else runCatching {
+        @Suppress("DEPRECATION")
+        val rssi = ctx.applicationContext.getSystemService(android.net.wifi.WifiManager::class.java).connectionInfo.rssi
+        @Suppress("DEPRECATION")
+        android.net.wifi.WifiManager.calculateSignalLevel(rssi, 4).coerceIn(1, 3)
+    }.getOrDefault(3)
+    return Links(bt, wifi, level)
 }
 
 /** Mis à jour chaque seconde par le service (pas de boucle dans l'affichage). */
@@ -46,7 +54,7 @@ fun LinkIcons(links: Links?, size: Dp = 16.dp) {
     if (links == null) return
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         Canvas(Modifier.size(size)) { bluetooth(if (links.bt) Color.White else Off); if (!links.bt) slash() }
-        Canvas(Modifier.size(size)) { wifi(if (links.wifi) Color.White else Off); if (!links.wifi) slash() }
+        Canvas(Modifier.size(size)) { wifi(if (links.wifi) Color.White else Off, if (links.wifi) links.wifiLevel else 3); if (!links.wifi) slash() }
     }
 }
 
@@ -59,12 +67,14 @@ private fun DrawScope.bluetooth(c: Color) {
     drawPath(p, c, style = Stroke(width = w * 0.11f, cap = StrokeCap.Round))
 }
 
-private fun DrawScope.wifi(c: Color) {
+/** Arcs allumés selon [level] (1 à 3) ; les autres en transparence, comme sur un téléphone. */
+private fun DrawScope.wifi(c: Color, level: Int) {
     val w = size.width; val h = size.height
     val stroke = Stroke(width = w * 0.11f, cap = StrokeCap.Round)
     for ((i, r) in listOf(0.46f, 0.31f, 0.16f).withIndex()) {
         val rr = w * r * 2f
-        drawArc(c, 225f, 90f, false, Offset(w / 2 - rr / 2, h * 0.86f - rr / 2), Size(rr, rr), style = stroke)
+        val on = 3 - i <= level
+        drawArc(if (on) c else c.copy(alpha = 0.25f), 225f, 90f, false, Offset(w / 2 - rr / 2, h * 0.86f - rr / 2), Size(rr, rr), style = stroke)
         if (i == 2) drawCircle(c, w * 0.07f, Offset(w / 2, h * 0.86f))
     }
 }

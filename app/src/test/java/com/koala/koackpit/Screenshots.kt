@@ -29,7 +29,7 @@ class Screenshots {
 
     @Test
     fun accueil() = captureRoboImage("build/screens/accueil.png") { Scaled {
-        LinkStatus.state.value = Links(bt = true, wifi = false)
+        LinkStatus.state.value = Links(bt = true, wifi = true, wifiLevel = 2)
         HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {}, speedKmh = 0, onHomeAddr = {}, onWorkAddr = {})
     } }
 
