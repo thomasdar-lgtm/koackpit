@@ -291,7 +291,19 @@ fun SettingsScreen(upd: UpdateState, onBack: () -> Unit, onSlim: () -> Unit = {}
     var nav by remember { mutableStateOf(Prefs.nav(ctx)) }
     var checking by remember { mutableStateOf(false) }
     var hideCallBar by remember { mutableStateOf(Prefs.hideVendorCall(ctx)) }
+    var homeOn by remember { mutableStateOf(HomeMode.isOn(ctx)) }
     SettingsContent(
+        homeOn = homeOn,
+        onHome = { on ->
+            if (on != homeOn) Thread {
+                if (on) HomeMode.enable(ctx) else HomeMode.disable(ctx)
+                val now = HomeMode.isOn(ctx)
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    homeOn = now
+                    toast(ctx, if (now) "Koackpit est maintenant le bureau" else if (on) "Activation impossible (détail dans le journal)" else "Bureau d'origine rétabli")
+                }
+            }.start()
+        },
         hideCallBar = hideCallBar, onHideCallBar = { hideCallBar = it; Prefs.setHideVendorCall(ctx, it) },
         onPalette = { KTheme.setPalette(ctx, it) }, onAccent = { KTheme.setAccent(ctx, it) }, onStyle = { KTheme.setStyle(ctx, it) },
         onTimes = { d, n -> DayNight.setTimes(ctx, d, n); DayNight.tick(ctx) },
@@ -322,6 +334,7 @@ fun SettingsContent(
     hideCallBar: Boolean = true, onHideCallBar: (Boolean) -> Unit = {},
     onPalette: (Int) -> Unit = {}, onAccent: (Int) -> Unit = {}, onTimes: (Int, Int) -> Unit = { _, _ -> },
     onStyle: (Int) -> Unit = {},
+    homeOn: Boolean = false, onHome: (Boolean) -> Unit = {},
 ) {
     Column(Modifier.fillMaxSize()) {
         Header("Réglages", onBack)
@@ -368,6 +381,21 @@ fun SettingsContent(
                     Text("Masquée : la fiche d'appel Koackpit la remplace.", color = Muted, fontSize = 12.sp)
                 }
                 SettingsSection("Autoradio") {
+                    Text("Bureau de l'autoradio", color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        for ((v, label) in listOf(true to "Koackpit", false to "D'origine")) {
+                            val on = homeOn == v
+                            Text(
+                                label, color = if (on) OnAccent else Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(if (on) Yellow else Navy)
+                                    .clickable { onHome(v) }.padding(horizontal = 12.dp, vertical = 10.dp),
+                            )
+                        }
+                    }
+                    Text("Koackpit : il revient toujours devant (fini la page Bluetooth). Retour au bureau d'origine en un appui.",
+                        color = Muted, fontSize = 12.sp)
+                    Spacer(Modifier.height(10.dp))
                     SettingButton("Alléger l'autoradio", onSlim)
                     Spacer(Modifier.height(8.dp))
                     SettingButton("Outil de diagnostic", onDiag)

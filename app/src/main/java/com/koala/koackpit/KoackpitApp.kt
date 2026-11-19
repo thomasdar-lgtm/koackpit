@@ -8,6 +8,7 @@ import android.os.Bundle
 class KoackpitApp : Application() {
     override fun onCreate() {
         super.onCreate()
+        HomeMode.installCrashGuard(this)
         registerActivityLifecycleCallbacks(Front)
     }
 }

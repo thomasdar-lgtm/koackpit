@@ -39,13 +39,19 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Écran d'accueil (bouton maison) -->
+        </activity>
+        <!-- Koackpit comme bureau de l'autoradio (Réglages → Autoradio), désactivé par défaut : voir HomeMode -->
+        <activity-alias
+            android:name=".Home"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:enabled="false">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
-        </activity>
+        </activity-alias>
         <activity
             android:name=".DiagActivity"
             android:exported="false"
