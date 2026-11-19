@@ -243,7 +243,7 @@ fun Tile(
 @Composable
 fun RoundButton(icon: ImageVector, onClick: () -> Unit) {
     Box(
-        Modifier.size(52.dp).clip(CircleShape).background(Card).clickable(onClick = onClick),
+        Modifier.size(52.dp).clip(CircleShape).background(BtnDark).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Icon(icon, null, tint = Yellow, modifier = Modifier.size(26.dp)) }
 }

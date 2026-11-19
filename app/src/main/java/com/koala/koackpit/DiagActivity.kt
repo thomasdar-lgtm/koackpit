@@ -215,7 +215,7 @@ fun DiagHeader(activeTool: Int, onBack: () -> Unit, onTest: () -> Unit, onLogs: 
 @Composable
 private fun BackDisc(onClick: () -> Unit) {
     Box(
-        Modifier.size(44.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Card).clickable(onClick = onClick),
+        Modifier.size(44.dp).clip(androidx.compose.foundation.shape.CircleShape).background(BtnDark).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         androidx.compose.material3.Icon(

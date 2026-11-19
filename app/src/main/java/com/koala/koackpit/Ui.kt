@@ -349,7 +349,7 @@ fun NavCard(
                     Spacer(Modifier.weight(1f))
                     Column(horizontalAlignment = Alignment.End) {
                         Text(if (car.learned) "Autonomie" else "Autonomie estimée", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Text("≈ ${car.rangeKm} km", color = if (low) Red else Yellow, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                        Text("≈ ${car.rangeKm} km", color = if (low) Red else AccentText, fontSize = 22.sp, fontWeight = FontWeight.Black)
                     }
                 }
             } else {
@@ -384,7 +384,7 @@ fun WeatherStrip(w: Weather.Forecast) {
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text("${Weather.label(w.code)} · ${w.temp} °C", color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Black, maxLines = 1)
-                Text(w.rainNote, color = if (w.rainSoon) Yellow else Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                Text(w.rainNote, color = if (w.rainSoon) AccentText else Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
             }
         }
     }
