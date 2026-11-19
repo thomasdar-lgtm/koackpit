@@ -4,8 +4,9 @@ const EMBED = /[?&]embed/.test(location.search);
 if (EMBED) { document.body.classList.add('embed'); document.documentElement.style.background = 'transparent'; }
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
@@ -14,10 +15,14 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 renderer.shadowMap.enabled = true;
+// Allègement (écran voiture) : ombre recalculée seulement quand un ouvrant bouge (le soleil est fixe)
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+if (EMBED) renderer.shadowMap.autoUpdate = false;
+window.__renderer = renderer;
 document.body.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
+window.__scene = scene;
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
 
@@ -72,14 +77,7 @@ function onLoaded(gltf) {
       if (m.name === 'GolfV-glass') { m.roughness = 0.05; }
     });
   }});
-  // Smooth shading: rebuild normals, keeping sharp edges above 40°
-  car.traverse(o => {
-    if (o.isMesh && o.geometry.index) {
-      const soft = { 'Int-fabric': 85, 'Int-carpet': 70, 'GolfV-inside': 60 }[o.material.name] || 40;
-      const g = toCreasedNormals(o.geometry, THREE.MathUtils.degToRad(soft));
-      o.geometry.dispose(); o.geometry = g;
-    }
-  });
+  // Normales « arêtes vives » déjà calculées dans le fichier (bake.js), plus rien à faire au chargement
   // Doors: pivot nodes built at the hinge (rotation about local Z = vertical)
   // Opening parts: pivot nodes built at each hinge (doors: vertical axis, hood/tailgate: transverse axis)
   const OPEN = { FL:[zAxis,-1,62], FR:[zAxis,1,62], RL:[zAxis,-1,62], RR:[zAxis,1,62], HOOD:[xAxis,-1,52], TAIL:[xAxis,1,72] };
@@ -108,13 +106,55 @@ function onLoaded(gltf) {
   controls.maxDistance = Math.max(size * 3, homeDist() * 1.6);
   setView('front3q', false);
   buildColors();
+  mergeStatic(car);
+  renderer.shadowMap.needsUpdate = true;
   document.getElementById('load').remove();
   window.__ready = true; if (window.KoackpitHost) { try { window.koackpitDoors(window.KoackpitHost.doors()); } catch (e) {} } window.__cam = camera; window.__controls = controls; window.__center = center;
+}
+function loader() { return new GLTFLoader().setMeshoptDecoder(MeshoptDecoder); }
+/**
+ * Pièces fixes regroupées par matière : beaucoup moins d'objets à dessiner à chaque image. Ne touche ni aux
+ * ouvrants (open_*), ni aux roues, ni aux pièces qu'on peut toucher pour leur fiche, ni aux pièces cachées.
+ */
+// Copie en nombres à virgule « simples » (le fichier compressé stocke certaines données en entiers entrelacés)
+function floatGeo(src) {
+  const g = new THREE.BufferGeometry();
+  for (const [k, a] of Object.entries(src.attributes)) {
+    const n = a.count, size = a.itemSize, out = new Float32Array(n * size);
+    for (let i = 0; i < n; i++) for (let c = 0; c < size; c++) out[i * size + c] = c === 0 ? a.getX(i) : c === 1 ? a.getY(i) : c === 2 ? a.getZ(i) : a.getW(i);
+    g.setAttribute(k, new THREE.BufferAttribute(out, size));
+  }
+  if (src.index) g.setIndex(Array.from(src.index.array));
+  return g;
+}
+function mergeStatic(car) {
+  car.updateMatrixWorld(true);
+  const groups = new Map();
+  const skip = o => { for (let p = o; p; p = p.parent) { if (/^(open_|RAD_)/.test(p.name || '') || p === bayGroup) return true; } return false; };
+  car.traverse(o => {
+    if (!o.isMesh || o.isInstancedMesh || Array.isArray(o.material) || o.userData.info || !o.visible || skip(o)) return;
+    if (o.material.transparent || o.material === paint || bodyMeshes.includes(o)) return;
+    const key = o.material.uuid + '|' + Object.keys(o.geometry.attributes).sort().join(',') + '|' + (o.geometry.index ? 'i' : 'n');
+    (groups.get(key) || groups.set(key, []).get(key)).push(o);
+  });
+  let removed = 0;
+  groups.forEach(list => {
+    if (list.length < 2) return;
+    const geos = list.map(o => { const g = floatGeo(o.geometry); g.applyMatrix4(o.matrixWorld); return g; });
+    const merged = mergeGeometries(geos, false);
+    if (!merged) return;
+    const m = new THREE.Mesh(merged, list[0].material);
+    m.castShadow = list.some(o => o.castShadow); m.receiveShadow = list.some(o => o.receiveShadow);
+    list.forEach(o => { o.parent.remove(o); }); removed += list.length - 1;
+    // repère du monde → repère de la voiture
+    m.applyMatrix4(car.matrixWorld.clone().invert()); car.add(m);
+  });
+  console.log('Golf3D : ' + removed + ' objets en moins');
 }
 function loadErr(err) { document.querySelector('#load div').textContent = 'Erreur de chargement du modèle'; console.error(err); }
 if (EMBED) {
   prog.style.width = '30%';
-  fetch('golf5.glb').then(r => r.arrayBuffer()).then(buf => { prog.style.width = '100%'; new GLTFLoader().parse(buf, '', onLoaded, loadErr); }).catch(loadErr);
+  fetch('golf5.glb').then(r => r.arrayBuffer()).then(buf => { prog.style.width = '100%'; loader().parse(buf, '', onLoaded, loadErr); }).catch(loadErr);
 } else {
 const ms = document.createElement('script');
 ms.src = 'golf5-model.js';
@@ -124,7 +164,7 @@ ms.onload = () => {
     const bin = atob(window.GOLF_GLB); const buf = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
     window.GOLF_GLB = null;
-    new GLTFLoader().parse(buf.buffer, '', onLoaded, loadErr);
+    loader().parse(buf.buffer, '', onLoaded, loadErr);
   } catch (e) { loadErr(e); }
 };
 ms.onerror = loadErr;
@@ -293,8 +333,9 @@ function buildTyres(car) {
     const half = [[rIn, 0.84], [rIn + (R - rIn) * 0.25, 0.95], [rIn + (R - rIn) * 0.55, 1.0], [rIn + (R - rIn) * 0.8, 0.96], [R * 0.985, 0.86], [R, 0.72], [R, 0.0]];
     const raw = [...half.map(([r, a]) => [r, -a * w]), ...half.slice(0, -1).reverse().map(([r, a]) => [r, a * w])];
     const curve = new THREE.CatmullRomCurve3(raw.map(([r, a]) => new THREE.Vector3(r, a, 0)));
-    const pts = curve.getPoints(60).map(p => new THREE.Vector2(p.x, p.y));
-    const g = new THREE.LatheGeometry(pts, 96);
+    // Écran voiture : profil et tour un peu moins fins (le relief vient de la texture), ~3× moins de triangles
+    const pts = curve.getPoints(EMBED ? 30 : 60).map(p => new THREE.Vector2(p.x, p.y));
+    const g = new THREE.LatheGeometry(pts, EMBED ? 64 : 96);
     g.rotateZ(-Math.PI / 2);      // lathe axis Y -> local X (axle)
     g.translate(c.x, c.y, c.z);
     const m = new THREE.Mesh(g, c.x < 0 ? matR : mat);
@@ -421,8 +462,10 @@ function coverTex() {
   g.beginPath(); g.moveTo(690, 123); g.lineTo(720, 188); g.lineTo(750, 123); g.stroke();
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
 }
+let bayGroup = null;
 function buildEngineBay(car) {
   const G = localGroup(car), m = M();
+  bayGroup = G;
   const grey = new THREE.MeshStandardMaterial({ color: '#6c7176', roughness: 0.6, metalness: 0.1 });
   const greyTop = new THREE.MeshStandardMaterial({ map: coverTex(), roughness: 0.55, metalness: 0.1 });
   const milky = new THREE.MeshPhysicalMaterial({ color: '#efece2', roughness: 0.4, transparent: true, opacity: 0.88 });
@@ -673,8 +716,11 @@ renderer.setAnimationLoop(() => {
       d.t = d.target > d.t ? Math.min(d.target, d.t + dt / 0.9) : Math.max(d.target, d.t - dt / 0.7);
       qz.setFromAxisAngle(d.axis, d.sign * d.max * ease(d.t));
       d.node.quaternion.copy(d.base).multiply(qz);
+      renderer.shadowMap.needsUpdate = true;
     }
   }
+  // Compartiment moteur dessiné seulement capot ouvert (invisible sinon)
+  if (bayGroup) bayGroup.visible = !doors.HOOD || doors.HOOD.t > 0 || doors.HOOD.target > 0;
   if (doors.TAIL) {
     const shelf = scene.getObjectByName('open_SHELF');
     if (shelf) {
