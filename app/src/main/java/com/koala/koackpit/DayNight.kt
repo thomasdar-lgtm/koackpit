@@ -218,7 +218,7 @@ fun ThemeSettings(
         Text("Le mode nuit suit le style et la couleur d'accent.", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
     }
     SettingsSection("Couleur d'accent") {
-        for ((label, range) in listOf("Vives" to 0 until KTheme.FIRST_DEEP, "Profondes" to KTheme.FIRST_DEEP until KTheme.accents.size)) {
+        for ((label, range) in listOf("Vives" to (0 until KTheme.FIRST_DEEP), "Profondes" to (KTheme.FIRST_DEEP until KTheme.accents.size))) {
             Text(label.uppercase(), color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(top = 4.dp, bottom = 4.dp))
             for (row in range.toList().chunked(8)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 6.dp)) {
