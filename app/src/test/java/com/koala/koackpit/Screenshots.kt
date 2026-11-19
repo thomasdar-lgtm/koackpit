@@ -85,7 +85,7 @@ open class Screenshots {
     /** Planche de la Golf en grand : fermée, porte conducteur, deux portes + coffre, tout ouvert. */
     @Test
     fun golf() = captureRoboImage("build/screens/${p}golf.png") { Scaled {
-        Row(Modifier.fillMaxSize().background(Navy).padding(16.dp)) {
+        Row(Modifier.fillMaxSize().screenBg().padding(16.dp)) {
             for (m in listOf(0, Doors.FL, Doors.FL or Doors.RR or Doors.TRUNK, 31, Doors.HOOD))
                 CarTopView(m, Modifier.weight(1f).fillMaxHeight())
         }
@@ -123,7 +123,7 @@ open class Screenshots {
 
     @Test
     fun reglages() = captureRoboImage("build/screens/${p}reglages.png") { Scaled {
-        Box(Modifier.fillMaxSize().background(Navy)) {
+        Box(Modifier.fillMaxSize().screenBg()) {
             SettingsContent(Targets.WAZE, { true }, "0.10.7", null, false, {}, {}, {}, {}, {})
         }
     } }
@@ -161,7 +161,7 @@ open class Screenshots {
 
     @Test
     fun diagnostic() = captureRoboImage("build/screens/${p}diagnostic.png") { Scaled {
-        androidx.compose.foundation.layout.Column(Modifier.fillMaxSize().background(Navy).padding(16.dp)) {
+        androidx.compose.foundation.layout.Column(Modifier.fillMaxSize().screenBg().padding(16.dp)) {
             DiagHeader(2, {}, {}, {}, {}, {})
         }
     } }
@@ -196,7 +196,7 @@ open class Screenshots {
     @Test
     fun paroles() = captureRoboImage("build/screens/${p}paroles.png") { Scaled {
         val l = Lyrics.parse("[00:10.00]Première ligne de la chanson\n[00:14.50]La ligne chantée en ce moment\n[00:19.00]Et celle qui arrive juste après\n[00:23.00]Encore une")
-        androidx.compose.foundation.layout.Row(Modifier.fillMaxSize().background(Navy)) {
+        androidx.compose.foundation.layout.Row(Modifier.fillMaxSize().screenBg()) {
             androidx.compose.foundation.layout.Box(Modifier.weight(2f).fillMaxHeight().background(Color(0xFF2A3F5C)))
             androidx.compose.foundation.layout.Column(Modifier.weight(1f).fillMaxHeight().padding(8.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center) {
                 LyricsLines(l, 1, big = false, modifier = Modifier.height(64.dp))
@@ -211,7 +211,7 @@ open class Screenshots {
     @Test
     fun paroles_grand() = captureRoboImage("build/screens/${p}paroles-grand.png") { Scaled {
         val l = Lyrics.parse("[00:10.00]Première ligne de la chanson\n[00:14.50]La ligne chantée en ce moment\n[00:19.00]Et celle qui arrive juste après")
-        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().background(Navy), contentAlignment = androidx.compose.ui.Alignment.Center) {
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().screenBg(), contentAlignment = androidx.compose.ui.Alignment.Center) {
             LyricsLines(l, 1, big = true, modifier = Modifier.fillMaxSize())
         }
     } }
