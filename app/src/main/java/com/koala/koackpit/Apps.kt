@@ -43,7 +43,11 @@ object Apps {
     fun firstInstalled(ctx: Context, pkgs: List<String>) = pkgs.firstOrNull { installed(ctx, it) }
 
     /** Ouvre la première appli installée de la liste. Renvoie false si aucune. */
+    /** Dernière appli ouverte à la main depuis Koackpit (la surveillance du démarrage ne la referme pas). */
+    @Volatile var userOpenAt = 0L
+
     fun open(ctx: Context, pkgs: List<String>): Boolean {
+        userOpenAt = android.os.SystemClock.elapsedRealtime()
         for (p in pkgs) {
             val i = ctx.packageManager.getLaunchIntentForPackage(p) ?: continue
             runCatching {
@@ -55,6 +59,7 @@ object Apps {
     }
 
     fun open(ctx: Context, a: LaunchApp) = runCatching {
+        userOpenAt = android.os.SystemClock.elapsedRealtime()
         ctx.startActivity(
             Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
                 .setClassName(a.pkg, a.activity)

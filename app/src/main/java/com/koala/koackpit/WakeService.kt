@@ -98,8 +98,44 @@ class WakeService : Service() {
             }.start()
         }
 
+        /**
+         * Démarrage : pendant 90 s, si la page Bluetooth de l'autoradio passe devant (elle s'ouvre seule quand le
+         * téléphone se connecte), Koackpit revient. Pas pendant un appel, ni si Thomas a ouvert une appli lui-même.
+         */
+        private var guardUntil = 0L
+        fun startupGuard(ctx: Context) {
+            val app = ctx.applicationContext
+            val start = android.os.SystemClock.elapsedRealtime()
+            val first = guardUntil < start
+            guardUntil = start + 90_000
+            if (!first) return
+            Thread {
+                var back = 0
+                while (android.os.SystemClock.elapsedRealtime() < guardUntil && back < 6) {
+                    Thread.sleep(2000)
+                    if ((CarLink.hfpState() ?: 0) >= 4) continue
+                    if (android.os.SystemClock.elapsedRealtime() - Apps.userOpenAt < 60_000) continue
+                    val top = runCatching {
+                        RootAccess.run(app, "dumpsys activity activities 2>&1 | grep -m 1 mResumedActivity", 10_000)
+                    }.getOrDefault("")
+                    if (!top.contains("android.car.app.bt/")) continue
+                    back++
+                    val t = (android.os.SystemClock.elapsedRealtime() - start) / 1000
+                    WakeLog.add(app, "Démarrage : page Bluetooth de l'autoradio devant (+$t s) → retour sur Koackpit")
+                    Handler(Looper.getMainLooper()).post {
+                        runCatching {
+                            if (MusicActivity.isOpen()) MusicActivity.restart()
+                            else app.startActivity(Intent(app, MainActivity::class.java)
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
+                        }
+                    }
+                }
+            }.start()
+        }
+
         fun bringToFront(ctx: Context) {
             val app = ctx.applicationContext
+            startupGuard(app)
             val h = Handler(Looper.getMainLooper())
             // Conduite au démarrage (réglage, activé par défaut) ou conduite en cours avant la veille :
             // on ouvre le GPS + lecteur côte à côte plutôt que l'accueil.
