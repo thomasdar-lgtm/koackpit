@@ -173,6 +173,7 @@ fun DiagScreen(server: FileServer, onBack: () -> Unit = {}, onZip: (File) -> Uni
             onToggle = { pkg -> if (pkg in selected) selected.remove(pkg) else selected.add(pkg) },
             onCreate = { create() },
             onShare = { f ->
+                Apps.markUserOpen(ctx)
                 runCatching {
                     val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.files", f)
                     ctx.startActivity(

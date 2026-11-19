@@ -45,6 +45,8 @@ object Apps {
     /** Ouvre la première appli installée de la liste. Renvoie false si aucune. */
     /** Dernière appli ouverte à la main depuis Koackpit (la surveillance du démarrage ne la referme pas). */
     fun userOpenAt(ctx: Context) = ctx.getSharedPreferences("ui", Context.MODE_PRIVATE).getLong("ouverture", 0L)
+    /** À appeler quand Thomas ouvre lui-même un autre écran (caméra, partage…) : la surveillance le laisse faire. */
+    fun markUserOpen(ctx: Context) = mark(ctx)
     private fun mark(ctx: Context) = ctx.getSharedPreferences("ui", Context.MODE_PRIVATE).edit().putLong("ouverture", System.currentTimeMillis()).apply()
 
     fun open(ctx: Context, pkgs: List<String>): Boolean {

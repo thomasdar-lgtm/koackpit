@@ -166,6 +166,7 @@ object Updater {
                 return@launch
             }
             // Appli compagnon présente : elle affiche l'écran de mise à jour et installe
+            Apps.markUserOpen(app)
             if (UpdaterApp.handOff(app, f)) return@launch
             upd.status = "Installation…"
             val r = withContext(Dispatchers.IO) {
@@ -179,6 +180,7 @@ object Updater {
     fun canInstall(ctx: Context) = ctx.packageManager.canRequestPackageInstalls()
 
     fun askInstallPermission(ctx: Context) {
+        Apps.markUserOpen(ctx)
         ctx.startActivity(
             Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${ctx.packageName}"))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -186,6 +188,7 @@ object Updater {
     }
 
     fun install(ctx: Context, file: File) {
+        Apps.markUserOpen(ctx)
         // L'installateur ne doit jamais s'ouvrir dans l'écran partagé (il y resterait bloqué)
         val wasOpen = MusicActivity.isOpen()
         MusicActivity.closeIfOpen()

@@ -43,6 +43,7 @@ object KeepAlive {
 
     /** Ouvre l'aperçu système du fond d'écran Koackpit : il suffit d'appuyer sur « Définir ». */
     fun request(ctx: Context) {
+        Apps.markUserOpen(ctx)
         runCatching {
             ctx.startActivity(
                 Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER)

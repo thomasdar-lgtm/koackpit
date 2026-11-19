@@ -191,6 +191,7 @@ fun Home(onApps: () -> Unit, onSettings: () -> Unit, onCar: () -> Unit = {}) {
             onDisplay = { DayNight.panel.value = !DayNight.panel.value },
             // Caméra à la demande : l'appli « Vue de face » de l'autoradio (étape 1 ; la marche arrière n'est pas touchée)
             onCamera = {
+                Apps.markUserOpen(ctx)
                 runCatching {
                     ctx.startActivity(Intent().setComponent(android.content.ComponentName(
                         "android.car.app.video_frontview", "android.car.app.video_frontview.FrontViewMain"))

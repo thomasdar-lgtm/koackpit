@@ -99,8 +99,9 @@ class WakeService : Service() {
         }
 
         /**
-         * Démarrage : pendant 90 s, si la page Bluetooth de l'autoradio ou le bureau d'origine passe devant, Koackpit
-         * revient. Constaté au journal : ~40 s après chaque démarrage, l'autoradio relance Koackpit deux fois de suite
+         * Démarrage : pendant 90 s, si plus aucun écran Koackpit n'est affiché (page Bluetooth de l'autoradio ou
+         * bureau d'origine passés devant), Koackpit revient. Sans l'accès système : en 0.15.1–0.15.4 elle le
+         * sollicitait toutes les 2 s, ce qui redémarrait son service en boucle et pouvait faire échouer une mise à jour. Constaté au journal : ~40 s après chaque démarrage, l'autoradio relance Koackpit deux fois de suite
          * (« Service démarré » ×2) ; l'écran Koackpit disparaît alors et la page Bluetooth restée dessous réapparaît.
          * Lancée aussi au redémarrage du service pour cette raison. Pas pendant un appel, ni si Thomas a ouvert une
          * appli lui-même depuis Koackpit dans la dernière minute.
@@ -114,22 +115,20 @@ class WakeService : Service() {
             if (!first) return
             Thread {
                 var back = 0
+                var hidden = 0
                 while (android.os.SystemClock.elapsedRealtime() < guardUntil && back < 6) {
                     Thread.sleep(2000)
-                    if ((CarLink.hfpState() ?: 0) >= 4) continue
-                    if (System.currentTimeMillis() - Apps.userOpenAt(app) in 0..60_000) continue
-                    if (!(app.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager).isInteractive) continue
-                    val top = runCatching {
-                        RootAccess.run(app, "dumpsys activity activities 2>&1 | grep -m 1 mResumedActivity", 10_000)
-                    }.getOrDefault("")
-                    val what = when {
-                        top.contains("android.car.app.bt/") -> "page Bluetooth de l'autoradio"
-                        top.contains("com.android.launcher3/") -> "bureau d'origine"
-                        else -> continue
-                    }
+                    val skip = Front.visible > 0 ||
+                        (CarLink.hfpState() ?: 0) >= 4 ||
+                        System.currentTimeMillis() - Apps.userOpenAt(app) in 0..60_000 ||
+                        !(app.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager).isInteractive
+                    if (skip) { hidden = 0; continue }
+                    // 3 contrôles de suite (~6 s) : laisse passer les passages éclair voulus (remise du son Bluetooth)
+                    if (++hidden < 3) continue
+                    hidden = 0
                     back++
                     val t = (android.os.SystemClock.elapsedRealtime() - start) / 1000
-                    WakeLog.add(app, "Démarrage : $what devant (+$t s) → retour sur Koackpit")
+                    WakeLog.add(app, "Démarrage : Koackpit n'est plus affiché (+$t s) → retour")
                     Handler(Looper.getMainLooper()).post {
                         runCatching {
                             if (MusicActivity.isOpen()) MusicActivity.restart()
