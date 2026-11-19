@@ -120,12 +120,13 @@ fun RailIcon(
 ) {
     Box(
         Modifier.size(46.dp).clip(RoundedCornerShape(16.dp))
-            .background(if (active) Yellow.copy(alpha = 0.9f) else Color.Transparent).padding(3.dp),
+            .background(if (active) (if (deepButtons) AccentText else Yellow).copy(alpha = 0.9f) else Color.Transparent).padding(3.dp),
         contentAlignment = Alignment.Center,
     ) {
         Box(
-            Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)).background(bg)
-                .then(if (bg == BtnDark && CardBorder.alpha > 0f) Modifier.border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(14.dp)) else Modifier)
+            Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp))
+                .then(if (bg == BtnDark) Modifier.darkBtnBg(RoundedCornerShape(14.dp)) else Modifier.background(bg))
+                .then(if (bg == BtnDark && !deepButtons && CardBorder.alpha > 0f) Modifier.border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(14.dp)) else Modifier)
                 .clickable(onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
@@ -592,7 +593,7 @@ fun DockIcon(icon: ImageVector, bg: Color, ink: Color, onClick: () -> Unit) {
 @Composable
 fun SmallRound(icon: ImageVector, onClick: () -> Unit) {
     Box(
-        Modifier.size(38.dp).clip(CircleShape).background(BtnDark).clickable(onClick = onClick),
+        Modifier.size(38.dp).clip(CircleShape).darkBtnBg(CircleShape).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Icon(icon, null, tint = AccentOnDark, modifier = Modifier.size(20.dp)) }
 }

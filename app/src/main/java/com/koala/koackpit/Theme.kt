@@ -59,10 +59,10 @@ object KTheme {
         Accent("Argent", 0xFFD5DCE6, 0xFF6B7A8F),
         // Profondes (teintes de carrosserie)
         Accent("Bleu Golf", 0xFF1B3A8C, 0xFF1B3A8C, true, 0xFF7FA4FF),
-        Accent("Bordeaux", 0xFF7A1430, 0xFF7A1430, true, 0xFFFF7A95),
+        Accent("Bordeaux", 0xFF7A1430, 0xFF7A1430, true, 0xFFE0566F),
         Accent("Vert anglais", 0xFF14563A, 0xFF14563A, true, 0xFF6FE0A6),
         Accent("Pétrole", 0xFF0F5560, 0xFF0F5560, true, 0xFF6FD6E0),
-        Accent("Prune", 0xFF5A1E5C, 0xFF5A1E5C, true, 0xFFE08BE3),
+        Accent("Prune", 0xFF5A1E5C, 0xFF5A1E5C, true, 0xFFC77BCB),
         Accent("Cuivre", 0xFF8A4A22, 0xFF8A4A22, true, 0xFFFFAE73),
         Accent("Or vieilli", 0xFF8C6A1A, 0xFF8C6A1A, true, 0xFFF2C866),
         Accent("Olive", 0xFF4F5A1E, 0xFF4F5A1E, true, 0xFFC8D873),
@@ -194,6 +194,9 @@ val CardBorder: Color get() = when {
     KTheme.acc.deep -> KTheme.acc.let { Color(it.light) }.copy(alpha = 0.14f)
     else -> Color.Transparent
 }
+/** Fond d'un bouton foncé : la teinte en relief avec une couleur profonde, sinon [BtnDark]. */
+fun Modifier.darkBtnBg(shape: Shape): Modifier = if (deepButtons) this.accentBg(shape, glow = false) else this.background(BtnDark, shape)
+
 /** Fond de carte + liseré du style. */
 fun Modifier.cardBg(shape: Shape, color: Color = Card): Modifier =
     this.background(color, shape).then(if (CardBorder.alpha > 0f) Modifier.border(1.dp, CardBorder, shape) else Modifier)
@@ -216,10 +219,15 @@ val Muted: Color get() = if (isDay) Color(KTheme.pal.muted) else Color(0xFF8A96B
 val Yellow: Color get() = KTheme.acc.let { Color(if (isDay) it.day else it.night) }
 /** Texte ou icône posé SUR l'accent : foncé si l'accent est clair, blanc sinon. */
 val OnAccent: Color get() = if (Yellow.luminance() > 0.35f) Navy else Color.White
-/** Accent pour une icône ou un texte posé sur un fond foncé (boutons, barre latérale), jour comme nuit. */
-val AccentOnDark: Color get() = KTheme.acc.let { Color(if (it.deep) it.light else it.night) }
-/** Accent pour du texte posé sur une carte (assombri le jour pour rester lisible). */
-val AccentText: Color get() = if (!isDay) AccentOnDark else {
+/**
+ * Icône ou texte posé sur un bouton foncé, jour comme nuit. Teinte profonde : blanc (la teinte elle-même
+ * colore alors le bouton, voir [deepButtons]) ; sa version éclaircie tirait trop vers le rose.
+ */
+val AccentOnDark: Color get() = KTheme.acc.let { if (it.deep) Color.White else Color(it.night) }
+/** Teinte profonde : les boutons foncés (barre latérale, retour…) prennent la teinte, en relief. */
+val deepButtons: Boolean get() = KTheme.acc.deep
+/** Accent pour du texte posé sur une carte (version éclaircie la nuit, assombri le jour pour rester lisible). */
+val AccentText: Color get() = if (!isDay) KTheme.acc.let { Color(if (it.deep) it.light else it.night) } else {
     var c = Yellow
     while (c.luminance() > 0.16f) c = Color(c.red * 0.85f, c.green * 0.85f, c.blue * 0.85f)
     c
