@@ -197,13 +197,14 @@ fun Artwork(modifier: Modifier, title: String = "", artist: String = "") {
             }
         }
     }
-    Box(
-        modifier.clip(RoundedCornerShape(14.dp))
-            .background(Brush.linearGradient(listOf(Color(0xFFE85D75), Color(0xFF7B2FF7)))),
+    // Sans pochette (rien en lecture, ou pochette introuvable) : vinyle + note dans la couleur d'accent
+    androidx.compose.foundation.layout.BoxWithConstraints(
+        modifier.clip(RoundedCornerShape(14.dp)).darkBtnBg(RoundedCornerShape(14.dp)),
         contentAlignment = Alignment.Center,
     ) {
         if (art != null) androidx.compose.foundation.Image(art, null, Modifier.matchParentSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
-        else NoteGlyph(Color.White.copy(alpha = 0.85f), 28)
+        else Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_vinyle), null, tint = AccentOnDark,
+            modifier = Modifier.size(minOf(maxWidth, maxHeight) * 0.56f))
     }
 }
 
