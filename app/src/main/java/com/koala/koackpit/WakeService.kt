@@ -215,6 +215,7 @@ class WakeService : Service() {
             runCatching { UpdateOverlay.tick(this@WakeService) }
             runCatching { CallOverlay.tick(this@WakeService) }
             runCatching { LinkStatus.tick(this@WakeService) }
+            runCatching { DayNight.tick(this@WakeService) }
             main.postDelayed(this, 1000)
         }
     }
@@ -232,7 +233,7 @@ class WakeService : Service() {
             if (isInitialStickyBroadcast) return            // ancienne valeur, pas un vrai démarrage
             val v = i.getIntExtra("arg_int", -1)
             WakeLog.add(c, "Signal contact (ACC) = $v")
-            if (v == 0) BtSound.markNeeded(c, "contact coupé")
+            if (v == 0) { BtSound.markNeeded(c, "contact coupé"); DayNight.onStop() }
             if (v != 0) Handler(Looper.getMainLooper()).postDelayed({ WakeLog.addWindows(c, "réveil +1 s") }, 1000)
             if (v != 0) bringToFront(c)
         }

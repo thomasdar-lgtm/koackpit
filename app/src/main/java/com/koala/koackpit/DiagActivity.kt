@@ -138,7 +138,7 @@ fun DiagScreen(server: FileServer, onBack: () -> Unit = {}, onZip: (File) -> Uni
     }
 
     Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().background(Navy).padding(16.dp)) {
+        Column(Modifier.fillMaxSize().background(Bg).padding(16.dp)) {
             DiagHeader(
                 activeTool,
                 onBack = onBack,
@@ -162,7 +162,7 @@ fun DiagScreen(server: FileServer, onBack: () -> Unit = {}, onZip: (File) -> Uni
             // Résultat de l'outil choisi : toute la hauteur de l'écran
             Text(
                 rootLog.ifEmpty { "Choisis un outil ci-dessus. « Créer le fichier » prépare le diagnostic complet à envoyer à Claude." },
-                color = if (rootLog.isEmpty()) Muted else Color.White, fontSize = 14.sp, lineHeight = 19.sp,
+                color = if (rootLog.isEmpty()) Muted else Ink, fontSize = 14.sp, lineHeight = 19.sp,
                 modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)).background(Card)
                     .verticalScroll(rememberScrollState()).padding(14.dp),
             )
@@ -195,7 +195,7 @@ fun DiagHeader(activeTool: Int, onBack: () -> Unit, onTest: () -> Unit, onLogs: 
         BackDisc(onBack)
         Spacer(Modifier.width(12.dp))
         Column {
-            Text("Koackpit", color = Yellow, fontSize = 24.sp, fontWeight = FontWeight.Black)
+            Text("Koackpit", color = AccentText, fontSize = 24.sp, fontWeight = FontWeight.Black)
             Text("Diagnostic ${BuildConfig.VERSION_NAME}", color = Muted, fontSize = 12.sp)
         }
         Spacer(Modifier.weight(1f))
@@ -236,12 +236,12 @@ fun ExportPanel(
     val carInfo = apps.firstOrNull { it.carInfo }
     val code = qr ?: remember(url) { url?.let { runCatching { qrBitmap(it) }.getOrNull() } }
     Column(
-        Modifier.fillMaxSize().background(Navy).clickable(enabled = false) {}.padding(16.dp),
+        Modifier.fillMaxSize().background(Bg).clickable(enabled = false) {}.padding(16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             BackDisc(onClose)
             Spacer(Modifier.width(12.dp))
-            Text("Créer le fichier de diagnostic", color = Yellow, fontSize = 24.sp, fontWeight = FontWeight.Black)
+            Text("Créer le fichier de diagnostic", color = AccentText, fontSize = 24.sp, fontWeight = FontWeight.Black)
         }
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -253,7 +253,7 @@ fun ExportPanel(
                         carInfo != null -> "Joindre une appli (seulement si Claude le demande)"
                         else -> "Car Info non reconnue automatiquement : coche-la si Claude le demande"
                     },
-                    color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp,
+                    color = Ink, fontWeight = FontWeight.Bold, fontSize = 15.sp,
                 )
                 Text("Applis cochées : $totalMb Mo", color = Muted, fontSize = 13.sp)
                 Spacer(Modifier.height(6.dp))
@@ -272,7 +272,7 @@ fun ExportPanel(
                             Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
                                 Text(
                                     a.label + if (a.carInfo) "  ★" else "",
-                                    color = if (a.carInfo) Yellow else Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                                    color = if (a.carInfo) AccentText else Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                                 )
                                 Text(a.pkg, color = Muted, fontSize = 11.sp)
                             }
@@ -288,12 +288,12 @@ fun ExportPanel(
                     .verticalScroll(rememberScrollState()).padding(18.dp),
             ) {
                 if (progress != null) {
-                    Text("Création en cours…", color = Yellow, fontWeight = FontWeight.Black, fontSize = 18.sp)
+                    Text("Création en cours…", color = AccentText, fontWeight = FontWeight.Black, fontSize = 18.sp)
                     Spacer(Modifier.height(10.dp))
-                    LinearProgressIndicator(progress = { progress }, Modifier.fillMaxWidth(), color = Yellow, trackColor = Navy)
+                    LinearProgressIndicator(progress = { progress }, Modifier.fillMaxWidth(), color = AccentText, trackColor = Navy)
                     Text("${(progress * 100).toInt()} % — $step", color = Muted, fontSize = 13.sp)
                 } else if (result == null) {
-                    Text("Journaux, rapport système et relevés dans un seul fichier.", color = Color.White, fontSize = 15.sp)
+                    Text("Journaux, rapport système et relevés dans un seul fichier.", color = Ink, fontSize = 15.sp)
                     Spacer(Modifier.height(14.dp))
                     Button(
                         enabled = !loading && totalMb <= LIMIT_MB, onClick = onCreate,
@@ -310,10 +310,10 @@ fun ExportPanel(
                             Spacer(Modifier.width(18.dp))
                         }
                         Column(Modifier.weight(1f)) {
-                            Text("Fichier prêt (${result.length() / 1_048_576} Mo)", color = Yellow, fontWeight = FontWeight.Black, fontSize = 18.sp)
+                            Text("Fichier prêt (${result.length() / 1_048_576} Mo)", color = AccentText, fontWeight = FontWeight.Black, fontSize = 18.sp)
                             Spacer(Modifier.height(6.dp))
                             if (url != null) {
-                                Text("Scanne le QR code avec l'appareil photo du S25 : le fichier se télécharge.", color = Color.White, fontSize = 14.sp)
+                                Text("Scanne le QR code avec l'appareil photo du S25 : le fichier se télécharge.", color = Ink, fontSize = 14.sp)
                                 Spacer(Modifier.height(4.dp))
                                 Text(url, color = Muted, fontSize = 12.sp)
                             } else {

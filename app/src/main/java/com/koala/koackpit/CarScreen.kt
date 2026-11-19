@@ -96,14 +96,14 @@ fun CarScreenContent(
     onAdd: (Kind?) -> Unit, onEntry: (Entry) -> Unit, onOdometer: () -> Unit,
 ) {
     val dues = remember(data) { Carnet.dues(data) }
-    Column(Modifier.fillMaxSize().background(Navy)) {
+    Column(Modifier.fillMaxSize().background(Bg)) {
         // En-tête
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(42.dp).clip(CircleShape).background(Card).clickable(onClick = onBack), contentAlignment = Alignment.Center) {
                 Icon(Icons.Filled.ArrowBack, "Retour", tint = Yellow, modifier = Modifier.size(24.dp))
             }
             Spacer(Modifier.width(14.dp))
-            Text("Voiture", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black)
+            Text("Voiture", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.weight(1f))
             Text(
                 "Car Info d'origine", color = Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold,
@@ -191,10 +191,10 @@ private fun EntryRow(e: Entry, name: String, onClick: () -> Unit) {
     ) {
         Text(day(e.date), color = Muted, fontSize = 13.sp, modifier = Modifier.width(88.dp))
         Column(Modifier.weight(1f)) {
-            Text(name, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Text(name, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             if (e.note.isNotBlank()) Text(e.note, color = Muted, fontSize = 12.sp)
         }
-        Text(km(e.km), color = Color.White, fontSize = 13.sp)
+        Text(km(e.km), color = Ink, fontSize = 13.sp)
     }
 }
 
@@ -202,7 +202,7 @@ private fun EntryRow(e: Entry, name: String, onClick: () -> Unit) {
 
 @Composable
 private fun Sheet(content: @Composable () -> Unit) {
-    Column(Modifier.width(520.dp).clip(RoundedCornerShape(20.dp)).background(CardHi).border(1.dp, Yellow.copy(alpha = 0.4f), RoundedCornerShape(20.dp)).padding(18.dp)) {
+    Column(Modifier.width(520.dp).clip(RoundedCornerShape(20.dp)).background(BtnDark).border(1.dp, Yellow.copy(alpha = 0.4f), RoundedCornerShape(20.dp)).padding(18.dp)) {
         content()
     }
 }

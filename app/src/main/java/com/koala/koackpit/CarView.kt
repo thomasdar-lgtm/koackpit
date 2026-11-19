@@ -101,7 +101,7 @@ fun CarTopView(mask: Int, modifier: Modifier = Modifier) {
 fun DoorAlert(mask: Int, modifier: Modifier = Modifier, compact: Boolean = false) {
     AnimatedVisibility(mask != 0, modifier, enter = slideInVertically { -it } + fadeIn(), exit = slideOutVertically { -it } + fadeOut()) {
         Row(
-            Modifier.shadow(12.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(CardHi)
+            Modifier.shadow(12.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(BtnDark)
                 .border(1.5.dp, Yellow, RoundedCornerShape(18.dp)).padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {

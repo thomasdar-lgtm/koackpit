@@ -147,14 +147,14 @@ fun SlimContent(
     onToggle: (SlimItem) -> Unit, onRecommended: () -> Unit,
 ) {
     val off = items.count { !it.enabled }
-    Column(Modifier.fillMaxSize().background(Navy)) {
+    Column(Modifier.fillMaxSize().background(Bg)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(42.dp).clip(CircleShape).background(Card).clickable(onClick = onBack), contentAlignment = Alignment.Center) {
                 Icon(Icons.Filled.ArrowBack, "Retour", tint = Yellow, modifier = Modifier.size(24.dp))
             }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text("Alléger l'autoradio", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                Text("Alléger l'autoradio", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Black)
                 Text(
                     if (busy != null) "En cours : $busy…" else "$off désactivée(s) sur ${items.size} · tout reste réactivable d'un appui",
                     color = Muted, fontSize = 12.sp,
@@ -186,7 +186,7 @@ private fun SlimRow(it: SlimItem, working: Boolean, onClick: () -> Unit) {
     ) {
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(it.c.label, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(it.c.label, color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 if (it.c.recommended) {
                     Spacer(Modifier.width(8.dp))
                     Text("recommandé", color = Yellow, fontSize = 11.sp, fontWeight = FontWeight.Bold,
@@ -198,7 +198,7 @@ private fun SlimRow(it: SlimItem, working: Boolean, onClick: () -> Unit) {
         // Interrupteur : vert = activée, gris = désactivée
         val on = it.enabled
         Box(
-            Modifier.width(118.dp).clip(RoundedCornerShape(50)).background(if (on) Color(0xFF1F7A4A) else CardHi)
+            Modifier.width(118.dp).clip(RoundedCornerShape(50)).background(if (on) Color(0xFF1F7A4A) else BtnDark)
                 .clickable(onClick = onClick).padding(vertical = 8.dp),
             contentAlignment = Alignment.Center,
         ) {

@@ -26,6 +26,8 @@ import org.robolectric.annotation.GraphicsMode
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], qualifiers = "w853dp-h440dp-land-hdpi")
 class Screenshots {
+    @org.junit.Before fun nuitParDefaut() { KTheme.day.value = false; DayNight.panel.value = false }
+
     private val media = MediaInfo("Chandelier", "Sia", playing = true)
 
     @Test
@@ -240,5 +242,61 @@ class Screenshots {
     @Test
     fun musique_plein_ecran() = captureRoboImage("build/screens/musique.png") { Scaled {
         DrivePanel("17:42", media, {}, {}, {}, {}, {}, {}, {}, {}, null)
+    } }
+
+    private val generique = MediaInfo(title = "Titre du morceau", artist = "Nom de l'artiste", playing = true)
+    private val meteo = Weather.Forecast(3, 14, "Pluie vers 21:30", true, emptyList())
+
+    private fun accueilJour(name: String, palette: Int, accent: Int = 0, panel: Boolean = false) = captureRoboImage("build/screens/$name.png") { Scaled {
+        KTheme.day.value = true; KTheme.palette.value = palette; KTheme.accent.value = accent; DayNight.panel.value = panel
+        LinkStatus.state.value = Links(bt = true, wifi = true, wifiLevel = 3)
+        HomeContent("14:04", "Jeudi 19 novembre", "Waze", generique, RailActions(), {}, {}, {}, {},
+            speedKmh = 87, car = CarStats(45, 690, 13.5f, true), weather = meteo, limit = 80)
+    } }
+
+    @Test fun jour_gris_bleu() = accueilJour("jour-gris-bleu", 0)
+    @Test fun jour_sable() = accueilJour("jour-sable", 1)
+    @Test fun jour_ardoise_bleu() = accueilJour("jour-ardoise-bleu", 2, accent = 1)
+    @Test fun jour_affichage() = accueilJour("jour-affichage", 0, panel = true)
+
+    @Test
+    fun nuit_affichage() = captureRoboImage("build/screens/nuit-affichage.png") { Scaled {
+        KTheme.day.value = false; KTheme.palette.value = 0; KTheme.accent.value = 0; DayNight.panel.value = true
+        HomeContent("21:04", "Jeudi 19 novembre", "Waze", generique, RailActions(), {}, {}, {}, {},
+            speedKmh = 87, car = CarStats(45, 690, 13.5f, true), weather = meteo, limit = 80)
+    } }
+
+    @Test
+    fun jour_reglages() = captureRoboImage("build/screens/jour-reglages.png") { Scaled {
+        KTheme.day.value = true; KTheme.palette.value = 0; KTheme.accent.value = 0
+        Box(Modifier.fillMaxSize().background(Bg)) {
+            SettingsContent(Targets.WAZE, { true }, "0.14.0", null, false, {}, {}, {}, {}, {})
+        }
+    } }
+
+    @Test
+    fun nuit_reglages() = captureRoboImage("build/screens/nuit-reglages.png") { Scaled {
+        KTheme.day.value = false; KTheme.palette.value = 0; KTheme.accent.value = 0
+        Box(Modifier.fillMaxSize().background(Bg)) {
+            SettingsContent(Targets.WAZE, { true }, "0.14.0", null, false, {}, {}, {}, {}, {})
+        }
+    } }
+
+    @Test
+    fun jour_musique() = captureRoboImage("build/screens/jour-musique.png") { Scaled {
+        KTheme.day.value = true; KTheme.palette.value = 0; KTheme.accent.value = 0
+        DrivePanel("14:04", generique, {}, {}, {}, {}, {}, {}, {}, {}, null)
+    } }
+
+    @Test
+    fun jour_appel() = captureRoboImage("build/screens/jour-appel.png") { Scaled {
+        KTheme.day.value = true; KTheme.palette.value = 0; KTheme.accent.value = 0
+        Box(Modifier.fillMaxSize()) {
+            HomeContent("14:04", "Jeudi 19 novembre", "Waze", generique, RailActions(), {}, {}, {}, {}, weather = meteo)
+            androidx.compose.ui.viewinterop.AndroidView(
+                { ctx -> CallOverlay.build(ctx, CallOverlay.Call(6, "Garage", "05 58 00 00 00", 83, true)) {} },
+                Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 12.dp),
+            )
+        }
     } }
 }

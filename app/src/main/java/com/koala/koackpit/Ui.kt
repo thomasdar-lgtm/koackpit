@@ -59,7 +59,7 @@ import androidx.compose.ui.unit.sp
 
 val NavBlue = Color(0xFF33CCFF)
 val PhoneGreen = Color(0xFF2ECC71)
-val Rail = Color(0xFF050E24)
+val Rail: Color get() = if (KTheme.day.value) Color(KTheme.pal.rail) else Color(0xFF050E24)
 
 data class MediaInfo(
     val title: String = "",
@@ -76,6 +76,8 @@ data class RailActions(
     val onCar: () -> Unit = {},
     val onApps: () -> Unit = {},
     val onSettings: () -> Unit = {},
+    val onDisplay: () -> Unit = {},
+    val onCamera: () -> Unit = {},
 )
 
 // ---------- Barre d'applis (gauche) ----------
@@ -87,23 +89,24 @@ fun AppRail(time: String, active: String, a: RailActions, links: Links? = LinkSt
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Text(time, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Black)
+        Text(time, color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Black)
         LinkIcons(links)
         PhoneBattery()
-        RailIcon(Icons.Filled.Place, NavBlue, Color.White, active == "drive", a.onDrive)
-        RailIcon(null, Yellow, Navy, active == "music", a.onMusic, note = true)
+        // GPS et Musique retirés (accessibles depuis l'accueil) : Affichage et Caméra à la place
         RailIcon(Icons.Filled.Phone, PhoneGreen, Color.White, active == "phone", a.onPhone)
-        RailIcon(Icons.Filled.Info, CardHi, Yellow, active == "car", a.onCar)
+        RailIcon(null, BtnDark, Yellow, DayNight.panel.value, a.onDisplay, text = if (KTheme.day.value) "☀" else "☾")
+        RailIcon(null, BtnDark, Yellow, false, a.onCamera, camera = true)
+        RailIcon(Icons.Filled.Info, BtnDark, Yellow, active == "car", a.onCar)
         Spacer(Modifier.weight(1f))
-        RailIcon(Icons.Filled.Settings, CardHi, Yellow, active == "settings", a.onSettings)
-        RailIcon(null, CardHi, Color.White, active == "apps", a.onApps, grid = true)
+        RailIcon(Icons.Filled.Settings, BtnDark, Yellow, active == "settings", a.onSettings)
+        RailIcon(null, BtnDark, Color.White, active == "apps", a.onApps, grid = true)
     }
 }
 
 @Composable
 fun RailIcon(
     icon: ImageVector?, bg: Color, ink: Color, active: Boolean, onClick: () -> Unit,
-    note: Boolean = false, grid: Boolean = false,
+    note: Boolean = false, grid: Boolean = false, text: String? = null, camera: Boolean = false,
 ) {
     Box(
         Modifier.size(46.dp).clip(RoundedCornerShape(16.dp))
@@ -118,6 +121,8 @@ fun RailIcon(
                 icon != null -> Icon(icon, null, tint = ink, modifier = Modifier.size(24.dp))
                 note -> NoteGlyph(ink, 22)
                 grid -> GridGlyph(ink, 19)
+                text != null -> Text(text, color = ink, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                camera -> CameraGlyph(ink, 24)
             }
         }
     }
@@ -212,9 +217,9 @@ fun MediaCardWide(
                 Artwork(Modifier.size(64.dp), m.title, m.artist)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(m.title.ifEmpty { "Rien en lecture" }, color = Color.White, fontSize = 17.sp,
+                    Text(m.title.ifEmpty { "Rien en lecture" }, color = Ink, fontSize = 17.sp,
                         fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(m.artist.ifEmpty { "Musique du téléphone" }, color = Yellow, fontSize = 12.sp,
+                    Text(m.artist.ifEmpty { "Musique du téléphone" }, color = AccentText, fontSize = 12.sp,
                         fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
@@ -245,9 +250,9 @@ fun MediaCardTall(
             Spacer(Modifier.weight(1f))
             Artwork(Modifier.size(150.dp), m.title, m.artist)
             Spacer(Modifier.height(12.dp))
-            Text(m.title.ifEmpty { "Rien en lecture" }, color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Black,
+            Text(m.title.ifEmpty { "Rien en lecture" }, color = Ink, fontSize = 19.sp, fontWeight = FontWeight.Black,
                 maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
-            Text(m.artist.ifEmpty { "Musique du téléphone" }, color = Yellow, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+            Text(m.artist.ifEmpty { "Musique du téléphone" }, color = AccentText, fontSize = 14.sp, fontWeight = FontWeight.Bold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.weight(1f))
             TrackProgress(m.title, m.playing, Modifier.padding(horizontal = 8.dp))
@@ -278,7 +283,7 @@ fun TrackProgress(title: String, btPlaying: Boolean, modifier: Modifier = Modifi
                 .pointerInput(d) { detectTapGestures { o -> PhoneLink.command("seek", (o.x / size.width * d).toLong().coerceIn(0, d)) } },
             contentAlignment = Alignment.Center,
         ) {
-            Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = 0.15f))) {
+            Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(Ink.copy(alpha = 0.15f))) {
                 Box(Modifier.fillMaxWidth((p.toFloat() / d).coerceIn(0f, 1f)).fillMaxHeight().background(Yellow))
             }
         }
@@ -309,7 +314,7 @@ fun NavCard(
 ) {
     Box(
         modifier.clip(RoundedCornerShape(18.dp))
-            .background(Brush.linearGradient(listOf(Color(0xFF1D3557), Color(0xFF16294A))))
+            .background(Brush.linearGradient(if (KTheme.day.value) listOf(Card, CardHi) else listOf(Color(0xFF1D3557), Color(0xFF16294A))))
             .clickable(onClick = onDrive).padding(14.dp)
     ) {
         Column(Modifier.fillMaxSize()) {
@@ -318,7 +323,7 @@ fun NavCard(
             // Vitesse + température extérieure
             Row(verticalAlignment = Alignment.Bottom) {
                 val over = limit != null && speedKmh != null && speedKmh > limit
-                Text(speedKmh?.toString() ?: "–", color = if (over) Red else Color.White, fontSize = 56.sp, fontWeight = FontWeight.Black, lineHeight = 56.sp)
+                Text(speedKmh?.toString() ?: "–", color = if (over) Red else Ink, fontSize = 56.sp, fontWeight = FontWeight.Black, lineHeight = 56.sp)
                 Spacer(Modifier.width(6.dp))
                 Text("km/h", color = Muted, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
                 if (limit != null) {
@@ -327,7 +332,7 @@ fun NavCard(
                 }
                 Spacer(Modifier.weight(1f))
                 if (car?.outTemp != null) Column(horizontalAlignment = Alignment.End) {
-                    Text("%.1f °C".format(car.outTemp).replace('.', ','), color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                    Text("%.1f °C".format(car.outTemp).replace('.', ','), color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Black)
                     Text("Extérieur", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
@@ -339,7 +344,7 @@ fun NavCard(
                 Row(verticalAlignment = Alignment.Bottom) {
                     Column {
                         Text("Carburant", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Text("${car.fuelL} L", color = if (low) Red else Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                        Text("${car.fuelL} L", color = if (low) Red else Ink, fontSize = 22.sp, fontWeight = FontWeight.Black)
                     }
                     Spacer(Modifier.weight(1f))
                     Column(horizontalAlignment = Alignment.End) {
@@ -373,12 +378,12 @@ fun LimitSign(limit: Int, modifier: Modifier = Modifier) {
 /** Météo de la route : temps actuel et pluie à venir (les heures suivantes : retirées, pas utiles). */
 @Composable
 fun WeatherStrip(w: Weather.Forecast) {
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.06f)).padding(horizontal = 12.dp, vertical = 10.dp)) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Ink.copy(alpha = 0.07f)).padding(horizontal = 12.dp, vertical = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(Weather.icon(w.code), fontSize = 28.sp)
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text("${Weather.label(w.code)} · ${w.temp} °C", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                Text("${Weather.label(w.code)} · ${w.temp} °C", color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Black, maxLines = 1)
                 Text(w.rainNote, color = if (w.rainSoon) Yellow else Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
             }
         }
@@ -399,8 +404,8 @@ fun TodayCard(modifier: Modifier, time: String, date: String, onSettings: () -> 
     CardBox(modifier) {
         // En haut à gauche : le bas de la carte reste libre pour la carte « mise à jour »
         Column(Modifier.fillMaxSize().padding(top = 6.dp)) {
-            Text(time, color = Color.White, fontSize = 42.sp, fontWeight = FontWeight.Black, lineHeight = 42.sp)
-            Text(date, color = Yellow, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text(time, color = Ink, fontSize = 42.sp, fontWeight = FontWeight.Black, lineHeight = 42.sp)
+            Text(date, color = AccentText, fontSize = 14.sp, fontWeight = FontWeight.Bold)
         }
         // Réglages : roue dentée en haut à droite de la carte
         Box(Modifier.align(Alignment.TopEnd)) { SmallRound(Icons.Filled.Settings, onSettings) }
@@ -420,7 +425,9 @@ fun HomeContent(
     lyricsOpen: Boolean = false, lyricsPreview: List<Lyrics.Line>? = null,
 ) {
     var lyrics by remember { mutableStateOf(lyricsOpen) }
-    Row(Modifier.fillMaxSize().background(Navy)) {
+    val ctxD = androidx.compose.ui.platform.LocalContext.current
+    Box(Modifier.fillMaxSize()) {
+    Row(Modifier.fillMaxSize().background(Bg)) {
         AppRail(time, "", rail)
         Row(Modifier.fillMaxSize().padding(10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             NavCard(Modifier.weight(1.25f).fillMaxHeight(), navName, speedKmh, car, rail.onDrive, onHomeAddr, onWorkAddr, weather, limit)
@@ -428,6 +435,12 @@ fun HomeContent(
             else MediaCardTall(Modifier.weight(1f).fillMaxHeight(), media, onPrev, onPlay, onNext, rail.onMusic,
                 onLyrics = if (PhoneLink.connected.value || lyricsPreview != null) ({ lyrics = true }) else null)
         }
+    }
+    if (DayNight.panel.value) DisplayPanel(
+        onMode = { DayNight.force(ctxD, it) },
+        onLevel = { DayNight.setLevel(ctxD, it) },
+        onClose = { DayNight.panel.value = false },
+    )
     }
 }
 
@@ -442,9 +455,9 @@ fun LyricsPanel(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Caption("Paroles")
-                    Text(m.title.ifEmpty { "Rien en lecture" }, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Black,
+                    Text(m.title.ifEmpty { "Rien en lecture" }, color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Black,
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    if (m.artist.isNotEmpty()) Text(m.artist, color = Yellow, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    if (m.artist.isNotEmpty()) Text(m.artist, color = AccentText, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 }
                 SmallRound(Icons.Filled.Close, onClose)
             }
@@ -469,14 +482,14 @@ fun DrivePanel(
     onHome: () -> Unit, onClose: () -> Unit, onPhone: () -> Unit, onCar: () -> Unit, onApps: () -> Unit,
     onBtSource: (() -> Unit)?,
 ) {
-    BoxWithConstraints(Modifier.fillMaxSize().background(Navy)) {
+    BoxWithConstraints(Modifier.fillMaxSize().background(Bg)) {
         val narrow = maxWidth < 300.dp
         Column(Modifier.fillMaxSize().padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             // Barre du haut : accueil, heure, fermer
             Row(verticalAlignment = Alignment.CenterVertically) {
                 SmallRound(Icons.Filled.Home, onHome)
                 Spacer(Modifier.weight(1f))
-                Text(time, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Black)
+                Text(time, color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.width(8.dp))
                 LinkIcons(LinkStatus.state.value)
                 Spacer(Modifier.weight(1f))
@@ -495,9 +508,9 @@ fun DrivePanel(
                         val extra = onBtSource != null || media.warning.isNotEmpty()
                         Artwork(Modifier.size(if (narrow || extra) 72.dp else 150.dp), media.title, media.artist)
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(media.title.ifEmpty { "Rien en lecture" }, color = Color.White, fontSize = if (narrow) 16.sp else 19.sp,
+                            Text(media.title.ifEmpty { "Rien en lecture" }, color = Ink, fontSize = if (narrow) 16.sp else 19.sp,
                                 fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
-                            if (media.artist.isNotEmpty()) Text(media.artist, color = Yellow, fontSize = if (narrow) 12.sp else 14.sp,
+                            if (media.artist.isNotEmpty()) Text(media.artist, color = AccentText, fontSize = if (narrow) 12.sp else 14.sp,
                                 fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         if (!narrow) TrackProgress(media.title, media.playing, Modifier.padding(horizontal = 24.dp))
@@ -518,9 +531,9 @@ fun DrivePanel(
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
                 DockIcon(Icons.Filled.Phone, PhoneGreen, Color.White, onPhone)
-                DockIcon(Icons.Filled.Info, CardHi, Yellow, onCar)
+                DockIcon(Icons.Filled.Info, BtnDark, Yellow, onCar)
                 Box(
-                    Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(CardHi).clickable(onClick = onApps),
+                    Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(BtnDark).clickable(onClick = onApps),
                     contentAlignment = Alignment.Center,
                 ) { GridGlyph(Color.White, 17) }
             }
@@ -539,7 +552,7 @@ fun DockIcon(icon: ImageVector, bg: Color, ink: Color, onClick: () -> Unit) {
 @Composable
 fun SmallRound(icon: ImageVector, onClick: () -> Unit) {
     Box(
-        Modifier.size(38.dp).clip(CircleShape).background(CardHi).clickable(onClick = onClick),
+        Modifier.size(38.dp).clip(CircleShape).background(BtnDark).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Icon(icon, null, tint = Yellow, modifier = Modifier.size(20.dp)) }
 }
@@ -557,4 +570,17 @@ fun Scaled(content: @Composable () -> Unit) {
     androidx.compose.runtime.CompositionLocalProvider(
         androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(d.density * f, d.fontScale),
     ) { content() }
+}
+
+/** Pictogramme caméra (boîtier + objectif), dessiné : pas d'icône caméra dans le jeu d'icônes de base. */
+@Composable
+fun CameraGlyph(c: Color, sizeDp: Int) {
+    androidx.compose.foundation.Canvas(Modifier.size(sizeDp.dp)) {
+        val w = size.width; val h = size.height
+        val st = androidx.compose.ui.graphics.drawscope.Stroke(width = w * 0.09f)
+        drawRect(c, androidx.compose.ui.geometry.Offset(w * 0.32f, h * 0.18f), androidx.compose.ui.geometry.Size(w * 0.36f, h * 0.14f))
+        drawRoundRect(c, androidx.compose.ui.geometry.Offset(w * 0.06f, h * 0.28f), androidx.compose.ui.geometry.Size(w * 0.88f, h * 0.58f),
+            androidx.compose.ui.geometry.CornerRadius(w * 0.12f), style = st)
+        drawCircle(c, w * 0.16f, androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.57f), style = st)
+    }
 }

@@ -53,8 +53,8 @@ private val Off = Color(0xFF6B7A99)
 fun LinkIcons(links: Links?, size: Dp = 16.dp) {
     if (links == null) return
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Canvas(Modifier.size(size)) { bluetooth(if (links.bt) Color.White else Off); if (!links.bt) slash() }
-        Canvas(Modifier.size(size)) { wifi(if (links.wifi) Color.White else Off, if (links.wifi) links.wifiLevel else 3); if (!links.wifi) slash() }
+        Canvas(Modifier.size(size)) { bluetooth(if (links.bt) Ink else Off); if (!links.bt) slash() }
+        Canvas(Modifier.size(size)) { wifi(if (links.wifi) Ink else Off, if (links.wifi) links.wifiLevel else 3); if (!links.wifi) slash() }
     }
 }
 
@@ -88,7 +88,7 @@ private fun DrawScope.slash() {
 @Composable
 fun PhoneBattery(batt: Pair<Int, Boolean>? = PhoneLink.battery.value) {
     val (level, charging) = batt ?: return
-    val c = when { charging -> Color(0xFFFFCC00); level < 20 -> Color(0xFFE63946); else -> Color.White }
+    val c = when { charging -> AccentText; level < 20 -> Red; else -> Ink }
     Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
         Canvas(Modifier.size(width = 9.dp, height = 15.dp)) {
             val w = size.width; val h = size.height

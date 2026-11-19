@@ -219,9 +219,9 @@ fun Player(
     onPrev: () -> Unit, onPlay: () -> Unit, onNext: () -> Unit, onClose: () -> Unit, onHome: () -> Unit,
     onBtSource: (() -> Unit)? = null,
 ) {
-  Box(Modifier.fillMaxSize().background(Navy)) {
+  Box(Modifier.fillMaxSize().background(Bg)) {
     Column(
-        Modifier.fillMaxSize().background(Navy).padding(16.dp),
+        Modifier.fillMaxSize().background(Bg).padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -236,7 +236,7 @@ fun Player(
         Spacer(Modifier.height(12.dp))
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                title.ifEmpty { "Lecteur Bluetooth" }, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black,
+                title.ifEmpty { "Lecteur Bluetooth" }, color = Ink, fontSize = 22.sp, fontWeight = FontWeight.Black,
                 maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
             )
             if (artist.isNotEmpty()) Text(artist, color = Yellow, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -290,7 +290,7 @@ enum class Glyph { PREV, PLAY, PAUSE, NEXT }
 fun CtrlButton(g: Glyph, size: Int, main: Boolean, onClick: () -> Unit) {
     val ink = if (main) Navy else Yellow
     Box(
-        Modifier.size(size.dp).clip(CircleShape).background(if (main) Yellow else CardHi).clickable(onClick = onClick),
+        Modifier.size(size.dp).clip(CircleShape).background(if (main) Yellow else BtnDark).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Canvas(Modifier.size((size * 0.42f).dp)) {

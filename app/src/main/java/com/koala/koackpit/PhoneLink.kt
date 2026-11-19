@@ -122,7 +122,11 @@ object PhoneLink {
                     }
                     // Nouveaux messages / appels manqués
                     val seq = js.optInt("notif", 0)
-                    if (notifSeq < 0) notifSeq = seq
+                    // Premier contact, reprise après plus d'une minute sans téléphone (veille de l'autoradio, coupure
+                    // du Wi-Fi) ou appli du téléphone relancée : on se recale sans rien afficher. Sinon, au démarrage,
+                    // les messages reçus (et déjà lus) pendant que la voiture dormait réapparaissaient (constaté le 19/11).
+                    val gap = android.os.SystemClock.elapsedRealtime() - lastOk
+                    if (notifSeq < 0 || gap > 60_000 || seq < notifSeq) notifSeq = seq
                     else if (seq > notifSeq) {
                         val arr = get("http://$gw:$PORT/notifs?since=$notifSeq")?.let { runCatching { org.json.JSONArray(String(it)) }.getOrNull() }
                         if (arr != null) {

@@ -212,7 +212,7 @@ fun UpdateBanner(upd: UpdateState, modifier: Modifier = Modifier) {
 @Composable
 fun UpdateChip(modifier: Modifier, version: String, progress: Float?, status: String, onInstall: () -> Unit) {
     Row(
-        modifier.clip(RoundedCornerShape(16.dp)).background(CardHi)
+        modifier.clip(RoundedCornerShape(16.dp)).background(BtnDark)
             .border(1.5.dp, Yellow.copy(alpha = 0.7f), RoundedCornerShape(16.dp)).padding(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

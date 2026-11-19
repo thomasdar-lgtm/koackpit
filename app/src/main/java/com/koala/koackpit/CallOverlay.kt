@@ -12,6 +12,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.compose.ui.graphics.toArgb
 
 /**
  * Fiche d'appel Koackpit : carte flottante en haut de l'écran, par-dessus n'importe quel écran, pendant un appel
@@ -113,12 +114,13 @@ object CallOverlay {
         setColor(color); cornerRadius = radius; if (stroke != null) setStroke(sw, stroke)
     }
 
-    private val YELLOW = Color.rgb(255, 204, 0)
+    private val YELLOW get() = Yellow.toArgb()
     private val NAVY = Color.rgb(0, 7, 26)
-    private val CARD = Color.rgb(22, 38, 74)
+    private val CARD get() = Card.toArgb()
     private val GREEN = Color.rgb(46, 204, 113)
     private val RED = Color.rgb(235, 64, 64)
-    private val MUTED = Color.rgb(160, 172, 196)
+    private val MUTED get() = Muted.toArgb()
+    private val INK get() = Ink.toArgb()
 
     private fun subText(call: Call): String {
         val sub = when (call.state) {
@@ -145,7 +147,7 @@ object CallOverlay {
                 layoutParams = LinearLayout.LayoutParams(dp(app, 22), dp(app, 22))
             })
             row.addView(TextView(app).apply {
-                text = "Micro actif"; textSize = 14f; setTextColor(Color.WHITE); typeface = Typeface.DEFAULT_BOLD
+                text = "Micro actif"; textSize = 14f; setTextColor(INK); typeface = Typeface.DEFAULT_BOLD
             })
             return row
         }
@@ -163,7 +165,7 @@ object CallOverlay {
             setPadding(dp(app, 10), 0, dp(app, 14), 0)
         }
         texts.addView(TextView(app).apply {
-            text = who; textSize = 16f; setTextColor(Color.WHITE); typeface = Typeface.DEFAULT_BOLD
+            text = who; textSize = 16f; setTextColor(INK); typeface = Typeface.DEFAULT_BOLD
             maxWidth = dp(app, 230); maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
         })
         texts.addView(TextView(app).apply {
@@ -196,7 +198,7 @@ object CallOverlay {
         row.background = null; row.elevation = 0f; row.setPadding(0, 0, 0, 0)
         box.addView(row)
         box.addView(TextView(app).apply {
-            text = call.typed.ifEmpty { " " }; textSize = 18f; setTextColor(Color.WHITE); typeface = Typeface.DEFAULT_BOLD
+            text = call.typed.ifEmpty { " " }; textSize = 18f; setTextColor(INK); typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER; setPadding(0, dp(app, 6), 0, dp(app, 4))
         })
         for (line in listOf("123", "456", "789", "*0#")) {

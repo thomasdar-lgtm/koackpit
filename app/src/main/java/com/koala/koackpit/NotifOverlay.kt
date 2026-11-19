@@ -13,6 +13,7 @@ import android.view.Gravity
 import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.compose.ui.graphics.toArgb
 
 /**
  * Messages et appels manqués du téléphone (via l'appli Koackpit Téléphone) : une carte discrète en haut de
@@ -63,11 +64,11 @@ object NotifOverlay {
 
     /** Vue de la carte (séparée pour les captures d'écran). */
     fun build(app: Context, n: Notif, onTap: () -> Unit): LinearLayout {
-        val yellow = Color.rgb(255, 204, 0); val navy = Color.rgb(0, 7, 26); val red = Color.rgb(235, 64, 64)
+        val yellow = Yellow.toArgb(); val navy = Color.rgb(0, 7, 26); val red = Color.rgb(235, 64, 64); val ink = Ink.toArgb()
         val row = LinearLayout(app).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            background = round(Color.rgb(22, 38, 74), dp(app, 18).toFloat(), Color.argb(150, 255, 204, 0), dp(app, 1))
+            background = round(Card.toArgb(), dp(app, 18).toFloat(), Color.argb(150, 255, 204, 0), dp(app, 1))
             elevation = dp(app, 10).toFloat()
             setPadding(dp(app, 10), dp(app, 8), dp(app, 16), dp(app, 8))
             setOnClickListener { onTap() }
@@ -81,12 +82,12 @@ object NotifOverlay {
         val col = LinearLayout(app).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(app, 10), 0, 0, 0) }
         col.addView(TextView(app).apply {
             text = (if (n.missedCall) "Appel manqué · " else "") + n.title
-            textSize = 15f; setTextColor(Color.WHITE); typeface = Typeface.DEFAULT_BOLD
+            textSize = 15f; setTextColor(ink); typeface = Typeface.DEFAULT_BOLD
             maxLines = 1; ellipsize = TextUtils.TruncateAt.END; maxWidth = dp(app, 420)
         })
         val body = if (n.missedCall) n.app else "${n.app} · ${n.text}"
         col.addView(TextView(app).apply {
-            text = body; textSize = 13f; setTextColor(Color.rgb(200, 210, 228))
+            text = body; textSize = 13f; setTextColor(Muted.toArgb())
             maxLines = 2; ellipsize = TextUtils.TruncateAt.END; maxWidth = dp(app, 420)
         })
         row.addView(col)

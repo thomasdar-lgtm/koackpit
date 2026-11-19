@@ -150,7 +150,7 @@ fun LyricsView(
                 ls.isEmpty() -> "Paroles introuvables pour ce titre"
                 else -> "Lance la lecture sur le téléphone"
             },
-            color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
+            color = Ink.copy(alpha = 0.6f), fontSize = 14.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
         ) }
         return
     }
@@ -188,7 +188,7 @@ fun LyricsLines(lines: List<Lyrics.Line>, cur: Int, big: Boolean, modifier: Modi
                 val now = i == cur
                 val dist = kotlin.math.abs(i - cur)
                 val color by animateColorAsState(
-                    if (now) Yellow else Color.White.copy(alpha = when (dist) { 1 -> 0.6f; 2 -> 0.4f; else -> 0.25f }),
+                    if (now) AccentText else Ink.copy(alpha = when (dist) { 1 -> 0.6f; 2 -> 0.4f; else -> 0.25f }),
                     androidx.compose.animation.core.tween(500), label = "couleur",
                 )
                 val scale by androidx.compose.animation.core.animateFloatAsState(if (now) 1.12f else 1f,

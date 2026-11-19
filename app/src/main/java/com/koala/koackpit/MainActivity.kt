@@ -85,6 +85,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        DayNight.tick(this)   // thème jour/nuit dès l'ouverture
         // Sécurité accès système : vérifiée après 20 s seulement. Juste après une mise à jour, l'appli
         // compagnon l'utilise encore pour rouvrir Koackpit : le fermer tout de suite coupait sa connexion
         // (erreur EOFException).
@@ -142,7 +143,7 @@ fun Koackpit(screen: androidx.compose.runtime.MutableState<Screen>, upd: UpdateS
     }
     val ctx = LocalContext.current
     val keepAlive = remember(resumes) { KeepAlive.active(ctx) }
-    Box(Modifier.fillMaxSize().background(Navy)) {
+    Box(Modifier.fillMaxSize().background(Bg)) {
         Column(Modifier.fillMaxSize()) {
             if (!keepAlive) KeepAliveBanner { KeepAlive.request(ctx) }
             when (screen.value) {
@@ -187,6 +188,15 @@ fun Home(onApps: () -> Unit, onSettings: () -> Unit, onCar: () -> Unit = {}) {
             onCar = onCar,
             onApps = onApps,
             onSettings = onSettings,
+            onDisplay = { DayNight.panel.value = !DayNight.panel.value },
+            // Caméra à la demande : l'appli « Vue de face » de l'autoradio (étape 1 ; la marche arrière n'est pas touchée)
+            onCamera = {
+                runCatching {
+                    ctx.startActivity(Intent().setComponent(android.content.ComponentName(
+                        "android.car.app.video_frontview", "android.car.app.video_frontview.FrontViewMain"))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                }.onFailure { toast(ctx, "Caméra introuvable") }
+            },
         ),
         onGpsOnly = { go(listOf(nav, Targets.WAZE, Targets.MAPS), "Le GPS") },
         onPrev = { CarLink.prev() }, onPlay = { CarLink.playPause() }, onNext = { CarLink.next() },
@@ -213,7 +223,7 @@ fun Tile(
     val bg = if (accent) CardHi else Card
     Box(
         modifier.fillMaxHeight().clip(RoundedCornerShape(20.dp)).background(bg)
-            .border(1.dp, if (accent) Yellow.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.06f), RoundedCornerShape(20.dp))
+            .border(1.dp, if (accent) Yellow.copy(alpha = 0.35f) else Ink.copy(alpha = 0.08f), RoundedCornerShape(20.dp))
             .clickable(onClick = onClick).padding(16.dp)
     ) {
         Box(
@@ -221,10 +231,10 @@ fun Tile(
             contentAlignment = Alignment.Center,
         ) {
             if (icon != null) Icon(icon, null, tint = if (accent) Navy else Yellow, modifier = Modifier.size(26.dp))
-            else Text(glyph ?: "", color = Yellow, fontWeight = FontWeight.Black, fontSize = 15.sp)
+            else Text(glyph ?: "", color = AccentText, fontWeight = FontWeight.Black, fontSize = 15.sp)
         }
         Column(Modifier.align(Alignment.BottomStart)) {
-            Text(title, color = Color.White, fontSize = if (accent) 24.sp else 18.sp, fontWeight = FontWeight.Black, maxLines = 1)
+            Text(title, color = Ink, fontSize = if (accent) 24.sp else 18.sp, fontWeight = FontWeight.Black, maxLines = 1)
             if (subtitle != null) Text(subtitle, color = Muted, fontSize = 13.sp, maxLines = 1)
         }
     }
@@ -243,7 +253,7 @@ fun Header(title: String, onBack: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         RoundButton(Icons.Filled.ArrowBack, onBack)
         Spacer(Modifier.width(16.dp))
-        Text(title, color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Black)
+        Text(title, color = Ink, fontSize = 26.sp, fontWeight = FontWeight.Black)
     }
 }
 
@@ -266,7 +276,7 @@ fun AppDrawer(onBack: () -> Unit) {
                     if (a.icon != null) Image(a.icon.asImageBitmap(), null, Modifier.size(56.dp))
                     else Box(Modifier.size(56.dp).clip(RoundedCornerShape(14.dp)).background(Card))
                     Spacer(Modifier.height(6.dp))
-                    Text(a.label, color = Color.White, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(a.label, color = Ink, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
@@ -282,6 +292,8 @@ fun SettingsScreen(upd: UpdateState, onBack: () -> Unit, onSlim: () -> Unit = {}
     var hideCallBar by remember { mutableStateOf(Prefs.hideVendorCall(ctx)) }
     SettingsContent(
         hideCallBar = hideCallBar, onHideCallBar = { hideCallBar = it; Prefs.setHideVendorCall(ctx, it) },
+        onPalette = { KTheme.setPalette(ctx, it) }, onAccent = { KTheme.setAccent(ctx, it) },
+        onTimes = { d, n -> DayNight.setTimes(ctx, d, n); DayNight.tick(ctx) },
         nav = nav, installed = { Apps.installed(ctx, it) }, version = BuildConfig.VERSION_NAME,
         update = upd.info?.version, checking = checking,
         onNav = { nav = it; Prefs.setNav(ctx, it) },
@@ -307,6 +319,7 @@ fun SettingsContent(
     nav: String, installed: (String) -> Boolean, version: String, update: String?, checking: Boolean,
     onNav: (String) -> Unit, onCheck: () -> Unit, onDiag: () -> Unit, onSlim: () -> Unit, onBack: () -> Unit,
     hideCallBar: Boolean = true, onHideCallBar: (Boolean) -> Unit = {},
+    onPalette: (Int) -> Unit = {}, onAccent: (Int) -> Unit = {}, onTimes: (Int, Int) -> Unit = { _, _ -> },
 ) {
     Column(Modifier.fillMaxSize()) {
         Header("Réglages", onBack)
@@ -329,15 +342,16 @@ fun SettingsContent(
                 SettingsSection("Mise à jour") {
                     Text(
                         if (update != null) "Version $update disponible : bouton en bas à droite" else "Koackpit $version",
-                        color = if (update != null) Yellow else Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                        color = if (update != null) AccentText else Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold,
                     )
                     Spacer(Modifier.height(8.dp))
                     SettingButton(if (checking) "Recherche…" else "Rechercher une mise à jour", onCheck)
                 }
             }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                ThemeSettings(onPalette = onPalette, onAccent = onAccent, onTimes = onTimes)
                 SettingsSection("Appels") {
-                    Text("Barre d'appel de l'autoradio", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text("Barre d'appel de l'autoradio", color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(6.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         for ((v, label) in listOf(true to "Masquée", false to "Affichée")) {
@@ -364,7 +378,7 @@ fun SettingsContent(
 @Composable
 fun SettingsSection(title: String, content: @Composable () -> Unit) {
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Card).padding(14.dp)) {
-        Text(title, color = Yellow, fontSize = 15.sp, fontWeight = FontWeight.Black)
+        Text(title, color = AccentText, fontSize = 15.sp, fontWeight = FontWeight.Black)
         Spacer(Modifier.height(8.dp))
         content()
     }
@@ -386,9 +400,9 @@ fun KeepAliveBanner(onActivate: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text("Retour automatique au démarrage", color = Yellow, fontWeight = FontWeight.Black, fontSize = 15.sp)
+            Text("Retour automatique au démarrage", color = AccentText, fontWeight = FontWeight.Black, fontSize = 15.sp)
             Text("Choisis le fond d'écran Koackpit : sinon l'autoradio ferme Koackpit pendant la veille",
-                color = Color.White, fontSize = 13.sp)
+                color = Ink, fontSize = 13.sp)
         }
         Spacer(Modifier.width(12.dp))
         Box(
