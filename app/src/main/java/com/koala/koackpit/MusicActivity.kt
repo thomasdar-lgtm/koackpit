@@ -219,9 +219,9 @@ fun Player(
     onPrev: () -> Unit, onPlay: () -> Unit, onNext: () -> Unit, onClose: () -> Unit, onHome: () -> Unit,
     onBtSource: (() -> Unit)? = null,
 ) {
-  Box(Modifier.fillMaxSize().background(Bg)) {
+  Box(Modifier.fillMaxSize().screenBg()) {
     Column(
-        Modifier.fillMaxSize().background(Bg).padding(16.dp),
+        Modifier.fillMaxSize().screenBg().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -231,7 +231,7 @@ fun Player(
             contentAlignment = Alignment.Center,
         ) {
             if (art != null) Image(art.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-            else Text("BT", color = Yellow, fontSize = 48.sp, fontWeight = FontWeight.Black)
+            else Text("BT", color = AccentText, fontSize = 48.sp, fontWeight = FontWeight.Black)
         }
         Spacer(Modifier.height(12.dp))
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -239,7 +239,7 @@ fun Player(
                 title.ifEmpty { "Lecteur Bluetooth" }, color = Ink, fontSize = 22.sp, fontWeight = FontWeight.Black,
                 maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
             )
-            if (artist.isNotEmpty()) Text(artist, color = Yellow, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (artist.isNotEmpty()) Text(artist, color = AccentText, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -252,7 +252,7 @@ fun Player(
             Box(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Yellow).clickable(onClick = onBtSource).padding(12.dp),
                 contentAlignment = Alignment.Center,
-            ) { Text("Activer la source Bluetooth", color = Navy, fontSize = 15.sp, fontWeight = FontWeight.Black) }
+            ) { Text("Activer la source Bluetooth", color = OnAccent, fontSize = 15.sp, fontWeight = FontWeight.Black) }
             Spacer(Modifier.height(6.dp))
         }
         if (warning.isNotEmpty()) Text(warning, color = Red, fontSize = 13.sp, textAlign = TextAlign.Center)
@@ -288,9 +288,10 @@ enum class Glyph { PREV, PLAY, PAUSE, NEXT }
 /** Boutons dessinés (pas de police d'icônes : rendu identique sur tous les autoradios). */
 @Composable
 fun CtrlButton(g: Glyph, size: Int, main: Boolean, onClick: () -> Unit) {
-    val ink = if (main) Navy else Yellow
+    val ink = if (main) OnAccent else AccentOnDark
     Box(
-        Modifier.size(size.dp).clip(CircleShape).background(if (main) Yellow else BtnDark).clickable(onClick = onClick),
+        Modifier.size(size.dp).then(if (main) Modifier.accentBg(CircleShape) else Modifier.background(BtnDark, CircleShape))
+            .clip(CircleShape).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Canvas(Modifier.size((size * 0.42f).dp)) {

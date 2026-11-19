@@ -143,7 +143,7 @@ fun Koackpit(screen: androidx.compose.runtime.MutableState<Screen>, upd: UpdateS
     }
     val ctx = LocalContext.current
     val keepAlive = remember(resumes) { KeepAlive.active(ctx) }
-    Box(Modifier.fillMaxSize().background(Bg)) {
+    Box(Modifier.fillMaxSize().screenBg()) {
         Column(Modifier.fillMaxSize()) {
             if (!keepAlive) KeepAliveBanner { KeepAlive.request(ctx) }
             when (screen.value) {
@@ -230,7 +230,7 @@ fun Tile(
             Modifier.size(46.dp).clip(CircleShape).background(if (accent) Yellow else Navy),
             contentAlignment = Alignment.Center,
         ) {
-            if (icon != null) Icon(icon, null, tint = if (accent) Navy else Yellow, modifier = Modifier.size(26.dp))
+            if (icon != null) Icon(icon, null, tint = if (accent) OnAccent else AccentOnDark, modifier = Modifier.size(26.dp))
             else Text(glyph ?: "", color = AccentText, fontWeight = FontWeight.Black, fontSize = 15.sp)
         }
         Column(Modifier.align(Alignment.BottomStart)) {
@@ -245,7 +245,7 @@ fun RoundButton(icon: ImageVector, onClick: () -> Unit) {
     Box(
         Modifier.size(52.dp).clip(CircleShape).background(BtnDark).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) { Icon(icon, null, tint = Yellow, modifier = Modifier.size(26.dp)) }
+    ) { Icon(icon, null, tint = AccentOnDark, modifier = Modifier.size(26.dp)) }
 }
 
 @Composable
@@ -292,7 +292,7 @@ fun SettingsScreen(upd: UpdateState, onBack: () -> Unit, onSlim: () -> Unit = {}
     var hideCallBar by remember { mutableStateOf(Prefs.hideVendorCall(ctx)) }
     SettingsContent(
         hideCallBar = hideCallBar, onHideCallBar = { hideCallBar = it; Prefs.setHideVendorCall(ctx, it) },
-        onPalette = { KTheme.setPalette(ctx, it) }, onAccent = { KTheme.setAccent(ctx, it) },
+        onPalette = { KTheme.setPalette(ctx, it) }, onAccent = { KTheme.setAccent(ctx, it) }, onStyle = { KTheme.setStyle(ctx, it) },
         onTimes = { d, n -> DayNight.setTimes(ctx, d, n); DayNight.tick(ctx) },
         nav = nav, installed = { Apps.installed(ctx, it) }, version = BuildConfig.VERSION_NAME,
         update = upd.info?.version, checking = checking,
@@ -320,6 +320,7 @@ fun SettingsContent(
     onNav: (String) -> Unit, onCheck: () -> Unit, onDiag: () -> Unit, onSlim: () -> Unit, onBack: () -> Unit,
     hideCallBar: Boolean = true, onHideCallBar: (Boolean) -> Unit = {},
     onPalette: (Int) -> Unit = {}, onAccent: (Int) -> Unit = {}, onTimes: (Int, Int) -> Unit = { _, _ -> },
+    onStyle: (Int) -> Unit = {},
 ) {
     Column(Modifier.fillMaxSize()) {
         Header("Réglages", onBack)
@@ -333,8 +334,8 @@ fun SettingsContent(
                                 Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(if (on) Yellow else Navy)
                                     .clickable { onNav(pkg) }.padding(horizontal = 12.dp, vertical = 10.dp),
                             ) {
-                                Text(name, color = if (on) Navy else Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                                if (!installed(pkg)) Text("non installé", color = if (on) Navy else Muted, fontSize = 11.sp)
+                                Text(name, color = if (on) OnAccent else Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                if (!installed(pkg)) Text("non installé", color = if (on) OnAccent else Muted, fontSize = 11.sp)
                             }
                         }
                     }
@@ -349,7 +350,7 @@ fun SettingsContent(
                 }
             }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                ThemeSettings(onPalette = onPalette, onAccent = onAccent, onTimes = onTimes)
+                ThemeSettings(onPalette = onPalette, onAccent = onAccent, onTimes = onTimes, onStyle = onStyle)
                 SettingsSection("Appels") {
                     Text("Barre d'appel de l'autoradio", color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(6.dp))
@@ -357,7 +358,7 @@ fun SettingsContent(
                         for ((v, label) in listOf(true to "Masquée", false to "Affichée")) {
                             val on = hideCallBar == v
                             Text(
-                                label, color = if (on) Navy else Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                                label, color = if (on) OnAccent else Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold,
                                 modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(if (on) Yellow else Navy)
                                     .clickable { onHideCallBar(v) }.padding(horizontal = 12.dp, vertical = 10.dp),
                             )
@@ -377,7 +378,7 @@ fun SettingsContent(
 
 @Composable
 fun SettingsSection(title: String, content: @Composable () -> Unit) {
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Card).padding(14.dp)) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).cardBg(RoundedCornerShape(16.dp)).padding(14.dp)) {
         Text(title, color = AccentText, fontSize = 15.sp, fontWeight = FontWeight.Black)
         Spacer(Modifier.height(8.dp))
         content()
@@ -408,7 +409,7 @@ fun KeepAliveBanner(onActivate: () -> Unit) {
         Box(
             Modifier.clip(RoundedCornerShape(20.dp)).background(Yellow).clickable(onClick = onActivate)
                 .padding(horizontal = 18.dp, vertical = 10.dp),
-        ) { Text("Activer", color = Navy, fontWeight = FontWeight.Black, fontSize = 15.sp) }
+        ) { Text("Activer", color = OnAccent, fontWeight = FontWeight.Black, fontSize = 15.sp) }
     }
 }
 

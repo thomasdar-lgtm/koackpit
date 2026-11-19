@@ -115,8 +115,10 @@ object CallOverlay {
     }
 
     private val YELLOW get() = Yellow.toArgb()
+    private val ONACC get() = OnAccent.toArgb()
+    private val ACCDARK get() = AccentOnDark.toArgb()
     private val NAVY = Color.rgb(0, 7, 26)
-    private val CARD get() = Card.toArgb()
+    private val CARD get() = CardSolid.toArgb()
     private val GREEN = Color.rgb(46, 204, 113)
     private val RED = Color.rgb(235, 64, 64)
     private val MUTED get() = Muted.toArgb()
@@ -136,7 +138,7 @@ object CallOverlay {
         val row = LinearLayout(app).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            background = round(CARD, dp(app, 22).toFloat(), Color.argb(170, 255, 204, 0), dp(app, 1))
+            background = round(CARD, dp(app, 22).toFloat(), AccentOnDark.copy(alpha = 0.66f).toArgb(), dp(app, 1))
             elevation = dp(app, 10).toFloat()
         }
         if (call.vocal) {
@@ -156,7 +158,7 @@ object CallOverlay {
         // Pastille avec l'initiale
         row.addView(TextView(app).apply {
             text = who.firstOrNull { it.isLetterOrDigit() }?.uppercase() ?: "?"
-            textSize = 17f; setTextColor(NAVY); typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER
+            textSize = 17f; setTextColor(ONACC); typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER
             background = round(YELLOW, dp(app, 19).toFloat())
             layoutParams = LinearLayout.LayoutParams(dp(app, 38), dp(app, 38))
         })
@@ -170,7 +172,7 @@ object CallOverlay {
         })
         texts.addView(TextView(app).apply {
             text = subText(call)
-            textSize = 12f; setTextColor(if (call.state == 5) YELLOW else MUTED)
+            textSize = 12f; setTextColor(if (call.state == 5) AccentText.toArgb() else MUTED)
             maxWidth = dp(app, 260); maxLines = 1
             duration = this
         })
@@ -184,8 +186,8 @@ object CallOverlay {
             setOnClickListener { onAction(action) }
         }
         if (call.state == 5) row.addView(button("Décrocher", GREEN, NAVY, "answer"))
-        if (call.state == 6) row.addView(button("Clavier", if (call.keypad) YELLOW else NAVY, if (call.keypad) NAVY else YELLOW, "keypad"))
-        if (call.state == 6) row.addView(button(if (call.voiceInCar) "Téléphone" else "Voiture", NAVY, YELLOW, "switch"))
+        if (call.state == 6) row.addView(button("Clavier", if (call.keypad) YELLOW else NAVY, if (call.keypad) ONACC else ACCDARK, "keypad"))
+        if (call.state == 6) row.addView(button(if (call.voiceInCar) "Téléphone" else "Voiture", NAVY, ACCDARK, "switch"))
         row.addView(button(if (call.state == 5) "Refuser" else "Raccrocher", RED, Color.WHITE, "hangup"))
         if (!call.keypad || call.state != 6) return row
         // Clavier (touches envoyées au téléphone : répondeurs, services clients…)

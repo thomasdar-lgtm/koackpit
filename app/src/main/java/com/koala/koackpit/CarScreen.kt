@@ -96,11 +96,11 @@ fun CarScreenContent(
     onAdd: (Kind?) -> Unit, onEntry: (Entry) -> Unit, onOdometer: () -> Unit,
 ) {
     val dues = remember(data) { Carnet.dues(data) }
-    Column(Modifier.fillMaxSize().background(Bg)) {
+    Column(Modifier.fillMaxSize().screenBg()) {
         // En-tête
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(42.dp).clip(CircleShape).background(Card).clickable(onClick = onBack), contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.ArrowBack, "Retour", tint = Yellow, modifier = Modifier.size(24.dp))
+                Icon(Icons.Filled.ArrowBack, "Retour", tint = AccentOnDark, modifier = Modifier.size(24.dp))
             }
             Spacer(Modifier.width(14.dp))
             Text("Voiture", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Black)
@@ -121,7 +121,7 @@ fun CarScreenContent(
                 Spacer(Modifier.height(6.dp))
                 Text(
                     if (doors == 0) "Tout est fermé" else Doors.label(doors),
-                    color = if (doors == 0) Muted else Yellow, fontSize = 12.sp, fontWeight = FontWeight.Bold, lineHeight = 15.sp,
+                    color = if (doors == 0) Muted else AccentText, fontSize = 12.sp, fontWeight = FontWeight.Bold, lineHeight = 15.sp,
                 )
                 Spacer(Modifier.height(8.dp))
                 Column(
@@ -135,10 +135,10 @@ fun CarScreenContent(
             // Carnet d'entretien
             Column(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(18.dp)).background(Card).padding(14.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Entretien", color = Yellow, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                    Text("Entretien", color = AccentText, fontSize = 20.sp, fontWeight = FontWeight.Black)
                     Spacer(Modifier.weight(1f))
                     Text(
-                        "+  Ajouter", color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Black,
+                        "+  Ajouter", color = OnAccent, fontSize = 14.sp, fontWeight = FontWeight.Black,
                         modifier = Modifier.clip(RoundedCornerShape(50)).background(Yellow).clickable { onAdd(null) }.padding(horizontal = 16.dp, vertical = 8.dp),
                     )
                 }
@@ -161,7 +161,7 @@ fun CarScreenContent(
 private fun DueRow(d: Due, onClick: () -> Unit) {
     val (color, label) = when (d.state) {
         DueState.LATE -> Red to "Dépassé"
-        DueState.SOON -> Yellow to "Bientôt"
+        DueState.SOON -> Color(0xFFFFB020) to "Bientôt"
         DueState.OK -> Green to "OK"
         DueState.NEVER -> Muted to "À renseigner"
     }
@@ -226,7 +226,7 @@ private fun Buttons(ok: String, onDismiss: () -> Unit, onOk: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.End) {
         Text("Annuler", color = Muted, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clip(RoundedCornerShape(50)).clickable(onClick = onDismiss).padding(horizontal = 16.dp, vertical = 10.dp))
         Spacer(Modifier.width(8.dp))
-        Text(ok, color = Navy, fontSize = 15.sp, fontWeight = FontWeight.Black, modifier = Modifier.clip(RoundedCornerShape(50)).background(Yellow).clickable(onClick = onOk).padding(horizontal = 20.dp, vertical = 10.dp))
+        Text(ok, color = OnAccent, fontSize = 15.sp, fontWeight = FontWeight.Black, modifier = Modifier.clip(RoundedCornerShape(50)).background(Yellow).clickable(onClick = onOk).padding(horizontal = 20.dp, vertical = 10.dp))
     }
 }
 
@@ -242,13 +242,13 @@ private fun AddDialog(data: Carnet.Data, preset: Kind?, onDismiss: () -> Unit, o
     var error by remember { mutableStateOf("") }
     Dialog(onDismissRequest = onDismiss) {
         Sheet {
-            Text("Ajouter un entretien", color = Yellow, fontSize = 20.sp, fontWeight = FontWeight.Black)
+            Text("Ajouter un entretien", color = AccentOnDark, fontSize = 20.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(10.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 items(data.kinds, key = { it.id }) { k ->
                     val on = k.id == kind.id
                     Text(
-                        k.name, color = if (on) Navy else Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                        k.name, color = if (on) OnAccent else Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold,
                         modifier = Modifier.clip(RoundedCornerShape(50)).background(if (on) Yellow else Navy).clickable { kind = k }.padding(horizontal = 12.dp, vertical = 8.dp),
                     )
                 }
@@ -259,7 +259,7 @@ private fun AddDialog(data: Carnet.Data, preset: Kind?, onDismiss: () -> Unit, o
                     Field("Date (jj/mm/aaaa, vide = inconnue)", date, Modifier.fillMaxWidth()) { date = it }
                     Text(
                         if (date.isBlank()) "Date inconnue ✓" else "Date inconnue",
-                        color = if (date.isBlank()) Navy else Yellow, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                        color = if (date.isBlank()) OnAccent else AccentOnDark, fontSize = 13.sp, fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(top = 6.dp).clip(RoundedCornerShape(50))
                             .background(if (date.isBlank()) Yellow else Navy).clickable { date = "" }
                             .padding(horizontal = 12.dp, vertical = 6.dp),
@@ -291,7 +291,7 @@ private fun NumberDialog(title: String, value: Int, onDismiss: () -> Unit, onOk:
     var txt by remember { mutableStateOf(if (value > 0) value.toString() else "") }
     Dialog(onDismissRequest = onDismiss) {
         Sheet {
-            Text(title, color = Yellow, fontSize = 20.sp, fontWeight = FontWeight.Black)
+            Text(title, color = AccentOnDark, fontSize = 20.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(10.dp))
             Field("Kilomètres", txt, Modifier.fillMaxWidth(), number = true) { txt = it }
             Buttons("Enregistrer", onDismiss) { txt.toIntOrNull()?.let(onOk) }
@@ -303,7 +303,7 @@ private fun NumberDialog(title: String, value: Int, onDismiss: () -> Unit, onOk:
 private fun Confirm(title: String, text: String, ok: String, onDismiss: () -> Unit, onOk: () -> Unit) {
     Dialog(onDismissRequest = onDismiss) {
         Sheet {
-            Text(title, color = Yellow, fontSize = 20.sp, fontWeight = FontWeight.Black)
+            Text(title, color = AccentOnDark, fontSize = 20.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(8.dp))
             Text(text, color = Color.White, fontSize = 15.sp)
             Buttons(ok, onDismiss, onOk)

@@ -26,7 +26,7 @@ import org.robolectric.annotation.GraphicsMode
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], qualifiers = "w853dp-h440dp-land-hdpi")
 class Screenshots {
-    @org.junit.Before fun nuitParDefaut() { KTheme.day.value = false; DayNight.panel.value = false }
+    @org.junit.Before fun nuitParDefaut() { KTheme.day.value = false; DayNight.panel.value = false; KTheme.style.value = 0; KTheme.accent.value = 0; KTheme.cover.value = null }
 
     private val media = MediaInfo("Chandelier", "Sia", playing = true)
 
@@ -295,6 +295,44 @@ class Screenshots {
             HomeContent("14:04", "Jeudi 19 novembre", "Waze", generique, RailActions(), {}, {}, {}, {}, weather = meteo)
             androidx.compose.ui.viewinterop.AndroidView(
                 { ctx -> CallOverlay.build(ctx, CallOverlay.Call(6, "Garage", "05 58 00 00 00", 83, true)) {} },
+                Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 12.dp),
+            )
+        }
+    } }
+
+    // ---------- 0.15.0 : styles et teintes profondes ----------
+    private fun nuitStyle(name: String, style: Int, accent: Int, day: Boolean = false) = captureRoboImage("build/screens/$name.png") { Scaled {
+        KTheme.day.value = day; KTheme.palette.value = 0; KTheme.style.value = style; KTheme.accent.value = accent
+        LinkStatus.state.value = Links(bt = true, wifi = true, wifiLevel = 3)
+        HomeContent("21:04", "Jeudi 19 novembre", "Waze", generique, RailActions(), {}, {}, {}, {},
+            speedKmh = 78, car = CarStats(45, 690, 13.5f, true), weather = meteo, limit = 80)
+    } }
+    @Test fun s_classique() = nuitStyle("s-classique", 0, 0)
+    @Test fun s_bleu_golf() = nuitStyle("s-bleu-golf", 0, 15)
+    @Test fun s_bordeaux() = nuitStyle("s-bordeaux", 0, 16)
+    @Test fun s_degrade() = nuitStyle("s-degrade", 1, 2)
+    @Test fun s_metal() = nuitStyle("s-metal", 2, 14)
+    @Test fun s_metal_bleu() = nuitStyle("s-metal-bleu-golf", 2, 15)
+    @Test fun s_pochette() = nuitStyle("s-pochette", 3, 7)
+    @Test fun s_verre() = nuitStyle("s-verre", 4, 11)
+    @Test fun s_jour_bordeaux() = nuitStyle("s-jour-bordeaux", 0, 16, day = true)
+    @Test fun s_jour_bleu() = nuitStyle("s-jour-bleu-golf", 2, 15, day = true)
+
+    @Test
+    fun s_reglages() = captureRoboImage("build/screens/s-reglages.png") { Scaled {
+        KTheme.day.value = false; KTheme.style.value = 2; KTheme.accent.value = 16
+        Box(Modifier.fillMaxSize().screenBg()) {
+            SettingsContent(Targets.WAZE, { true }, "0.15.0", null, false, {}, {}, {}, {}, {})
+        }
+    } }
+
+    @Test
+    fun s_appel_bordeaux() = captureRoboImage("build/screens/s-appel-bordeaux.png") { Scaled {
+        KTheme.day.value = false; KTheme.style.value = 0; KTheme.accent.value = 16
+        Box(Modifier.fillMaxSize()) {
+            HomeContent("21:04", "Jeudi 19 novembre", "Waze", generique, RailActions(), {}, {}, {}, {}, weather = meteo)
+            androidx.compose.ui.viewinterop.AndroidView(
+                { ctx -> CallOverlay.build(ctx, CallOverlay.Call(5, "Cindy", "06 12 34 56 78", 0, true)) {} },
                 Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 12.dp),
             )
         }

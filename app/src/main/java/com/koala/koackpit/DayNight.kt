@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,6 +24,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -124,7 +126,7 @@ fun DisplayPanel(onMode: (Boolean?) -> Unit, onLevel: (Int) -> Unit, onClose: ()
         contentAlignment = Alignment.Center,
     ) {
         Column(
-            Modifier.width(470.dp).clip(RoundedCornerShape(22.dp)).background(Card).border(1.5.dp, Yellow, RoundedCornerShape(22.dp))
+            Modifier.width(470.dp).clip(RoundedCornerShape(22.dp)).background(CardSolid).border(1.5.dp, AccentText, RoundedCornerShape(22.dp))
                 .clickable(enabled = false) {}.padding(20.dp),
         ) {
             Text("Affichage", color = Ink, fontSize = 22.sp, fontWeight = FontWeight.Black)
@@ -158,15 +160,42 @@ fun Chip(label: String, on: Boolean, modifier: Modifier = Modifier, onClick: () 
     Box(
         modifier.clip(RoundedCornerShape(14.dp)).background(if (on) Yellow else BtnDark).clickable(onClick = onClick).padding(vertical = 13.dp),
         contentAlignment = Alignment.Center,
-    ) { Text(label, color = if (on) Navy else Color.White, fontSize = 16.sp, fontWeight = FontWeight.Black) }
+    ) { Text(label, color = if (on) OnAccent else Color.White, fontSize = 16.sp, fontWeight = FontWeight.Black) }
 }
 
 // ---------- Réglages → Thème ----------
 
 @Composable
 fun ThemeSettings(
-    onPalette: (Int) -> Unit, onAccent: (Int) -> Unit, onTimes: (Int, Int) -> Unit,
+    onPalette: (Int) -> Unit, onAccent: (Int) -> Unit, onTimes: (Int, Int) -> Unit, onStyle: (Int) -> Unit = {},
 ) {
+    SettingsSection("Style") {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            KTheme.styles.forEachIndexed { i, name ->
+                val on = KTheme.style.value == i
+                Column(
+                    Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
+                        .border(2.5.dp, if (on) AccentText else Color.Transparent, RoundedCornerShape(12.dp))
+                        .clickable { onStyle(i) }.padding(4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    StylePreview(i)
+                    Spacer(Modifier.height(4.dp))
+                    Text(name, color = Ink, fontSize = 11.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                }
+            }
+        }
+        Text(
+            when (KTheme.style.value) {
+                KTheme.GRADIENT -> "Boutons en dégradé lumineux, avec un halo."
+                KTheme.METAL -> "Aluminium brossé : boutons en relief, reflets argentés."
+                KTheme.COVER -> "L'accent prend la couleur de la pochette du morceau en cours."
+                KTheme.GLASS -> "Cartes translucides façon verre, lueur colorée en fond."
+                else -> "Le style d'origine, couleurs unies."
+            } + " Le mode jour garde sa palette claire.",
+            color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp),
+        )
+    }
     SettingsSection("Thème · palette du mode jour") {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             KTheme.palettes.forEachIndexed { i, p ->
@@ -186,18 +215,29 @@ fun ThemeSettings(
                 }
             }
         }
-        Text("Le mode nuit reste bleu foncé et prend la couleur d'accent.", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
+        Text("Le mode nuit suit le style et la couleur d'accent.", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
     }
     SettingsSection("Couleur d'accent") {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            KTheme.accents.forEachIndexed { i, a ->
-                val on = KTheme.accent.value == i
-                Box(
-                    Modifier.size(38.dp).clip(CircleShape).background(if (on) Ink else Color.Transparent).padding(3.dp)
-                        .clip(CircleShape).background(Color(if (KTheme.day.value) a.day else a.night)).clickable { onAccent(i) },
-                )
+        for ((label, range) in listOf("Vives" to 0 until KTheme.FIRST_DEEP, "Profondes" to KTheme.FIRST_DEEP until KTheme.accents.size)) {
+            Text(label.uppercase(), color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(top = 4.dp, bottom = 4.dp))
+            for (row in range.toList().chunked(8)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 6.dp)) {
+                    for (i in row) {
+                        val a = KTheme.accents[i]
+                        val on = KTheme.accent.value == i
+                        Box(
+                            Modifier.weight(1f).aspectRatio(1f).clip(CircleShape).background(if (on) Ink else Color.Transparent).padding(3.dp)
+                                .clip(CircleShape).background(Color(if (KTheme.day.value) a.day else a.night))
+                                .then(if (a.deep) Modifier.border(1.dp, Color(a.light).copy(alpha = 0.5f), CircleShape) else Modifier)
+                                .clickable { onAccent(i) },
+                        )
+                    }
+                    repeat(8 - row.size) { Spacer(Modifier.weight(1f)) }
+                }
             }
         }
+        Text(KTheme.accents[KTheme.accent.value].name + if (KTheme.style.value == KTheme.COVER) " (remplacé par la pochette quand il y en a une)" else "",
+            color = Muted, fontSize = 11.sp)
     }
     SettingsSection("Bascule jour / nuit") {
         val d = DayNight.dayStart.value; val n = DayNight.nightStart.value
@@ -226,4 +266,29 @@ private fun StepButton(t: String, onClick: () -> Unit) {
         Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)).background(BtnDark).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Text(t, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Black) }
+}
+
+/** Aperçu miniature d'un style (fond, carte et bouton d'accent). */
+@Composable
+private fun StylePreview(i: Int) {
+    val acc = Yellow
+    val (bg, card) = when (i) {
+        KTheme.METAL -> Brush.verticalGradient(listOf(Color(0xFF2A2F38), Color(0xFF0B0D11))) to Color(0xFF1A1E25)
+        KTheme.COVER -> Brush.radialGradient(listOf(Color(0xFF6A2A8E), Color(0xFF0A0718))) to Color(0xB8140E28)
+        KTheme.GLASS -> Brush.linearGradient(listOf(Color(0xFF0B2A4A), Color(0xFF1C5A7E))) to Color.White.copy(alpha = 0.12f)
+        KTheme.GRADIENT -> Brush.linearGradient(listOf(Color(0xFF070B1A), Color(0xFF121A33))) to Color(0xFF121A33)
+        else -> Brush.linearGradient(listOf(Navy, Navy)) to Color(0xFF0E1A33)
+    }
+    val btn: Brush = when (i) {
+        KTheme.GRADIENT -> Brush.linearGradient(listOf(acc, Color(0xFFFF3D77)))
+        KTheme.METAL -> Brush.verticalGradient(listOf(Color(0xFFF3F5F8), Color(0xFF8B939E), Color(0xFFD9DEE5)))
+        KTheme.COVER -> Brush.linearGradient(listOf(Color(0xFFE85D75), Color(0xFF7B2FF7)))
+        else -> Brush.linearGradient(listOf(acc, acc))
+    }
+    Box(Modifier.fillMaxWidth().height(42.dp).clip(RoundedCornerShape(8.dp)).background(bg).padding(5.dp)) {
+        Box(Modifier.fillMaxSize().clip(RoundedCornerShape(6.dp)).background(card)
+            .then(if (i == KTheme.GLASS || i == KTheme.METAL) Modifier.border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(6.dp)) else Modifier)) {
+            Box(Modifier.align(Alignment.Center).size(18.dp).clip(CircleShape).background(btn))
+        }
+    }
 }

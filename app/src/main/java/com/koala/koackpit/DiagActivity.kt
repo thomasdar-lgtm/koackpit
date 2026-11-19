@@ -138,7 +138,7 @@ fun DiagScreen(server: FileServer, onBack: () -> Unit = {}, onZip: (File) -> Uni
     }
 
     Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().background(Bg).padding(16.dp)) {
+        Column(Modifier.fillMaxSize().screenBg().padding(16.dp)) {
             DiagHeader(
                 activeTool,
                 onBack = onBack,
@@ -206,7 +206,7 @@ fun DiagHeader(activeTool: Int, onBack: () -> Unit, onTest: () -> Unit, onLogs: 
         Spacer(Modifier.width(8.dp))
         Button(onClick = onCapture, colors = toolColors(false), contentPadding = pad) { Text("Relevé (10 min)", fontWeight = FontWeight.Black, fontSize = 14.sp) }
         Spacer(Modifier.width(8.dp))
-        Button(onClick = onExport, colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Navy), contentPadding = pad) {
+        Button(onClick = onExport, colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = OnAccent), contentPadding = pad) {
             Text("Créer le fichier", fontWeight = FontWeight.Black, fontSize = 14.sp)
         }
     }
@@ -219,7 +219,7 @@ private fun BackDisc(onClick: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         androidx.compose.material3.Icon(
-            androidx.compose.material.icons.Icons.Filled.ArrowBack, "Retour", tint = Yellow, modifier = Modifier.size(26.dp),
+            androidx.compose.material.icons.Icons.Filled.ArrowBack, "Retour", tint = AccentOnDark, modifier = Modifier.size(26.dp),
         )
     }
 }
@@ -236,7 +236,7 @@ fun ExportPanel(
     val carInfo = apps.firstOrNull { it.carInfo }
     val code = qr ?: remember(url) { url?.let { runCatching { qrBitmap(it) }.getOrNull() } }
     Column(
-        Modifier.fillMaxSize().background(Bg).clickable(enabled = false) {}.padding(16.dp),
+        Modifier.fillMaxSize().screenBg().clickable(enabled = false) {}.padding(16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             BackDisc(onClose)
@@ -266,7 +266,7 @@ fun ExportPanel(
                         ) {
                             Checkbox(
                                 checked = on, onCheckedChange = null,
-                                colors = CheckboxDefaults.colors(checkedColor = Yellow, checkmarkColor = Navy, uncheckedColor = Muted),
+                                colors = CheckboxDefaults.colors(checkedColor = Yellow, checkmarkColor = OnAccent, uncheckedColor = Muted),
                             )
                             Spacer(Modifier.width(8.dp))
                             Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
@@ -297,7 +297,7 @@ fun ExportPanel(
                     Spacer(Modifier.height(14.dp))
                     Button(
                         enabled = !loading && totalMb <= LIMIT_MB, onClick = onCreate,
-                        colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Navy),
+                        colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = OnAccent),
                     ) { Text("Créer le fichier", fontWeight = FontWeight.Black, fontSize = 18.sp) }
                     if (totalMb > LIMIT_MB) Text("Trop lourd : décoche des applis (max $LIMIT_MB Mo)", color = Red, fontSize = 13.sp)
                 } else {
@@ -320,10 +320,10 @@ fun ExportPanel(
                                 Text("Pas de Wi-Fi : active le partage de connexion du S25.", color = Red, fontSize = 14.sp)
                             }
                             Spacer(Modifier.height(10.dp))
-                            Button(onClick = onCreate, colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Navy)) {
+                            Button(onClick = onCreate, colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = OnAccent)) {
                                 Text("Recréer le fichier", fontWeight = FontWeight.Bold)
                             }
-                            Button(onClick = { onShare(result) }, colors = ButtonDefaults.buttonColors(containerColor = Navy, contentColor = Yellow)) {
+                            Button(onClick = { onShare(result) }, colors = ButtonDefaults.buttonColors(containerColor = Navy, contentColor = AccentOnDark)) {
                                 Text("Partager…")
                             }
                         }
@@ -340,5 +340,5 @@ fun ExportPanel(
 /** Bouton d'outil : jaune quand c'est son résultat qui est affiché, sombre sinon. */
 @Composable
 private fun toolColors(active: Boolean) =
-    if (active) ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = Navy)
-    else ButtonDefaults.buttonColors(containerColor = Card, contentColor = Yellow)
+    if (active) ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = OnAccent)
+    else ButtonDefaults.buttonColors(containerColor = CardSolid, contentColor = AccentText)

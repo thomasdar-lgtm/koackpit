@@ -217,25 +217,25 @@ fun UpdateChip(modifier: Modifier, version: String, progress: Float?, status: St
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.size(30.dp).clip(CircleShape).background(Yellow), contentAlignment = Alignment.Center) {
-            Icon(Icons.Filled.Refresh, null, tint = Navy, modifier = Modifier.size(18.dp))
+            Icon(Icons.Filled.Refresh, null, tint = OnAccent, modifier = Modifier.size(18.dp))
         }
         Spacer(Modifier.width(8.dp))
         Column(Modifier.width(if (status.startsWith("Échec") || status.startsWith("Installation")) 120.dp else 64.dp)) {
             Text("Mise à jour", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             when {
                 status.isNotEmpty() && progress == null ->
-                    Text(status, color = if (status.startsWith("Échec")) Red else Yellow, fontSize = 10.sp, maxLines = 3, lineHeight = 12.sp)
+                    Text(status, color = if (status.startsWith("Échec")) Red else AccentText, fontSize = 10.sp, maxLines = 3, lineHeight = 12.sp)
                 else -> Text(version, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Black)
             }
         }
         Spacer(Modifier.width(8.dp))
         when {
-            progress != null -> Text("${(progress * 100).toInt()} %", color = Yellow, fontSize = 14.sp, fontWeight = FontWeight.Black)
+            progress != null -> Text("${(progress * 100).toInt()} %", color = AccentText, fontSize = 14.sp, fontWeight = FontWeight.Black)
             status.startsWith("Installation") -> {}
             else -> Box(
                 Modifier.clip(RoundedCornerShape(12.dp)).background(Yellow).clickable(onClick = onInstall)
                     .padding(horizontal = 12.dp, vertical = 8.dp),
-            ) { Text(if (status.startsWith("Échec")) "Réessayer" else "Installer", color = Navy, fontSize = 13.sp, fontWeight = FontWeight.Black) }
+            ) { Text(if (status.startsWith("Échec")) "Réessayer" else "Installer", color = OnAccent, fontSize = 13.sp, fontWeight = FontWeight.Black) }
         }
     }
 }

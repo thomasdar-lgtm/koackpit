@@ -68,14 +68,14 @@ object NotifOverlay {
         val row = LinearLayout(app).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            background = round(Card.toArgb(), dp(app, 18).toFloat(), Color.argb(150, 255, 204, 0), dp(app, 1))
+            background = round(CardSolid.toArgb(), dp(app, 18).toFloat(), AccentOnDark.copy(alpha = 0.6f).toArgb(), dp(app, 1))
             elevation = dp(app, 10).toFloat()
             setPadding(dp(app, 10), dp(app, 8), dp(app, 16), dp(app, 8))
             setOnClickListener { onTap() }
         }
         row.addView(TextView(app).apply {
             text = if (n.missedCall) "✆" else (n.title.firstOrNull { it.isLetterOrDigit() }?.uppercase() ?: "✉")
-            textSize = 17f; setTextColor(if (n.missedCall) Color.WHITE else navy); typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER
+            textSize = 17f; setTextColor(if (n.missedCall) Color.WHITE else OnAccent.toArgb()); typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER
             background = round(if (n.missedCall) red else yellow, dp(app, 19).toFloat())
             layoutParams = LinearLayout.LayoutParams(dp(app, 38), dp(app, 38))
         })

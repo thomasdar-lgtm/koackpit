@@ -2,6 +2,7 @@ package com.koala.koackpit
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -44,6 +45,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -59,7 +61,15 @@ import androidx.compose.ui.unit.sp
 
 val NavBlue = Color(0xFF33CCFF)
 val PhoneGreen = Color(0xFF2ECC71)
-val Rail: Color get() = if (KTheme.day.value) Color(KTheme.pal.rail) else Color(0xFF050E24)
+val Rail: Color get() = when {
+    KTheme.day.value -> Color(KTheme.pal.rail)
+    KTheme.style.value == KTheme.METAL -> Color(0xFF0E1014)
+    KTheme.style.value == KTheme.GLASS -> Color.White.copy(alpha = 0.05f)
+    KTheme.style.value == KTheme.COVER -> Color.Black.copy(alpha = 0.35f)
+    KTheme.style.value == KTheme.GRADIENT -> Color(0xFF050815)
+    KTheme.acc.deep -> Color(0xFF07090E)
+    else -> Color(0xFF050E24)
+}
 
 data class MediaInfo(
     val title: String = "",
@@ -92,21 +102,21 @@ fun AppRail(time: String, active: String, a: RailActions, links: Links? = LinkSt
         Text(time, color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Black)
         LinkIcons(links)
         PhoneBattery()
-        // GPS et Musique retirés (accessibles depuis l'accueil) : Affichage et Caméra à la place
-        RailIcon(Icons.Filled.Phone, PhoneGreen, Color.White, active == "phone", a.onPhone)
-        RailIcon(null, BtnDark, Yellow, DayNight.panel.value, a.onDisplay, text = if (KTheme.day.value) "☀" else "☾")
-        RailIcon(null, BtnDark, Yellow, false, a.onCamera, camera = true)
-        RailIcon(Icons.Filled.Info, BtnDark, Yellow, active == "car", a.onCar)
+        // Téléphone, Conduite (volant), Affichage, Caméra ; Ma Golf est sur la carte de l'accueil
+        RailIcon(null, PhoneGreen, Color.White, active == "phone", a.onPhone, res = R.drawable.ic_rail_phone)
+        RailIcon(null, BtnDark, AccentOnDark, active == "drive", a.onDrive, res = R.drawable.ic_rail_wheel)
+        RailIcon(null, BtnDark, AccentOnDark, DayNight.panel.value, a.onDisplay, res = R.drawable.ic_rail_daynight)
+        RailIcon(null, BtnDark, AccentOnDark, false, a.onCamera, res = R.drawable.ic_rail_camera)
         Spacer(Modifier.weight(1f))
-        RailIcon(Icons.Filled.Settings, BtnDark, Yellow, active == "settings", a.onSettings)
-        RailIcon(null, BtnDark, Color.White, active == "apps", a.onApps, grid = true)
+        RailIcon(null, BtnDark, AccentOnDark, active == "settings", a.onSettings, res = R.drawable.ic_rail_settings)
+        RailIcon(null, BtnDark, Color.White, active == "apps", a.onApps, res = R.drawable.ic_rail_apps)
     }
 }
 
 @Composable
 fun RailIcon(
     icon: ImageVector?, bg: Color, ink: Color, active: Boolean, onClick: () -> Unit,
-    note: Boolean = false, grid: Boolean = false, text: String? = null, camera: Boolean = false,
+    note: Boolean = false, grid: Boolean = false, text: String? = null, camera: Boolean = false, res: Int? = null,
 ) {
     Box(
         Modifier.size(46.dp).clip(RoundedCornerShape(16.dp))
@@ -114,10 +124,13 @@ fun RailIcon(
         contentAlignment = Alignment.Center,
     ) {
         Box(
-            Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)).background(bg).clickable(onClick = onClick),
+            Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)).background(bg)
+                .then(if (bg == BtnDark && CardBorder.alpha > 0f) Modifier.border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(14.dp)) else Modifier)
+                .clickable(onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
             when {
+                res != null -> Icon(androidx.compose.ui.res.painterResource(res), null, tint = ink, modifier = Modifier.size(26.dp))
                 icon != null -> Icon(icon, null, tint = ink, modifier = Modifier.size(24.dp))
                 note -> NoteGlyph(ink, 22)
                 grid -> GridGlyph(ink, 19)
@@ -155,7 +168,7 @@ fun GridGlyph(ink: Color, size: Int) {
 @Composable
 fun CardBox(modifier: Modifier, onClick: (() -> Unit)? = null, content: @Composable BoxScope.() -> Unit) {
     Box(
-        modifier.clip(RoundedCornerShape(18.dp)).background(Card)
+        modifier.clip(RoundedCornerShape(18.dp)).cardBg(RoundedCornerShape(18.dp))
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(12.dp),
         content = content,
@@ -175,6 +188,14 @@ fun Artwork(modifier: Modifier, title: String = "", artist: String = "") {
         value = if (title.isBlank()) null else kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { CoverArt.fetch(ctx, title, artist) }
     }
     val art = found ?: PhoneLink.artFor(title)
+    // Style Pochette : l'accent prend la couleur dominante de la pochette
+    androidx.compose.runtime.LaunchedEffect(art) {
+        KTheme.cover.value = art?.let { a ->
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                runCatching { KTheme.dominant(a.asAndroidBitmap()) }.getOrNull()
+            }
+        }
+    }
     Box(
         modifier.clip(RoundedCornerShape(14.dp))
             .background(Brush.linearGradient(listOf(Color(0xFFE85D75), Color(0xFF7B2FF7)))),
@@ -207,8 +228,8 @@ fun MediaCardWide(
                 Spacer(Modifier.weight(1f))
                 // Paroles : ouvre le panneau à la place des cartes de droite
                 if (onLyrics != null) Text(
-                    "♪ Paroles", color = Navy, fontSize = 15.sp, fontWeight = FontWeight.Black,
-                    modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(Yellow).clickable(onClick = onLyrics)
+                    "♪ Paroles", color = OnAccent, fontSize = 15.sp, fontWeight = FontWeight.Black,
+                    modifier = Modifier.accentBg(RoundedCornerShape(14.dp)).clip(RoundedCornerShape(14.dp)).clickable(onClick = onLyrics)
                         .padding(horizontal = 16.dp, vertical = 7.dp),
                 )
             }
@@ -242,8 +263,8 @@ fun MediaCardTall(
                 Caption("En écoute · " + (PhoneLink.appName.value.takeIf { it.isNotEmpty() && PhoneLink.matches(m.title) } ?: "Bluetooth"))
                 Spacer(Modifier.weight(1f))
                 if (onLyrics != null) Text(
-                    "♪ Paroles", color = Navy, fontSize = 15.sp, fontWeight = FontWeight.Black,
-                    modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(Yellow).clickable(onClick = onLyrics)
+                    "♪ Paroles", color = OnAccent, fontSize = 15.sp, fontWeight = FontWeight.Black,
+                    modifier = Modifier.accentBg(RoundedCornerShape(14.dp)).clip(RoundedCornerShape(14.dp)).clickable(onClick = onLyrics)
                         .padding(horizontal = 16.dp, vertical = 7.dp),
                 )
             }
@@ -311,10 +332,14 @@ fun NavCard(
     onDrive: () -> Unit, onHomeAddr: (() -> Unit)?, onWorkAddr: (() -> Unit)?,
     weather: Weather.Forecast? = Weather.state.value,
     limit: Int? = null,
+    onCar: () -> Unit = {},
 ) {
+    val classic = !KTheme.day.value && KTheme.style.value == KTheme.CLASSIC && !KTheme.acc.deep
     Box(
         modifier.clip(RoundedCornerShape(18.dp))
-            .background(Brush.linearGradient(if (KTheme.day.value) listOf(Card, CardHi) else listOf(Color(0xFF1D3557), Color(0xFF16294A))))
+            .then(if (classic) Modifier.background(Brush.linearGradient(listOf(Color(0xFF1D3557), Color(0xFF16294A))))
+                else if (KTheme.day.value) Modifier.background(Brush.linearGradient(listOf(Card, CardHi)))
+                else Modifier.cardBg(RoundedCornerShape(18.dp)))
             .clickable(onClick = onDrive).padding(14.dp)
     ) {
         Column(Modifier.fillMaxSize()) {
@@ -338,28 +363,43 @@ fun NavCard(
             }
             Spacer(Modifier.weight(1f))
             if (weather != null) { WeatherStrip(weather); Spacer(Modifier.weight(1f)) }
-            // Carburant : jauge + litres + autonomie estimée
-            if (car != null) {
-                val low = car.fuelL <= 8
-                Row(verticalAlignment = Alignment.Bottom) {
+            // En bas : bouton Ma Golf (photo de profil, ouvre l'écran voiture / entretien), carburant et autonomie
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                GolfButton(onCar)
+                Spacer(Modifier.width(14.dp))
+                if (car != null) {
+                    val low = car.fuelL <= 8
                     Column {
                         Text("Carburant", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         Text("${car.fuelL} L", color = if (low) Red else Ink, fontSize = 22.sp, fontWeight = FontWeight.Black)
                     }
                     Spacer(Modifier.weight(1f))
                     Column(horizontalAlignment = Alignment.End) {
-                        Text(if (car.learned) "Autonomie" else "Autonomie estimée", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Text("≈ ${car.rangeKm} km", color = if (low) Red else AccentText, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                        Text(if (car.learned) "Autonomie" else "Autonomie estimée", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        Text("≈ ${car.rangeKm} km", color = if (low) Red else AccentText, fontSize = 22.sp, fontWeight = FontWeight.Black, maxLines = 1)
                     }
+                } else {
+                    Text("Carburant et autonomie au démarrage du moteur", color = Muted, fontSize = 13.sp, modifier = Modifier.weight(1f))
                 }
-            } else {
-                Text("Infos voiture au démarrage du moteur", color = Muted, fontSize = 13.sp)
-            }
-            Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Pill("Conduite", Yellow, Navy, onDrive)
             }
         }
+    }
+}
+
+/** Bouton « Ma Golf · entretien » : la Golf de profil, ouvre l'écran de la voiture. */
+@Composable
+fun GolfButton(onClick: () -> Unit) {
+    val shape = RoundedCornerShape(14.dp)
+    Column(
+        Modifier.width(132.dp).clip(shape).background(Ink.copy(alpha = 0.07f))
+            .border(1.dp, AccentText.copy(alpha = 0.45f), shape).clickable(onClick = onClick).padding(horizontal = 8.dp, vertical = 5.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        androidx.compose.foundation.Image(
+            androidx.compose.ui.res.painterResource(R.drawable.golf_profil), "Ma Golf",
+            Modifier.fillMaxWidth().height(46.dp), contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+        )
+        Text("Ma Golf · entretien ›", color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Black, maxLines = 1)
     }
 }
 
@@ -427,10 +467,10 @@ fun HomeContent(
     var lyrics by remember { mutableStateOf(lyricsOpen) }
     val ctxD = androidx.compose.ui.platform.LocalContext.current
     Box(Modifier.fillMaxSize()) {
-    Row(Modifier.fillMaxSize().background(Bg)) {
+    Row(Modifier.fillMaxSize().screenBg()) {
         AppRail(time, "", rail)
         Row(Modifier.fillMaxSize().padding(10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            NavCard(Modifier.weight(1.25f).fillMaxHeight(), navName, speedKmh, car, rail.onDrive, onHomeAddr, onWorkAddr, weather, limit)
+            NavCard(Modifier.weight(1.25f).fillMaxHeight(), navName, speedKmh, car, rail.onDrive, onHomeAddr, onWorkAddr, weather, limit, rail.onCar)
             if (lyrics) LyricsPanel(Modifier.weight(1f).fillMaxHeight(), media, onPrev, onPlay, onNext, lyricsPreview) { lyrics = false }
             else MediaCardTall(Modifier.weight(1f).fillMaxHeight(), media, onPrev, onPlay, onNext, rail.onMusic,
                 onLyrics = if (PhoneLink.connected.value || lyricsPreview != null) ({ lyrics = true }) else null)
@@ -482,7 +522,7 @@ fun DrivePanel(
     onHome: () -> Unit, onClose: () -> Unit, onPhone: () -> Unit, onCar: () -> Unit, onApps: () -> Unit,
     onBtSource: (() -> Unit)?,
 ) {
-    BoxWithConstraints(Modifier.fillMaxSize().background(Bg)) {
+    BoxWithConstraints(Modifier.fillMaxSize().screenBg()) {
         val narrow = maxWidth < 300.dp
         Column(Modifier.fillMaxSize().padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             // Barre du haut : accueil, heure, fermer
@@ -517,7 +557,7 @@ fun DrivePanel(
                         MediaControls(media, onPrev, onPlay, onNext, big = !narrow)
                         // À côté du GPS : la ligne chantée et la suivante, sous les commandes
                         if (narrow) LyricsView(media.title, media.artist, media.playing, big = false, modifier = Modifier.height(64.dp))
-                        if (onBtSource != null) Pill("Activer le Bluetooth", Yellow, Navy, onBtSource)
+                        if (onBtSource != null) Pill("Activer le Bluetooth", Yellow, OnAccent, onBtSource)
                         if (media.warning.isNotEmpty()) Text(media.warning, color = Red, fontSize = 11.sp, textAlign = TextAlign.Center)
                     }
                     if (!narrow) Box(Modifier.weight(1.2f).fillMaxHeight().padding(start = 8.dp), contentAlignment = Alignment.Center) {
@@ -531,7 +571,7 @@ fun DrivePanel(
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
                 DockIcon(Icons.Filled.Phone, PhoneGreen, Color.White, onPhone)
-                DockIcon(Icons.Filled.Info, BtnDark, Yellow, onCar)
+                DockIcon(Icons.Filled.Info, BtnDark, AccentOnDark, onCar)
                 Box(
                     Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(BtnDark).clickable(onClick = onApps),
                     contentAlignment = Alignment.Center,
@@ -554,7 +594,7 @@ fun SmallRound(icon: ImageVector, onClick: () -> Unit) {
     Box(
         Modifier.size(38.dp).clip(CircleShape).background(BtnDark).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) { Icon(icon, null, tint = Yellow, modifier = Modifier.size(20.dp)) }
+    ) { Icon(icon, null, tint = AccentOnDark, modifier = Modifier.size(20.dp)) }
 }
 
 /**

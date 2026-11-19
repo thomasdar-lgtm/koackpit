@@ -147,10 +147,10 @@ fun SlimContent(
     onToggle: (SlimItem) -> Unit, onRecommended: () -> Unit,
 ) {
     val off = items.count { !it.enabled }
-    Column(Modifier.fillMaxSize().background(Bg)) {
+    Column(Modifier.fillMaxSize().screenBg()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(42.dp).clip(CircleShape).background(Card).clickable(onClick = onBack), contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.ArrowBack, "Retour", tint = Yellow, modifier = Modifier.size(24.dp))
+                Icon(Icons.Filled.ArrowBack, "Retour", tint = AccentOnDark, modifier = Modifier.size(24.dp))
             }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
@@ -161,7 +161,7 @@ fun SlimContent(
                 )
             }
             Text(
-                "Désactiver les recommandées", color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Black,
+                "Désactiver les recommandées", color = OnAccent, fontSize = 14.sp, fontWeight = FontWeight.Black,
                 modifier = Modifier.clip(RoundedCornerShape(50)).background(if (busy == null) Yellow else Muted)
                     .clickable(enabled = busy == null, onClick = onRecommended).padding(horizontal = 16.dp, vertical = 9.dp),
             )
@@ -189,7 +189,7 @@ private fun SlimRow(it: SlimItem, working: Boolean, onClick: () -> Unit) {
                 Text(it.c.label, color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 if (it.c.recommended) {
                     Spacer(Modifier.width(8.dp))
-                    Text("recommandé", color = Yellow, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                    Text("recommandé", color = AccentText, fontSize = 11.sp, fontWeight = FontWeight.Bold,
                         modifier = Modifier.clip(RoundedCornerShape(50)).background(Yellow.copy(alpha = 0.15f)).padding(horizontal = 8.dp, vertical = 2.dp))
                 }
             }
