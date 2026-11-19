@@ -44,10 +44,11 @@ object Apps {
 
     /** Ouvre la première appli installée de la liste. Renvoie false si aucune. */
     /** Dernière appli ouverte à la main depuis Koackpit (la surveillance du démarrage ne la referme pas). */
-    @Volatile var userOpenAt = 0L
+    fun userOpenAt(ctx: Context) = ctx.getSharedPreferences("ui", Context.MODE_PRIVATE).getLong("ouverture", 0L)
+    private fun mark(ctx: Context) = ctx.getSharedPreferences("ui", Context.MODE_PRIVATE).edit().putLong("ouverture", System.currentTimeMillis()).apply()
 
     fun open(ctx: Context, pkgs: List<String>): Boolean {
-        userOpenAt = android.os.SystemClock.elapsedRealtime()
+        mark(ctx)
         for (p in pkgs) {
             val i = ctx.packageManager.getLaunchIntentForPackage(p) ?: continue
             runCatching {
@@ -59,7 +60,7 @@ object Apps {
     }
 
     fun open(ctx: Context, a: LaunchApp) = runCatching {
-        userOpenAt = android.os.SystemClock.elapsedRealtime()
+        mark(ctx)
         ctx.startActivity(
             Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
                 .setClassName(a.pkg, a.activity)

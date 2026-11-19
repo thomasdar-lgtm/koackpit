@@ -99,8 +99,11 @@ class WakeService : Service() {
         }
 
         /**
-         * Démarrage : pendant 90 s, si la page Bluetooth de l'autoradio passe devant (elle s'ouvre seule quand le
-         * téléphone se connecte), Koackpit revient. Pas pendant un appel, ni si Thomas a ouvert une appli lui-même.
+         * Démarrage : pendant 90 s, si la page Bluetooth de l'autoradio ou le bureau d'origine passe devant, Koackpit
+         * revient. Constaté au journal : ~40 s après chaque démarrage, l'autoradio relance Koackpit deux fois de suite
+         * (« Service démarré » ×2) ; l'écran Koackpit disparaît alors et la page Bluetooth restée dessous réapparaît.
+         * Lancée aussi au redémarrage du service pour cette raison. Pas pendant un appel, ni si Thomas a ouvert une
+         * appli lui-même depuis Koackpit dans la dernière minute.
          */
         private var guardUntil = 0L
         fun startupGuard(ctx: Context) {
@@ -114,14 +117,19 @@ class WakeService : Service() {
                 while (android.os.SystemClock.elapsedRealtime() < guardUntil && back < 6) {
                     Thread.sleep(2000)
                     if ((CarLink.hfpState() ?: 0) >= 4) continue
-                    if (android.os.SystemClock.elapsedRealtime() - Apps.userOpenAt < 60_000) continue
+                    if (System.currentTimeMillis() - Apps.userOpenAt(app) in 0..60_000) continue
+                    if (!(app.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager).isInteractive) continue
                     val top = runCatching {
                         RootAccess.run(app, "dumpsys activity activities 2>&1 | grep -m 1 mResumedActivity", 10_000)
                     }.getOrDefault("")
-                    if (!top.contains("android.car.app.bt/")) continue
+                    val what = when {
+                        top.contains("android.car.app.bt/") -> "page Bluetooth de l'autoradio"
+                        top.contains("com.android.launcher3/") -> "bureau d'origine"
+                        else -> continue
+                    }
                     back++
                     val t = (android.os.SystemClock.elapsedRealtime() - start) / 1000
-                    WakeLog.add(app, "Démarrage : page Bluetooth de l'autoradio devant (+$t s) → retour sur Koackpit")
+                    WakeLog.add(app, "Démarrage : $what devant (+$t s) → retour sur Koackpit")
                     Handler(Looper.getMainLooper()).post {
                         runCatching {
                             if (MusicActivity.isOpen()) MusicActivity.restart()
@@ -295,6 +303,7 @@ class WakeService : Service() {
         })
         watchWifi()
         unthrottleWifiScan()
+        startupGuard(this)
         // L'autoradio réactive au redémarrage les applis allégées (FM, DVD…) : on les redésactive (après 50 s,
         // pour ne pas gêner une mise à jour ni les autres accès système du démarrage)
         Thread { Thread.sleep(50_000); runCatching { Slim.reapply(applicationContext) } }.start()
