@@ -40,7 +40,7 @@ object RootWindows {
     }
 
     /** S'assure que l'outil résident tourne, à la bonne version. */
-    private fun ensure(ctx: Context): Boolean {
+    fun ensure(ctx: Context): Boolean {
         val v = ask("version", 1500)
         if (v == RootTool.VERSION) return true
         if (v != null) ask("quit", 1500)          // ancienne version (après une mise à jour) : remplacée
@@ -56,6 +56,17 @@ object RootWindows {
         if (ensure(app)) ask(args.joinToString(" "), 8000)?.let { return it }
         // Dernier recours : ancienne méthode (lente mais éprouvée)
         RootAccess.run(app, RootTool.command(app.packageName, *args), 20_000)
+    }
+
+    /**
+     * Écran au premier plan, via l'outil résident uniquement (jamais l'accès système : appelée souvent).
+     * [start] : autorise un (re)lancement de l'outil s'il ne répond pas (à n'utiliser qu'une fois).
+     */
+    fun top(ctx: Context, start: Boolean = false): String? {
+        ask("top", 1500)?.takeIf { '/' in it }?.let { return it }
+        if (!start) return null
+        synchronized(lock) { runCatching { ensure(ctx.applicationContext) } }
+        return ask("top", 1500)?.takeIf { '/' in it }
     }
 
     /** À l'avance (démarrage du service) : la première conduite sera rapide elle aussi. */

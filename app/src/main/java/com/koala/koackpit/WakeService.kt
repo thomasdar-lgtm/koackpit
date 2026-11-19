@@ -99,12 +99,12 @@ class WakeService : Service() {
         }
 
         /**
-         * Démarrage : pendant 90 s, si plus aucun écran Koackpit n'est affiché (page Bluetooth de l'autoradio ou
-         * bureau d'origine passés devant), Koackpit revient. Sans l'accès système : en 0.15.1–0.15.4 elle le
-         * sollicitait toutes les 2 s, ce qui redémarrait son service en boucle et pouvait faire échouer une mise à jour. Constaté au journal : ~40 s après chaque démarrage, l'autoradio relance Koackpit deux fois de suite
-         * (« Service démarré » ×2) ; l'écran Koackpit disparaît alors et la page Bluetooth restée dessous réapparaît.
-         * Lancée aussi au redémarrage du service pour cette raison. Pas pendant un appel, ni si Thomas a ouvert une
-         * appli lui-même depuis Koackpit dans la dernière minute.
+         * Démarrage (réveil, relance de Koackpit par l'autoradio, mise à jour) : pendant 90 s, si la page Bluetooth
+         * de l'autoradio ou son bureau d'origine passe devant, Koackpit revient tout de suite (contrôle chaque
+         * seconde). Uniquement ces deux écrans : jamais la caméra de recul ni une autre appli.
+         * L'écran au premier plan est lu par l'outil résident (instantané, sans redémarrer l'accès système :
+         * en 0.15.1–0.15.4 la surveillance le redémarrait toutes les 2 s). Rien pendant un appel, pendant
+         * l'ouverture voulue de la page Bluetooth (remise du son), ni juste après une appli ouverte par Thomas.
          */
         private var guardUntil = 0L
         fun startupGuard(ctx: Context) {
@@ -115,20 +115,24 @@ class WakeService : Service() {
             if (!first) return
             Thread {
                 var back = 0
-                var hidden = 0
+                var started = false
                 while (android.os.SystemClock.elapsedRealtime() < guardUntil && back < 6) {
-                    Thread.sleep(2000)
-                    val skip = Front.visible > 0 ||
-                        (CarLink.hfpState() ?: 0) >= 4 ||
-                        System.currentTimeMillis() - Apps.userOpenAt(app) in 0..60_000 ||
-                        !(app.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager).isInteractive
-                    if (skip) { hidden = 0; continue }
-                    // 3 contrôles de suite (~6 s) : laisse passer les passages éclair voulus (remise du son Bluetooth)
-                    if (++hidden < 3) continue
-                    hidden = 0
+                    Thread.sleep(1000)
+                    val now = android.os.SystemClock.elapsedRealtime()
+                    if (Front.visible > 0) continue
+                    if ((CarLink.hfpState() ?: 0) >= 4) continue
+                    if (now - BtSound.openedAt < 3000) continue
+                    if (System.currentTimeMillis() - Apps.userOpenAt(app) in 0..60_000) continue
+                    if (!(app.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager).isInteractive) continue
+                    // Outil résident : un seul lancement autorisé par surveillance (après une mise à jour il change)
+                    val top = RootWindows.top(app, start = !started).also { started = true } ?: continue
+                    val what = when {
+                        top.startsWith("android.car.app.bt/") && top.endsWith("BtMain") -> "page Bluetooth de l'autoradio"
+                        top.startsWith("com.android.launcher3/") -> "bureau d'origine"
+                        else -> continue
+                    }
                     back++
-                    val t = (android.os.SystemClock.elapsedRealtime() - start) / 1000
-                    WakeLog.add(app, "Démarrage : Koackpit n'est plus affiché (+$t s) → retour")
+                    WakeLog.add(app, "Démarrage : $what devant (+${(now - start) / 1000} s) → retour sur Koackpit")
                     Handler(Looper.getMainLooper()).post {
                         runCatching {
                             if (MusicActivity.isOpen()) MusicActivity.restart()
@@ -136,6 +140,7 @@ class WakeService : Service() {
                                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
                         }
                     }
+                    Thread.sleep(1500)
                 }
             }.start()
         }

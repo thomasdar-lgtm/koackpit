@@ -34,6 +34,8 @@ object BtSound {
 
     private var lastHfp = -1
     private var busy = false
+    /** Ouverture volontaire de la page Bluetooth (la surveillance du démarrage la laisse faire). */
+    @Volatile var openedAt = 0L
 
     fun check(ctx: Context) {
         val app = ctx.applicationContext
@@ -77,6 +79,7 @@ object BtSound {
         WakeLog.add(app, "Son Bluetooth : page Bluetooth un instant (téléphone connecté)")
         // Cache-écran aux couleurs de Koackpit par-dessus tout : la page Bluetooth s'ouvre dessous
         // (elle doit être réellement affichée pour que l'autoradio rouvre le son) sans être vue.
+        openedAt = android.os.SystemClock.elapsedRealtime()
         val cover = cover(app)
         runCatching {
             app.startActivity(Intent().setComponent(SplitScreen.BT_MAIN).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))

@@ -130,6 +130,12 @@ object RootTool {
             }
             "dismiss" -> { step = "fermeture"; call("dismissSplitScreenMode", false); "OK" }
             "stacks" -> stacks()
+            // Écran au premier plan (« paquet/activité ») : sert à la surveillance du démarrage
+            "top" -> {
+                @Suppress("UNCHECKED_CAST")
+                val t = (call("getTasks", 1) as List<Any>).firstOrNull()
+                t?.let { runCatching { it.javaClass.getField("topActivity").get(it) as ComponentName? }.getOrNull()?.flattenToString() } ?: "aucun"
+            }
             else -> "ERREUR commande inconnue"
         }
     } catch (t: Throwable) {
