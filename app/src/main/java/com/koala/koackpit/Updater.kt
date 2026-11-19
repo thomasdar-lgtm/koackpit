@@ -166,7 +166,7 @@ object Updater {
                 return@launch
             }
             // Appli compagnon présente : elle affiche l'écran de mise à jour et installe
-            Apps.markUserOpen(app)
+            // Pas de markUserOpen ici : après la mise à jour, la surveillance doit pouvoir ramener Koackpit
             if (UpdaterApp.handOff(app, f)) return@launch
             upd.status = "Installation…"
             val r = withContext(Dispatchers.IO) {
@@ -188,7 +188,6 @@ object Updater {
     }
 
     fun install(ctx: Context, file: File) {
-        Apps.markUserOpen(ctx)
         // L'installateur ne doit jamais s'ouvrir dans l'écran partagé (il y resterait bloqué)
         val wasOpen = MusicActivity.isOpen()
         MusicActivity.closeIfOpen()
