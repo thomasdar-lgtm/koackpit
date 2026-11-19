@@ -125,11 +125,11 @@ fun CarScreenContent(
                 )
                 Spacer(Modifier.height(8.dp))
                 Column(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Navy).clickable(onClick = onOdometer).padding(vertical = 8.dp),
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Inset).clickable(onClick = onOdometer).padding(vertical = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text("Compteur", color = Muted, fontSize = 11.sp)
-                    Text(if (data.odometer > 0) km(data.odometer) else "à renseigner", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                    Text(if (data.odometer > 0) km(data.odometer) else "à renseigner", color = Ink, fontSize = 18.sp, fontWeight = FontWeight.Black)
                 }
             }
             // Carnet d'entretien
@@ -161,19 +161,19 @@ fun CarScreenContent(
 private fun DueRow(d: Due, onClick: () -> Unit) {
     val (color, label) = when (d.state) {
         DueState.LATE -> Red to "Dépassé"
-        DueState.SOON -> Color(0xFFFFB020) to "Bientôt"
+        DueState.SOON -> (if (KTheme.day.value) Color(0xFFA35F00) else Color(0xFFFFB020)) to "Bientôt"
         DueState.OK -> Green to "OK"
         DueState.NEVER -> Muted to "À renseigner"
     }
     val next = listOfNotNull(d.dueKm?.let { km(it) }, d.dueDate?.let { monthFmt.format(it) }).joinToString(" · ")
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Navy).clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 8.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Inset).clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.size(10.dp).clip(CircleShape).background(color))
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Text(d.kind.name, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text(d.kind.name, color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             Text(
                 if (d.last == null) "Jamais renseigné — touche pour l'ajouter" else "Prochain : $next",
                 color = Muted, fontSize = 12.sp,
@@ -210,7 +210,7 @@ private fun Sheet(content: @Composable () -> Unit) {
 @Composable
 private fun Field(label: String, value: String, modifier: Modifier = Modifier, number: Boolean = false, onChange: (String) -> Unit) {
     Column(modifier) {
-        Text(label, color = Muted, fontSize = 12.sp)
+        Text(label, color = MutedOnDark, fontSize = 12.sp)
         BasicTextField(
             value, { onChange(if (number) it.filter(Char::isDigit).take(7) else it.take(80)) },
             singleLine = true, cursorBrush = SolidColor(Yellow),
@@ -224,7 +224,7 @@ private fun Field(label: String, value: String, modifier: Modifier = Modifier, n
 @Composable
 private fun Buttons(ok: String, onDismiss: () -> Unit, onOk: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.End) {
-        Text("Annuler", color = Muted, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clip(RoundedCornerShape(50)).clickable(onClick = onDismiss).padding(horizontal = 16.dp, vertical = 10.dp))
+        Text("Annuler", color = MutedOnDark, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clip(RoundedCornerShape(50)).clickable(onClick = onDismiss).padding(horizontal = 16.dp, vertical = 10.dp))
         Spacer(Modifier.width(8.dp))
         Text(ok, color = OnAccent, fontSize = 15.sp, fontWeight = FontWeight.Black, modifier = Modifier.clip(RoundedCornerShape(50)).background(Yellow).clickable(onClick = onOk).padding(horizontal = 20.dp, vertical = 10.dp))
     }

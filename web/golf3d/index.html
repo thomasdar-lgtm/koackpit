@@ -57,6 +57,10 @@
 <div id="credit">Modèle 3D : <a href="https://sketchfab.com/3d-models/volkswagen-golf-5-20-tdi-2ef3655a2b6e4af8b7709624673ea884">bimboit34 (Sketchfab)</a><br>Licence <a href="http://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a></div>
 <div id="info"><h2></h2><p></p><button id="infoBack">↩ Vue générale</button></div>
 <div id="tip">Touchez une pièce pour la voir de près</div>
+<script>
+  // Écran voiture de l'autoradio : toute erreur part dans le journal Koackpit
+  window.onerror = function (m, s, l) { try { window.KoackpitHost && window.KoackpitHost.log('erreur JS : ' + m + ' (ligne ' + l + ')'); } catch (e) {} };
+</script>
 <div id="load"><div>Chargement de la Golf…</div><div id="prog"><i></i></div></div>
 <div id="bar">
   <button data-view="front">Avant</button>

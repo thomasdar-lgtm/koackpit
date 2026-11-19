@@ -25,19 +25,22 @@ import org.robolectric.annotation.GraphicsMode
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], qualifiers = "w853dp-h440dp-land-hdpi")
-class Screenshots {
-    @org.junit.Before fun nuitParDefaut() { KTheme.day.value = false; DayNight.panel.value = false; KTheme.style.value = 0; KTheme.accent.value = 0; KTheme.cover.value = null }
+open class Screenshots {
+    /** Préfixe des fichiers ("" = nuit, "J-" = toutes les vues refaites en mode jour, "B-" = nuit Bordeaux). */
+    open val p = ""
+    open fun theme() {}
+    @org.junit.Before fun nuitParDefaut() { KTheme.day.value = false; DayNight.panel.value = false; KTheme.style.value = 0; KTheme.accent.value = 0; KTheme.cover.value = null; KTheme.palette.value = 0; theme() }
 
     private val media = MediaInfo("Chandelier", "Sia", playing = true)
 
     @Test
-    fun accueil() = captureRoboImage("build/screens/accueil.png") { Scaled {
+    fun accueil() = captureRoboImage("build/screens/${p}accueil.png") { Scaled {
         LinkStatus.state.value = Links(bt = true, wifi = true, wifiLevel = 2)
         HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {}, speedKmh = 0, onHomeAddr = {}, onWorkAddr = {})
     } }
 
     @Test
-    fun accueil_mise_a_jour() = captureRoboImage("build/screens/accueil-maj.png") { Scaled {
+    fun accueil_mise_a_jour() = captureRoboImage("build/screens/${p}accueil-maj.png") { Scaled {
         Box(Modifier.fillMaxSize()) {
             HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {})
             UpdateChip(Modifier.align(androidx.compose.ui.Alignment.BottomEnd).padding(end = 20.dp, bottom = 20.dp), "0.6.7", null, "") {}
@@ -45,13 +48,13 @@ class Screenshots {
     } }
 
     @Test
-    fun accueil_guidage() = captureRoboImage("build/screens/accueil-guidage.png") { Scaled {
+    fun accueil_guidage() = captureRoboImage("build/screens/${p}accueil-guidage.png") { Scaled {
         HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {},
             speedKmh = 48, car = CarStats(45, 690, 16.5f, false), onHomeAddr = {}, onWorkAddr = {})
     } }
 
     @Test
-    fun accueil_meteo() = captureRoboImage("build/screens/accueil-meteo.png") { Scaled {
+    fun accueil_meteo() = captureRoboImage("build/screens/${p}accueil-meteo.png") { Scaled {
         LinkStatus.state.value = Links(bt = true, wifi = true, wifiLevel = 3)
         PhoneLink.battery.value = 64 to false
         val w = Weather.Forecast(3, 14, "Pluie vers 21:30", true, listOf(
@@ -61,7 +64,7 @@ class Screenshots {
     } }
 
     @Test
-    fun accueil_porte() = captureRoboImage("build/screens/accueil-porte.png") { Scaled {
+    fun accueil_porte() = captureRoboImage("build/screens/${p}accueil-porte.png") { Scaled {
         Box(Modifier.fillMaxSize()) {
             HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {})
             DoorAlert(Doors.FL or Doors.TRUNK, Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 12.dp))
@@ -69,7 +72,7 @@ class Screenshots {
     } }
 
     @Test
-    fun conduite_porte() = captureRoboImage("build/screens/conduite-porte.png") { Scaled {
+    fun conduite_porte() = captureRoboImage("build/screens/${p}conduite-porte.png") { Scaled {
         Row(Modifier.fillMaxSize()) {
             Box(Modifier.weight(2f).fillMaxHeight().background(Color(0xFF2A3F5C)))
             Box(Modifier.width(285.dp).fillMaxHeight()) {
@@ -81,7 +84,7 @@ class Screenshots {
 
     /** Planche de la Golf en grand : fermée, porte conducteur, deux portes + coffre, tout ouvert. */
     @Test
-    fun golf() = captureRoboImage("build/screens/golf.png") { Scaled {
+    fun golf() = captureRoboImage("build/screens/${p}golf.png") { Scaled {
         Row(Modifier.fillMaxSize().background(Navy).padding(16.dp)) {
             for (m in listOf(0, Doors.FL, Doors.FL or Doors.RR or Doors.TRUNK, 31, Doors.HOOD))
                 CarTopView(m, Modifier.weight(1f).fillMaxHeight())
@@ -103,36 +106,36 @@ class Screenshots {
     }
 
     @Test
-    fun voiture() = captureRoboImage("build/screens/voiture.png") { Scaled {
+    fun voiture() = captureRoboImage("build/screens/${p}voiture.png") { Scaled {
         CarScreenContent(carnet, Doors.FL, {}, {}, {}, {}, {})
     } }
 
     @Test
-    fun voiture_vide() = captureRoboImage("build/screens/voiture-vide.png") { Scaled {
+    fun voiture_vide() = captureRoboImage("build/screens/${p}voiture-vide.png") { Scaled {
         CarScreenContent(Carnet.Data(Carnet.DEFAULT_KINDS, emptyList(), 0), 0, {}, {}, {}, {}, {})
     } }
 
     @Test
-    fun allegement() = captureRoboImage("build/screens/allegement.png") { Scaled {
+    fun allegement() = captureRoboImage("build/screens/${p}allegement.png") { Scaled {
         val items = Slim.CANDIDATES.mapIndexed { i, c -> SlimItem(c, "android.car.app.exemple$i", enabled = i % 4 != 0) }
         SlimContent(items, null, "", {}, {}, {})
     } }
 
     @Test
-    fun reglages() = captureRoboImage("build/screens/reglages.png") { Scaled {
+    fun reglages() = captureRoboImage("build/screens/${p}reglages.png") { Scaled {
         Box(Modifier.fillMaxSize().background(Navy)) {
             SettingsContent(Targets.WAZE, { true }, "0.10.7", null, false, {}, {}, {}, {}, {})
         }
     } }
 
     @Test
-    fun accueil_sans_musique() = captureRoboImage("build/screens/accueil-vide.png") { Scaled {
+    fun accueil_sans_musique() = captureRoboImage("build/screens/${p}accueil-vide.png") { Scaled {
         HomeContent("17:42", "Jeudi 12 novembre", "Google Maps", MediaInfo(), RailActions(), {}, {}, {}, {})
     } }
 
     /** Conduite : GPS (simulé en gris) à gauche sur les 2/3, panneau Koackpit à droite. */
     @Test
-    fun conduite() = captureRoboImage("build/screens/conduite.png") { Scaled {
+    fun conduite() = captureRoboImage("build/screens/${p}conduite.png") { Scaled {
         Row(Modifier.fillMaxSize()) {
             Box(Modifier.weight(2f).fillMaxHeight().background(Color(0xFF2A3F5C)))
             Box(Modifier.width(285.dp).fillMaxHeight()) {
@@ -142,7 +145,7 @@ class Screenshots {
     } }
 
     @Test
-    fun conduite_moitie() = captureRoboImage("build/screens/conduite-moitie.png") { Scaled {
+    fun conduite_moitie() = captureRoboImage("build/screens/${p}conduite-moitie.png") { Scaled {
         Row(Modifier.fillMaxSize()) {
             Box(Modifier.weight(1f).fillMaxHeight().background(Color(0xFF2A3F5C)))
             Box(Modifier.weight(1f).fillMaxHeight()) {
@@ -157,25 +160,25 @@ class Screenshots {
     )
 
     @Test
-    fun diagnostic() = captureRoboImage("build/screens/diagnostic.png") { Scaled {
+    fun diagnostic() = captureRoboImage("build/screens/${p}diagnostic.png") { Scaled {
         androidx.compose.foundation.layout.Column(Modifier.fillMaxSize().background(Navy).padding(16.dp)) {
             DiagHeader(2, {}, {}, {}, {}, {})
         }
     } }
 
     @Test
-    fun diagnostic_fichier() = captureRoboImage("build/screens/diagnostic-fichier.png") { Scaled {
+    fun diagnostic_fichier() = captureRoboImage("build/screens/${p}diagnostic-fichier.png") { Scaled {
         val f = java.io.File.createTempFile("koackpit-diag", ".zip")
         ExportPanel(diagApps, emptyList(), false, null, "", f, "http://192.168.43.12:8080/koackpit-diag.zip", "Téléchargements/Koackpit/koackpit-diag.zip",
             {}, {}, {}, {}, qr = qrBitmap("http://192.168.43.12:8080/koackpit-diag.zip"))
     } }
 
     @Test
-    fun diagnostic_creer() = captureRoboImage("build/screens/diagnostic-creer.png") { Scaled {
+    fun diagnostic_creer() = captureRoboImage("build/screens/${p}diagnostic-creer.png") { Scaled {
         ExportPanel(diagApps, emptyList(), false, null, "", null, null, null, {}, {}, {}, {})
     } }
 
-    private fun appel(name: String, call: CallOverlay.Call) = captureRoboImage("build/screens/$name.png") { Scaled {
+    private fun appel(name: String, call: CallOverlay.Call) = captureRoboImage("build/screens/${p}$name.png") { Scaled {
         Box(Modifier.fillMaxSize()) {
             HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {})
             androidx.compose.ui.viewinterop.AndroidView(
@@ -191,7 +194,7 @@ class Screenshots {
     @Test fun appel_vocal() = appel("appel-vocal", CallOverlay.Call(6, null, "+33612345678", 12, true, vocal = true))
 
     @Test
-    fun paroles() = captureRoboImage("build/screens/paroles.png") { Scaled {
+    fun paroles() = captureRoboImage("build/screens/${p}paroles.png") { Scaled {
         val l = Lyrics.parse("[00:10.00]Première ligne de la chanson\n[00:14.50]La ligne chantée en ce moment\n[00:19.00]Et celle qui arrive juste après\n[00:23.00]Encore une")
         androidx.compose.foundation.layout.Row(Modifier.fillMaxSize().background(Navy)) {
             androidx.compose.foundation.layout.Box(Modifier.weight(2f).fillMaxHeight().background(Color(0xFF2A3F5C)))
@@ -206,7 +209,7 @@ class Screenshots {
     } }
 
     @Test
-    fun paroles_grand() = captureRoboImage("build/screens/paroles-grand.png") { Scaled {
+    fun paroles_grand() = captureRoboImage("build/screens/${p}paroles-grand.png") { Scaled {
         val l = Lyrics.parse("[00:10.00]Première ligne de la chanson\n[00:14.50]La ligne chantée en ce moment\n[00:19.00]Et celle qui arrive juste après")
         androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().background(Navy), contentAlignment = androidx.compose.ui.Alignment.Center) {
             LyricsLines(l, 1, big = true, modifier = Modifier.fillMaxSize())
@@ -214,7 +217,7 @@ class Screenshots {
     } }
 
     @Test
-    fun message() = captureRoboImage("build/screens/message.png") { Scaled {
+    fun message() = captureRoboImage("build/screens/${p}message.png") { Scaled {
         Box(Modifier.fillMaxSize()) {
             HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {})
             androidx.compose.ui.viewinterop.AndroidView(
@@ -229,25 +232,25 @@ class Screenshots {
     } }
 
     @Test
-    fun accueil_paroles() = captureRoboImage("build/screens/accueil-paroles.png") { Scaled {
+    fun accueil_paroles() = captureRoboImage("build/screens/${p}accueil-paroles.png") { Scaled {
         val l = Lyrics.parse((1..8).joinToString("\n") { "[00:%02d.00]Ligne de paroles numéro $it pour l'essai".format(it * 4) })
         HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {}, lyricsOpen = true, lyricsPreview = l)
     } }
 
     @Test
-    fun accueil_bouton_paroles() = captureRoboImage("build/screens/accueil-bouton-paroles.png") { Scaled {
+    fun accueil_bouton_paroles() = captureRoboImage("build/screens/${p}accueil-bouton-paroles.png") { Scaled {
         HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {}, lyricsPreview = emptyList())
     } }
 
     @Test
-    fun musique_plein_ecran() = captureRoboImage("build/screens/musique.png") { Scaled {
+    fun musique_plein_ecran() = captureRoboImage("build/screens/${p}musique.png") { Scaled {
         DrivePanel("17:42", media, {}, {}, {}, {}, {}, {}, {}, {}, null)
     } }
 
     private val generique = MediaInfo(title = "Titre du morceau", artist = "Nom de l'artiste", playing = true)
     private val meteo = Weather.Forecast(3, 14, "Pluie vers 21:30", true, emptyList())
 
-    private fun accueilJour(name: String, palette: Int, accent: Int = 0, panel: Boolean = false) = captureRoboImage("build/screens/$name.png") { Scaled {
+    private fun accueilJour(name: String, palette: Int, accent: Int = 0, panel: Boolean = false) = captureRoboImage("build/screens/${p}$name.png") { Scaled {
         KTheme.day.value = true; KTheme.palette.value = palette; KTheme.accent.value = accent; DayNight.panel.value = panel
         LinkStatus.state.value = Links(bt = true, wifi = true, wifiLevel = 3)
         HomeContent("14:04", "Jeudi 19 novembre", "Waze", generique, RailActions(), {}, {}, {}, {},
@@ -260,14 +263,14 @@ class Screenshots {
     @Test fun jour_affichage() = accueilJour("jour-affichage", 0, panel = true)
 
     @Test
-    fun nuit_affichage() = captureRoboImage("build/screens/nuit-affichage.png") { Scaled {
+    fun nuit_affichage() = captureRoboImage("build/screens/${p}nuit-affichage.png") { Scaled {
         KTheme.day.value = false; KTheme.palette.value = 0; KTheme.accent.value = 0; DayNight.panel.value = true
         HomeContent("21:04", "Jeudi 19 novembre", "Waze", generique, RailActions(), {}, {}, {}, {},
             speedKmh = 87, car = CarStats(45, 690, 13.5f, true), weather = meteo, limit = 80)
     } }
 
     @Test
-    fun jour_reglages() = captureRoboImage("build/screens/jour-reglages.png") { Scaled {
+    fun jour_reglages() = captureRoboImage("build/screens/${p}jour-reglages.png") { Scaled {
         KTheme.day.value = true; KTheme.palette.value = 0; KTheme.accent.value = 0
         Box(Modifier.fillMaxSize().background(Bg)) {
             SettingsContent(Targets.WAZE, { true }, "0.14.0", null, false, {}, {}, {}, {}, {})
@@ -275,7 +278,7 @@ class Screenshots {
     } }
 
     @Test
-    fun nuit_reglages() = captureRoboImage("build/screens/nuit-reglages.png") { Scaled {
+    fun nuit_reglages() = captureRoboImage("build/screens/${p}nuit-reglages.png") { Scaled {
         KTheme.day.value = false; KTheme.palette.value = 0; KTheme.accent.value = 0
         Box(Modifier.fillMaxSize().background(Bg)) {
             SettingsContent(Targets.WAZE, { true }, "0.14.0", null, false, {}, {}, {}, {}, {})
@@ -283,13 +286,13 @@ class Screenshots {
     } }
 
     @Test
-    fun jour_musique() = captureRoboImage("build/screens/jour-musique.png") { Scaled {
+    fun jour_musique() = captureRoboImage("build/screens/${p}jour-musique.png") { Scaled {
         KTheme.day.value = true; KTheme.palette.value = 0; KTheme.accent.value = 0
         DrivePanel("14:04", generique, {}, {}, {}, {}, {}, {}, {}, {}, null)
     } }
 
     @Test
-    fun jour_appel() = captureRoboImage("build/screens/jour-appel.png") { Scaled {
+    fun jour_appel() = captureRoboImage("build/screens/${p}jour-appel.png") { Scaled {
         KTheme.day.value = true; KTheme.palette.value = 0; KTheme.accent.value = 0
         Box(Modifier.fillMaxSize()) {
             HomeContent("14:04", "Jeudi 19 novembre", "Waze", generique, RailActions(), {}, {}, {}, {}, weather = meteo)
@@ -301,7 +304,7 @@ class Screenshots {
     } }
 
     // ---------- 0.15.0 : styles et teintes profondes ----------
-    private fun nuitStyle(name: String, style: Int, accent: Int, day: Boolean = false) = captureRoboImage("build/screens/$name.png") { Scaled {
+    private fun nuitStyle(name: String, style: Int, accent: Int, day: Boolean = false) = captureRoboImage("build/screens/${p}$name.png") { Scaled {
         KTheme.day.value = day; KTheme.palette.value = 0; KTheme.style.value = style; KTheme.accent.value = accent
         LinkStatus.state.value = Links(bt = true, wifi = true, wifiLevel = 3)
         HomeContent("21:04", "Jeudi 19 novembre", "Waze", generique, RailActions(), {}, {}, {}, {},
@@ -319,7 +322,7 @@ class Screenshots {
     @Test fun s_jour_bleu() = nuitStyle("s-jour-bleu-golf", 2, 15, day = true)
 
     @Test
-    fun s_reglages() = captureRoboImage("build/screens/s-reglages.png") { Scaled {
+    fun s_reglages() = captureRoboImage("build/screens/${p}s-reglages.png") { Scaled {
         KTheme.day.value = false; KTheme.style.value = 2; KTheme.accent.value = 16
         Box(Modifier.fillMaxSize().screenBg()) {
             SettingsContent(Targets.WAZE, { true }, "0.15.0", null, false, {}, {}, {}, {}, {})
@@ -327,7 +330,7 @@ class Screenshots {
     } }
 
     @Test
-    fun s_appel_bordeaux() = captureRoboImage("build/screens/s-appel-bordeaux.png") { Scaled {
+    fun s_appel_bordeaux() = captureRoboImage("build/screens/${p}s-appel-bordeaux.png") { Scaled {
         KTheme.day.value = false; KTheme.style.value = 0; KTheme.accent.value = 16
         Box(Modifier.fillMaxSize()) {
             HomeContent("21:04", "Jeudi 19 novembre", "Waze", generique, RailActions(), {}, {}, {}, {}, weather = meteo)
@@ -337,4 +340,16 @@ class Screenshots {
             )
         }
     } }
+}
+
+/** Toutes les vues en mode jour (préfixe J-) : vérifie que rien n'est illisible sur fond clair. */
+class ScreenshotsJour : Screenshots() {
+    override val p = "J-"
+    override fun theme() { KTheme.day.value = true }
+}
+
+/** Toutes les vues de nuit avec une teinte profonde (préfixe B-, Bordeaux). */
+class ScreenshotsBordeaux : Screenshots() {
+    override val p = "B-"
+    override fun theme() { KTheme.accent.value = 16 }
 }

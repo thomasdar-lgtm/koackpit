@@ -211,6 +211,11 @@ val BtnDark: Color get() = when {
     KTheme.acc.deep -> Color(0xFF1E232D)
     else -> Color(0xFF16264A)
 }
+/** Zone en creux dans une carte (lignes de liste, compteur) : foncée la nuit, un ton sous la carte le jour. */
+val Inset: Color get() = if (isDay) Color(KTheme.pal.card2) else Navy
+/** Texte secondaire sur un fond toujours foncé (fenêtres de saisie, boutons foncés), jour comme nuit. */
+val MutedOnDark = Color(0xFF8A96B0)
+
 /** Texte principal posé sur les cartes et le fond. */
 val Ink: Color get() = if (isDay) Color(KTheme.pal.ink) else Color.White
 val Muted: Color get() = if (isDay) Color(KTheme.pal.muted) else Color(0xFF8A96B0)

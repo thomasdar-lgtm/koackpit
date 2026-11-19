@@ -23,7 +23,7 @@ jobs:
         with:
           gradle-version: '8.14.3'
       - name: Render
-        run: gradle :app:testDebugUnitTest --tests 'com.koala.koackpit.Screenshots' --no-daemon 2>&1 | tee screens.log; exit ${PIPESTATUS[0]}
+        run: gradle :app:testDebugUnitTest --tests 'com.koala.koackpit.Screenshots*' --no-daemon 2>&1 | tee screens.log; exit ${PIPESTATUS[0]}
       - name: Publish
         if: always()
         run: |

@@ -4,7 +4,6 @@ const EMBED = /[?&]embed/.test(location.search);
 if (EMBED) { document.body.classList.add('embed'); document.documentElement.style.background = 'transparent'; }
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
@@ -109,9 +108,10 @@ function onLoaded(gltf) {
   mergeStatic(car);
   renderer.shadowMap.needsUpdate = true;
   document.getElementById('load').remove();
-  window.__ready = true; if (window.KoackpitHost) { try { window.koackpitDoors(window.KoackpitHost.doors()); } catch (e) {} } window.__cam = camera; window.__controls = controls; window.__center = center;
+  window.__ready = true; try { window.KoackpitHost && window.KoackpitHost.ready(); } catch (e) {}
+  if (window.KoackpitHost) { try { window.koackpitDoors(window.KoackpitHost.doors()); } catch (e) {} } window.__cam = camera; window.__controls = controls; window.__center = center;
 }
-function loader() { return new GLTFLoader().setMeshoptDecoder(MeshoptDecoder); }
+function loader() { return new GLTFLoader(); }
 /**
  * Pièces fixes regroupées par matière : beaucoup moins d'objets à dessiner à chaque image. Ne touche ni aux
  * ouvrants (open_*), ni aux roues, ni aux pièces qu'on peut toucher pour leur fiche, ni aux pièces cachées.
@@ -151,7 +151,8 @@ function mergeStatic(car) {
   });
   console.log('Golf3D : ' + removed + ' objets en moins');
 }
-function loadErr(err) { document.querySelector('#load div').textContent = 'Erreur de chargement du modèle'; console.error(err); }
+function loadErr(err) { document.querySelector('#load div').textContent = 'Erreur de chargement du modèle'; console.error(err); hostLog('chargement : ' + (err && err.message || err)); }
+function hostLog(m) { try { window.KoackpitHost && window.KoackpitHost.log(String(m)); } catch (e) {} }
 if (EMBED) {
   prog.style.width = '30%';
   fetch('golf5.glb').then(r => r.arrayBuffer()).then(buf => { prog.style.width = '100%'; loader().parse(buf, '', onLoaded, loadErr); }).catch(loadErr);
