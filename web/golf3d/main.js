@@ -201,7 +201,8 @@ controls.addEventListener('start', () => { anim = null; focusAnim = null; setRot
 
 function buildColors() {
   if (!bodyMeshes.length) return;
-  const list = [['Origine', null, '#8b9097'], ['Noir', '#08090b'], ['Gris', '#5d636b'], ['Argent', '#b9bec4'], ['Blanc', '#e9ecef'], ['Rouge', '#8e0f16'], ['Bleu', '#14306a']];
+  // « Ma Golf » d'office : le bleu nuit de la voiture de Thomas (relevé sur sa photo)
+  const list = [['Ma Golf', '#0b1c4f'], ['Origine', null, '#8b9097'], ['Noir', '#08090b'], ['Gris', '#5d636b'], ['Argent', '#b9bec4'], ['Blanc', '#e9ecef'], ['Rouge', '#8e0f16']];
   const box = document.getElementById('colors');
   list.forEach(([n, hex, show], i) => {
     const b = document.createElement('button');
@@ -213,6 +214,7 @@ function buildColors() {
       box.querySelectorAll('.sw').forEach(x => x.classList.remove('on')); b.classList.add('on');
     };
     box.appendChild(b);
+    if (i === 0) b.onclick();
   });
 }
 
