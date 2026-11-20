@@ -8,9 +8,21 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
-const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+// Écran voiture : fond opaque à la couleur de la carte Koackpit (?bg=RRGGBB) ; la transparence d'un WebGL
+// dans le moteur web très ancien de l'autoradio (Chrome 66) est un suspect de l'écran vide
+const BG = (location.search.match(/[?&]bg=([0-9a-fA-F]{6})/) || [])[1];
+const renderer = new THREE.WebGLRenderer({ antialias:true, alpha: !(EMBED && BG) });
+if (EMBED && BG) { renderer.setClearColor(new THREE.Color('#' + BG), 1); document.body.style.background = '#' + BG; }
 renderer.setPixelRatio(EMBED ? 1 : Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
+// Écran voiture : carte graphique et limites notées au journal Koackpit ; perte du contexte WebGL signalée
+function hostInfo(m) { try { window.KoackpitHost && window.KoackpitHost.info && window.KoackpitHost.info(String(m)); } catch (e) {} }
+try {
+  const gl = renderer.getContext(), dbg = gl.getExtension('WEBGL_debug_renderer_info');
+  hostInfo('WebGL ' + (renderer.capabilities.isWebGL2 ? 2 : 1) + ' · ' + (dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)) +
+    ' · textures max ' + gl.getParameter(gl.MAX_TEXTURE_SIZE));
+} catch (e) {}
+renderer.domElement.addEventListener('webglcontextlost', () => hostLog('contexte WebGL perdu (mémoire graphique ?)'));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 renderer.shadowMap.enabled = true;
@@ -108,6 +120,15 @@ function onLoaded(gltf) {
   mergeStatic(car);
   renderer.shadowMap.needsUpdate = true;
   document.getElementById('load').remove();
+  hostInfo('modèle chargé en ' + Math.round(performance.now()) + ' ms');
+  // Contrôle : couleur au centre de l'image dessinée (= fond seul si la voiture n'est pas dessinée)
+  if (EMBED) setTimeout(() => { try {
+    renderer.render(scene, camera);
+    const gl = renderer.getContext(), px = new Uint8Array(4);
+    gl.readPixels(gl.drawingBufferWidth >> 1, gl.drawingBufferHeight >> 1, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    hostInfo('pixel central ' + Array.from(px).join(',') + ' · image ' + gl.drawingBufferWidth + 'x' + gl.drawingBufferHeight +
+      ' · page ' + innerWidth + 'x' + innerHeight);
+  } catch (e) { hostLog('contrôle image : ' + e.message); } }, 1500);
   window.__ready = true; try { window.KoackpitHost && window.KoackpitHost.ready(); } catch (e) {}
   if (window.KoackpitHost) { try { window.koackpitDoors(window.KoackpitHost.doors()); } catch (e) {} } window.__cam = camera; window.__controls = controls; window.__center = center;
 }

@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.webkit.WebViewAssetLoader
@@ -43,7 +44,8 @@ fun Golf3D(mask: Int, modifier: Modifier = Modifier) {
         WebView(ctx).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
-            setBackgroundColor(Color.TRANSPARENT)
+            // Fond opaque (couleur de la carte) : WebView et page, voir main.js
+            setBackgroundColor(CardSolid.toArgb())
             // La page lit l'état des ouvrants au moment où le modèle a fini de charger
             addJavascriptInterface(Host(ctx.applicationContext, { ready.value = true }, { failed.value = true }), "KoackpitHost")
             webViewClient = object : WebViewClient() {
@@ -58,7 +60,8 @@ fun Golf3D(mask: Int, modifier: Modifier = Modifier) {
                     return true
                 }
             }
-            loadUrl("https://appassets.androidplatform.net/assets/golf3d/index.html?embed=1")
+            loadUrl("https://appassets.androidplatform.net/assets/golf3d/index.html?embed=1&bg=" +
+                "%06X".format(CardSolid.toArgb() and 0xFFFFFF))
         }
     }
     DisposableEffect(web) { onDispose { web.stopLoading(); web.destroy() } }
