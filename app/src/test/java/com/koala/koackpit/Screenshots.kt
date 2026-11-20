@@ -340,6 +340,18 @@ open class Screenshots {
             )
         }
     } }
+
+    // ---------- 0.16.0 : Réglages par catégories ----------
+    private fun reglagesShot(name: String, initial: String?) = captureRoboImage("build/screens/${p}$name.png") { Scaled {
+        LinkStatus.state.value = Links(bt = true, wifi = true, wifiLevel = 3)
+        Box(Modifier.fillMaxSize().screenBg()) {
+            SettingsContent(Targets.WAZE, { it == Targets.WAZE }, "0.16.0", null, false, {}, {}, {}, {}, {},
+                homeOn = true, initial = initial)
+        }
+    } }
+    @Test fun r_tuiles() = reglagesShot("r-tuiles", null)
+    @Test fun r_theme() = reglagesShot("r-theme", "theme")
+    @Test fun r_autoradio() = reglagesShot("r-autoradio", "autoradio")
 }
 
 /** Toutes les vues en mode jour (préfixe J-) : vérifie que rien n'est illisible sur fond clair. */

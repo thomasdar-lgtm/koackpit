@@ -44,6 +44,8 @@ object DayNight {
     val nightStart = mutableStateOf(17 * 60 + 30)
     /** Niveau de luminosité choisi (0 à 4 : Min, 25, 50, 75, Max). */
     val level = mutableStateOf(4)
+    /** Aperçu dans Réglages → Thème : mode affiché le temps d'être sur cet écran (null = le mode réel). */
+    val preview = mutableStateOf<Boolean?>(null)
     /** Fenêtre Affichage ouverte. */
     val panel = mutableStateOf(false)
 
@@ -73,7 +75,8 @@ object DayNight {
     fun tick(ctx: Context) {
         load(ctx)
         val day = forced.value ?: autoDay()
-        if (KTheme.day.value != day) KTheme.day.value = day
+        val shown = preview.value ?: day
+        if (KTheme.day.value != shown) KTheme.day.value = shown
         if (lastDay != day) {
             val first = lastDay == null
             lastDay = day
