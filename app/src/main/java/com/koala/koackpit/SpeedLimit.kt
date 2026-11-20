@@ -40,12 +40,21 @@ object SpeedLimit {
         override fun onProviderDisabled(provider: String) {}
     }
 
+    private var app: Context? = null
+    private var fetches = 0
+    private var lastError: String? = null
+    private var src: String? = null
+
     @SuppressLint("MissingPermission")
     fun start(ctx: Context) {
         if (lm != null) return
+        app = ctx.applicationContext
         val m = ctx.applicationContext.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        runCatching { m.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 0f, listener, Looper.getMainLooper()); lm = m }
+        val r = runCatching { m.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 0f, listener, Looper.getMainLooper()); lm = m }
+        WakeLog.add(ctx, "Limitations : GPS de l'autoradio " + (r.exceptionOrNull()?.let { "indisponible (${it.javaClass.simpleName})" } ?: "suivi"))
     }
+
+    private fun log(msg: String) { app?.let { WakeLog.add(it, "Limitations : $msg") } }
 
     fun stop() {
         runCatching { lm?.removeUpdates(listener) }
@@ -53,12 +62,14 @@ object SpeedLimit {
     }
 
     /** Position du téléphone (plus précise) : utilisée en priorité quand elle arrive. */
-    fun onPhoneLocation(loc: Location) { phoneAt = SystemClock.elapsedRealtime(); handle(loc) }
+    fun onPhoneLocation(loc: Location) { phoneAt = SystemClock.elapsedRealtime(); source("téléphone"); handle(loc) }
+    private fun source(s: String) { if (src != s) { src = s; log("position venant du $s") } }
     private var phoneAt = 0L
 
     private fun onLocation(loc: Location) {
         // GPS de l'autoradio seulement si le téléphone ne donne pas sa position
         if (SystemClock.elapsedRealtime() - phoneAt < 4000) return
+        source("GPS de l'autoradio")
         handle(loc)
     }
 
@@ -68,7 +79,17 @@ object SpeedLimit {
         if (!busy && (c == null || c.distanceTo(loc) > 600f) && now - lastFetch > 15_000) {
             busy = true; lastFetch = now
             Thread {
-                try { ways = fetch(loc.latitude, loc.longitude); center = loc } catch (_: Exception) {} finally { busy = false }
+                try {
+                    val w = fetch(loc.latitude, loc.longitude); ways = w; center = loc
+                    // Journal : le 1er téléchargement, puis 1 sur 10 (sinon une ligne tous les 600 m)
+                    if (fetches++ % 10 == 0 || lastError != null)
+                        log("${w.size} routes à 1 km, ${w.count { it.limit != null }} avec limitation renseignée")
+                    lastError = null
+                } catch (e: Exception) {
+                    val m = e.javaClass.simpleName + (e.message?.let { ": " + it.take(80) } ?: "")
+                    if (m != lastError) log("téléchargement impossible ($m)")
+                    lastError = m
+                } finally { busy = false }
             }.start()
         }
         limit.value = match(loc)

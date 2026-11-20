@@ -49,6 +49,14 @@ fun Golf3D(mask: Int, modifier: Modifier = Modifier) {
             webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
                     loader.shouldInterceptRequest(request.url)
+
+                // Moteur de la page arrêté (manque de mémoire, plantage graphique) : noté, photo à la place,
+                // et surtout pas d'arrêt de Koackpit (comportement par défaut d'Android si on ne le gère pas)
+                override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
+                    WakeLog.add(ctx, "Golf 3D : moteur de la page arrêté (" + (if (detail.didCrash()) "plantage" else "mémoire manquante") + ")")
+                    failed.value = true
+                    return true
+                }
             }
             loadUrl("https://appassets.androidplatform.net/assets/golf3d/index.html?embed=1")
         }
@@ -80,6 +88,9 @@ private class Host(private val app: android.content.Context, private val onReady
 
     @JavascriptInterface
     fun doors(): Int = CanBus.doors.value
+
+    @JavascriptInterface
+    fun info(msg: String) { WakeLog.add(app, "Golf 3D : ${msg.take(200)}") }
 
     @JavascriptInterface
     fun ready() { WakeLog.add(app, "Golf 3D : affichée"); main.post(onReady) }

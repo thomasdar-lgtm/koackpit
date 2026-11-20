@@ -81,7 +81,7 @@ object DayNight {
             val first = lastDay == null
             lastDay = day
             // Au démarrage on remet aussi la luminosité du mode en cours (l'autoradio peut l'avoir changée)
-            setLevel(ctx, if (day) 4 else 0, log = if (first) "démarrage" else "bascule ${if (day) "jour" else "nuit"}")
+            setLevel(ctx, if (day) 4 else 1, log = if (first) "démarrage" else "bascule ${if (day) "jour" else "nuit"}")
         }
     }
 
@@ -247,7 +247,7 @@ fun ThemeSettings(
         TimeRow("☀ Jour à partir de", d) { onTimes(d + it, n) }
         Spacer(Modifier.height(6.dp))
         TimeRow("☾ Nuit à partir de", n) { onTimes(d, n + it) }
-        Text("Réglage par quart d'heure, à changer au fil des saisons. Luminosité : Max le jour, Min la nuit.",
+        Text("Réglage par quart d'heure, à changer au fil des saisons. Luminosité : Max le jour, 25 % la nuit.",
             color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
     }
 }
