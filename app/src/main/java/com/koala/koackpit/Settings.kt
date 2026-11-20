@@ -84,25 +84,25 @@ fun SettingsContent(
 
 @Composable
 private fun Tile(
-    icon: Int?, emoji: String?, title: String, modifier: Modifier, onClick: (() -> Unit)?,
+    icon: Int?, vector: androidx.compose.ui.graphics.vector.ImageVector?, title: String, modifier: Modifier, onClick: (() -> Unit)?,
     content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
 ) {
     val shape = RoundedCornerShape(18.dp)
     Column(
         modifier.fillMaxHeight().clip(shape).cardBg(shape)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(14.dp),
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).darkBtnBg(RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-                if (icon != null) Icon(painterResource(icon), null, tint = AccentOnDark, modifier = Modifier.size(24.dp))
-                else Text(emoji ?: "", fontSize = 20.sp)
+            Box(Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).darkBtnBg(RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
+                if (icon != null) Icon(painterResource(icon), null, tint = AccentOnDark, modifier = Modifier.size(20.dp))
+                else if (vector != null) Icon(vector, null, tint = AccentOnDark, modifier = Modifier.size(20.dp))
             }
-            Spacer(Modifier.width(10.dp))
-            Text(title, color = Ink, fontSize = 17.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f), maxLines = 1,
+            Spacer(Modifier.width(8.dp))
+            Text(title, color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f), maxLines = 1,
                 overflow = TextOverflow.Ellipsis)
             if (onClick != null) Text("›", color = AccentText, fontSize = 26.sp, fontWeight = FontWeight.Black)
         }
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(8.dp))
         content()
     }
 }
@@ -120,29 +120,28 @@ private fun ThemeTile(modifier: Modifier, onClick: () -> Unit) = Tile(R.drawable
         for (i in shown) {
             val a = KTheme.accents[i]
             Box(
-                Modifier.size(22.dp).clip(CircleShape).background(if (i == cur) Ink else Color.Transparent).padding(2.dp)
+                Modifier.size(20.dp).clip(CircleShape).background(if (i == cur) Ink else Color.Transparent).padding(2.dp)
                     .clip(CircleShape).background(Color(if (KTheme.day.value) a.day else a.night)),
             )
         }
     }
     Spacer(Modifier.weight(1f))
-    TileLine("Style : ${KTheme.styles[KTheme.style.value]}")
-    TileLine("Accent : ${KTheme.accents[cur].name}")
-    TileLine("☀ ${DayNight.hhmm(DayNight.dayStart.value)} · ☾ ${DayNight.hhmm(DayNight.nightStart.value)}")
+    TileLine("${KTheme.styles[KTheme.style.value]} · ${KTheme.accents[cur].name}", Ink)
+    TileLine("Jour ${DayNight.hhmm(DayNight.dayStart.value)} · Nuit ${DayNight.hhmm(DayNight.nightStart.value)}")
 }
 
 @Composable
 private fun DriveTile(modifier: Modifier, nav: String, installed: (String) -> Boolean, onNav: (String) -> Unit) =
     Tile(R.drawable.ic_rail_wheel, null, "Conduite", modifier, null) {
-        Text("GPS de la conduite", color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(6.dp))
+        Text("GPS de la conduite", color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(4.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             for ((pkg, name) in listOf(Targets.WAZE to "Waze", Targets.MAPS to "Maps")) {
                 val on = nav == pkg
                 Column(
                     Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
                         .then(if (on) Modifier.accentBg(RoundedCornerShape(12.dp), glow = false) else Modifier.background(Navy))
-                        .clickable { onNav(pkg) }.padding(vertical = 10.dp),
+                        .clickable { onNav(pkg) }.padding(vertical = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(name, color = if (on) OnAccent else Color.White, fontSize = 15.sp, fontWeight = FontWeight.Black)
@@ -158,7 +157,7 @@ private fun DriveTile(modifier: Modifier, nav: String, installed: (String) -> Bo
 private fun AutoradioTile(modifier: Modifier, homeOn: Boolean, hideCallBar: Boolean, onClick: () -> Unit) =
     Tile(R.drawable.ic_rail_settings, null, "Autoradio", modifier, onClick) {
         StateLine("Bureau", if (homeOn) "Koackpit" else "D'origine", homeOn)
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(2.dp))
         StateLine("Barre d'appel d'origine", if (hideCallBar) "masquée" else "affichée", hideCallBar)
         Spacer(Modifier.weight(1f))
         TileLine("Allègement des applis de l'autoradio")
@@ -167,8 +166,9 @@ private fun AutoradioTile(modifier: Modifier, homeOn: Boolean, hideCallBar: Bool
 @Composable
 private fun StateLine(label: String, value: String, on: Boolean) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(label, color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), maxLines = 1)
-        Text(value, color = if (on) AccentText else Muted, fontSize = 13.sp, fontWeight = FontWeight.Black)
+        Text(label, color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), maxLines = 1,
+            overflow = TextOverflow.Ellipsis)
+        Text(value, color = if (on) AccentText else Muted, fontSize = 12.sp, fontWeight = FontWeight.Black)
     }
 }
 
@@ -177,9 +177,7 @@ private fun PhoneTile(modifier: Modifier) = Tile(R.drawable.ic_rail_phone, null,
     val links = LinkStatus.state.value
     val linked = PhoneLink.connected.value
     StateLine("Bluetooth", if (links?.bt == true) "connecté" else "non connecté", links?.bt == true)
-    Spacer(Modifier.height(4.dp))
     StateLine("Partage de connexion", if (links?.wifi == true) "relié" else "non relié", links?.wifi == true)
-    Spacer(Modifier.height(4.dp))
     StateLine("Koackpit Téléphone", if (linked) "relié" else "non relié", linked)
     Spacer(Modifier.weight(1f))
     val b = PhoneLink.battery.value
@@ -195,8 +193,8 @@ private fun PhoneTile(modifier: Modifier) = Tile(R.drawable.ic_rail_phone, null,
 
 @Composable
 private fun UpdateTile(modifier: Modifier, version: String, update: String?, checking: Boolean, onCheck: () -> Unit) =
-    Tile(null, "⬇", "Mise à jour", modifier, onCheck) {
-        Text(version, color = Ink, fontSize = 30.sp, fontWeight = FontWeight.Black)
+    Tile(null, androidx.compose.material.icons.Icons.Filled.Refresh, "Mise à jour", modifier, onCheck) {
+        Text(version, color = Ink, fontSize = 28.sp, fontWeight = FontWeight.Black)
         Spacer(Modifier.weight(1f))
         TileLine(
             when {
@@ -209,7 +207,7 @@ private fun UpdateTile(modifier: Modifier, version: String, update: String?, che
     }
 
 @Composable
-private fun DiagTile(modifier: Modifier, onDiag: () -> Unit) = Tile(null, "🩺", "Diagnostic", modifier, onDiag) {
+private fun DiagTile(modifier: Modifier, onDiag: () -> Unit) = Tile(null, androidx.compose.material.icons.Icons.Filled.Info, "Diagnostic", modifier, onDiag) {
     val ctx = LocalContext.current
     val lines = remember { WakeLog.read(ctx).lines().take(3).map { l -> l.substringAfter("  ").ifBlank { l } } }
     Column(
