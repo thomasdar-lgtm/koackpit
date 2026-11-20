@@ -85,7 +85,7 @@ fun SettingsContent(
 @Composable
 private fun Tile(
     icon: Int?, emoji: String?, title: String, modifier: Modifier, onClick: (() -> Unit)?,
-    content: @Composable () -> Unit,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
 ) {
     val shape = RoundedCornerShape(18.dp)
     Column(
