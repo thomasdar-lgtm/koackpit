@@ -151,8 +151,6 @@ private fun DriveTile(modifier: Modifier, nav: String, installed: (String) -> Bo
                 }
             }
         }
-        Spacer(Modifier.weight(1f))
-        TileLine("Écran partagé : GPS + lecteur")
     }
 
 @Composable
@@ -202,7 +200,7 @@ private fun UpdateTile(modifier: Modifier, version: String, update: String?, che
             when {
                 checking -> "Recherche en cours…"
                 update != null -> "Version $update disponible : bouton en bas à droite"
-                else -> "Toucher pour rechercher une mise à jour"
+                else -> "Toucher pour vérifier"
             },
             if (update != null) AccentText else Muted,
         )
@@ -269,11 +267,11 @@ private fun MiniPreview(modifier: Modifier) {
             Column(Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(8.dp)).cardBg(RoundedCornerShape(8.dp)).padding(8.dp)) {
                 Text("CONDUITE", color = Muted, fontSize = 8.sp, fontWeight = FontWeight.Black)
                 Row(verticalAlignment = Alignment.Bottom) {
-                    Text("78", color = Ink, fontSize = 28.sp, fontWeight = FontWeight.Black)
+                    Text("78", color = Ink, fontSize = 22.sp, fontWeight = FontWeight.Black)
                     Text(" km/h", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 5.dp))
                 }
                 Spacer(Modifier.weight(1f))
-                Text("≈ 690 km", color = AccentText, fontSize = 13.sp, fontWeight = FontWeight.Black)
+                Text("≈ 690 km", color = AccentText, fontSize = 12.sp, fontWeight = FontWeight.Black)
             }
             Column(Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(8.dp)).cardBg(RoundedCornerShape(8.dp)).padding(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally) {
