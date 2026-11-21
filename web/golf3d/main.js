@@ -30,19 +30,37 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 if (EMBED) renderer.shadowMap.autoUpdate = false;
 window.__renderer = renderer;
-// Écran voiture : la 3D est bien dessinée (pixel contrôlé au journal) mais rien n'apparaît sur l'autoradio,
-// dont le moteur web date de 2018 (Chrome 66) : l'affichage direct d'un canevas WebGL y semble en panne.
-// On dessine donc hors écran et on recopie chaque image dans un canevas 2D ordinaire, seul affiché.
+// Écran voiture : la 3D est bien dessinée (contrôlé au journal, y compris recopiée en 2D) mais rien n'apparaît
+// sur l'autoradio, dont le moteur web date de 2018 (Chrome 66) : ses canevas ne s'affichent pas, alors que
+// textes et images oui. On dessine donc hors écran, puis chaque image devient une image JPEG ordinaire (<img>).
 const view2d = EMBED ? document.createElement('canvas') : null;
 const ctx2d = view2d ? view2d.getContext('2d') : null;
-const VIEW = view2d || renderer.domElement;
+const shot = EMBED ? document.createElement('img') : null;
+if (shot) { shot.draggable = false; shot.style.cssText = 'display:block;width:100vw;height:100vh;touch-action:none;user-select:none;-webkit-user-select:none'; }
+const VIEW = shot || renderer.domElement;
+let shotBusy = false, shotDirty = false, shotUrl = null, shotCount = 0;
+function sendShot() {
+  if (shotBusy) { shotDirty = true; return; }
+  shotBusy = true; shotDirty = false;
+  view2d.toBlob(b => {
+    if (!b) { shotBusy = false; return; }
+    const u = URL.createObjectURL(b);
+    shot.onload = () => {
+      if (shotUrl) URL.revokeObjectURL(shotUrl);
+      shotUrl = u; shotBusy = false;
+      if (++shotCount === 1) hostInfo('première image affichée (' + shot.naturalWidth + 'x' + shot.naturalHeight + ', ' + Math.round(b.size / 1024) + ' Ko)');
+      if (shotDirty) sendShot();
+    };
+    shot.onerror = () => { shotBusy = false; hostLog('image 3D illisible'); };
+    shot.src = u;
+  }, 'image/jpeg', 0.9);
+}
 function present() {
   if (!ctx2d) return;
   const src = renderer.domElement;
-  if (view2d.width !== src.width || view2d.height !== src.height) {
-    view2d.width = src.width; view2d.height = src.height; view2d.style.cssText = src.style.cssText + ';display:block;touch-action:none';
-  }
+  if (view2d.width !== src.width || view2d.height !== src.height) { view2d.width = src.width; view2d.height = src.height; }
   ctx2d.drawImage(src, 0, 0);
+  sendShot();
 }
 document.body.prepend(VIEW);
 
