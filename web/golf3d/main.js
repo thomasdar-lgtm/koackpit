@@ -30,7 +30,21 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 if (EMBED) renderer.shadowMap.autoUpdate = false;
 window.__renderer = renderer;
-document.body.prepend(renderer.domElement);
+// Écran voiture : la 3D est bien dessinée (pixel contrôlé au journal) mais rien n'apparaît sur l'autoradio,
+// dont le moteur web date de 2018 (Chrome 66) : l'affichage direct d'un canevas WebGL y semble en panne.
+// On dessine donc hors écran et on recopie chaque image dans un canevas 2D ordinaire, seul affiché.
+const view2d = EMBED ? document.createElement('canvas') : null;
+const ctx2d = view2d ? view2d.getContext('2d') : null;
+const VIEW = view2d || renderer.domElement;
+function present() {
+  if (!ctx2d) return;
+  const src = renderer.domElement;
+  if (view2d.width !== src.width || view2d.height !== src.height) {
+    view2d.width = src.width; view2d.height = src.height; view2d.style.cssText = src.style.cssText + ';display:block;touch-action:none';
+  }
+  ctx2d.drawImage(src, 0, 0);
+}
+document.body.prepend(VIEW);
 
 const scene = new THREE.Scene();
 window.__scene = scene;
@@ -38,7 +52,7 @@ const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
 
 const camera = new THREE.PerspectiveCamera(35, innerWidth/innerHeight, 0.01, 1000);
-const controls = new OrbitControls(camera, renderer.domElement);
+const controls = new OrbitControls(camera, VIEW);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.enablePan = false;
@@ -123,10 +137,11 @@ function onLoaded(gltf) {
   hostInfo('modèle chargé en ' + Math.round(performance.now()) + ' ms');
   // Contrôle : couleur au centre de l'image dessinée (= fond seul si la voiture n'est pas dessinée)
   if (EMBED) setTimeout(() => { try {
-    renderer.render(scene, camera);
+    renderer.render(scene, camera); present();
     const gl = renderer.getContext(), px = new Uint8Array(4);
     gl.readPixels(gl.drawingBufferWidth >> 1, gl.drawingBufferHeight >> 1, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
-    hostInfo('pixel central ' + Array.from(px).join(',') + ' · image ' + gl.drawingBufferWidth + 'x' + gl.drawingBufferHeight +
+    const p2 = ctx2d ? Array.from(ctx2d.getImageData(view2d.width >> 1, view2d.height >> 1, 1, 1).data).join(',') : '-';
+    hostInfo('pixel central ' + Array.from(px).join(',') + ' · copie 2D ' + p2 + ' · image ' + gl.drawingBufferWidth + 'x' + gl.drawingBufferHeight +
       ' · page ' + innerWidth + 'x' + innerHeight);
   } catch (e) { hostLog('contrôle image : ' + e.message); } }, 1500);
   window.__ready = true; try { window.KoackpitHost && window.KoackpitHost.ready(); } catch (e) {}
@@ -664,8 +679,8 @@ function hideInfo(goHome = true) {
 }
 document.getElementById('infoBack').onclick = () => hideInfo(true);
 let down = null;
-renderer.domElement.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; });
-renderer.domElement.addEventListener('pointerup', e => {
+VIEW.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+VIEW.addEventListener('pointerup', e => {
   if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6 || performance.now() - down.t > 450) return;
   ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
   ray.setFromCamera(ndc, camera);
@@ -714,7 +729,7 @@ addEventListener('resize', () => {
 
 const clock = new THREE.Clock();
 let idle = 0; function wake() { idle = 0; }
-['pointerdown', 'pointermove', 'wheel'].forEach(e => renderer.domElement.addEventListener(e, wake, { passive: true }));
+['pointerdown', 'pointermove', 'wheel'].forEach(e => VIEW.addEventListener(e, wake, { passive: true }));
 addEventListener('resize', wake);
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.1);
@@ -758,5 +773,5 @@ renderer.setAnimationLoop(() => {
   const busy = moved || anim || focusAnim || controls.autoRotate || Object.values(doors).some(d => d.t !== d.target);
   idle = busy ? 0 : idle + 1;
   if (idle > 45) return;
-  renderer.render(scene, camera);
+  renderer.render(scene, camera); present();
 });
