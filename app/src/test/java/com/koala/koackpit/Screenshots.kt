@@ -111,6 +111,11 @@ open class Screenshots {
     } }
 
     @Test
+    fun voiture_entretien() = captureRoboImage("build/screens/${p}voiture-entretien.png") { Scaled {
+        CarScreenContent(carnet, 0, {}, {}, {}, {}, {}, maintenance = true, live = true)
+    } }
+
+    @Test
     fun voiture_vide() = captureRoboImage("build/screens/${p}voiture-vide.png") { Scaled {
         CarScreenContent(Carnet.Data(Carnet.DEFAULT_KINDS, emptyList(), 0), 0, {}, {}, {}, {}, {})
     } }

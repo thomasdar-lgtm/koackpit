@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -64,8 +65,11 @@ fun CarScreen(onBack: () -> Unit, onCarInfo: () -> Unit) {
     var removing by remember { mutableStateOf<Entry?>(null) }
     var editKm by remember { mutableStateOf(false) }
 
+    // Compteur tenu à jour par le boîtier CAN (le chiffre saisi à la main ne bougeait plus)
+    val canKm = CanBus.info.value?.odometer ?: 0
+    LaunchedEffect(canKm) { if (canKm > 0 && canKm != data.odometer) update(data.copy(odometer = canKm)) }
     CarScreenContent(
-        data, CanBus.doors.value, onBack, onCarInfo,
+        data, CanBus.doors.value, onBack, onCarInfo, live = canKm > 0,
         onAdd = { k -> adding = k; showAdd = true },
         onEntry = { removing = it },
         onOdometer = { editKm = true },
@@ -94,55 +98,73 @@ private typealias Data = Carnet.Data
 fun CarScreenContent(
     data: Carnet.Data, doors: Int, onBack: () -> Unit, onCarInfo: () -> Unit,
     onAdd: (Kind?) -> Unit, onEntry: (Entry) -> Unit, onOdometer: () -> Unit,
+    maintenance: Boolean = false, live: Boolean = false,
 ) {
+    // La Golf en plein écran ; l'entretien (avec le compteur) s'ouvre par son bouton en haut
+    var showMaintenance by remember { mutableStateOf(maintenance) }
     val dues = remember(data) { Carnet.dues(data) }
     Column(Modifier.fillMaxSize().screenBg()) {
-        // En-tête
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(42.dp).clip(CircleShape).background(Card).clickable(onClick = onBack), contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.ArrowBack, "Retour", tint = AccentOnDark, modifier = Modifier.size(24.dp))
-            }
+            Box(
+                Modifier.size(42.dp).clip(CircleShape).darkBtnBg(CircleShape)
+                    .clickable { if (showMaintenance) showMaintenance = false else onBack() },
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Filled.ArrowBack, "Retour", tint = AccentOnDark, modifier = Modifier.size(24.dp)) }
             Spacer(Modifier.width(14.dp))
-            Text("Voiture", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.weight(1f))
-            Text(
-                "Car Info d'origine", color = Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.clip(RoundedCornerShape(50)).background(Card).clickable(onClick = onCarInfo).padding(horizontal = 14.dp, vertical = 8.dp),
-            )
-        }
-        Row(Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            // La Golf
-            Column(
-                Modifier.width(330.dp).fillMaxHeight().clip(RoundedCornerShape(18.dp)).background(Card).padding(12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                // Golf en 3D : tourner au doigt, pincer pour zoomer, toucher une pièce pour sa fiche
-                Golf3D(doors, Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(12.dp)))
-                Spacer(Modifier.height(6.dp))
+            Text(if (showMaintenance) "Entretien" else "Voiture", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Black)
+            if (!showMaintenance) {
+                Spacer(Modifier.width(14.dp))
                 Text(
                     if (doors == 0) "Tout est fermé" else Doors.label(doors),
-                    color = if (doors == 0) Muted else AccentText, fontSize = 12.sp, fontWeight = FontWeight.Bold, lineHeight = 15.sp,
+                    color = if (doors == 0) Muted else AccentText, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1,
                 )
-                Spacer(Modifier.height(8.dp))
-                Column(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Inset).clickable(onClick = onOdometer).padding(vertical = 8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text("Compteur", color = Muted, fontSize = 11.sp)
-                    Text(if (data.odometer > 0) km(data.odometer) else "à renseigner", color = Ink, fontSize = 18.sp, fontWeight = FontWeight.Black)
-                }
             }
-            // Carnet d'entretien
-            Column(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(18.dp)).background(Card).padding(14.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Entretien", color = AccentText, fontSize = 20.sp, fontWeight = FontWeight.Black)
-                    Spacer(Modifier.weight(1f))
-                    Text(
-                        "+  Ajouter", color = OnAccent, fontSize = 14.sp, fontWeight = FontWeight.Black,
-                        modifier = Modifier.clip(RoundedCornerShape(50)).background(Yellow).clickable { onAdd(null) }.padding(horizontal = 16.dp, vertical = 8.dp),
-                    )
-                }
-                Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.weight(1f))
+            if (showMaintenance) {
+                Text(
+                    "+  Ajouter", color = OnAccent, fontSize = 14.sp, fontWeight = FontWeight.Black,
+                    modifier = Modifier.accentBg(RoundedCornerShape(50), glow = false).clip(RoundedCornerShape(50))
+                        .clickable { onAdd(null) }.padding(horizontal = 16.dp, vertical = 9.dp),
+                )
+            } else {
+                // Pastille d'alerte si un entretien est dû ou proche
+                val due = dues.count { it.state == DueState.LATE || it.state == DueState.SOON }
+                Text(
+                    "Entretien" + if (due > 0) "  ($due)" else "", color = OnAccent, fontSize = 14.sp, fontWeight = FontWeight.Black,
+                    modifier = Modifier.accentBg(RoundedCornerShape(50), glow = false).clip(RoundedCornerShape(50))
+                        .clickable { showMaintenance = true }.padding(horizontal = 16.dp, vertical = 9.dp),
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+            Text(
+                "Car Info d'origine", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.clip(RoundedCornerShape(50)).darkBtnBg(RoundedCornerShape(50)).clickable(onClick = onCarInfo)
+                    .padding(horizontal = 14.dp, vertical = 9.dp),
+            )
+        }
+        if (!showMaintenance) {
+            // Golf en 3D : tourner au doigt, pincer pour zoomer, toucher une pièce pour sa fiche.
+            // Pas d'arrondi autour : le moteur web de l'autoradio n'affiche rien dans une zone découpée en arrondi.
+            Golf3D(doors, Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, bottom = 14.dp))
+        } else Row(
+            Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            // Compteur : relevé automatiquement par le boîtier CAN (sinon saisi à la main)
+            Column(
+                Modifier.width(230.dp).clip(RoundedCornerShape(18.dp)).cardBg(RoundedCornerShape(18.dp)).padding(14.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text("Compteur", color = Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text(if (data.odometer > 0) km(data.odometer) else "à renseigner", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    if (live) "relevé automatiquement" else "saisi à la main — toucher pour corriger",
+                    color = Muted, fontSize = 11.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = if (live) Modifier else Modifier.clickable(onClick = onOdometer),
+                )
+            }
+            Column(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(18.dp)).cardBg(RoundedCornerShape(18.dp)).padding(14.dp)) {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     items(dues, key = { "d" + it.kind.id }) { d -> DueRow(d) { onAdd(d.kind) } }
                     if (data.entries.isNotEmpty()) item(key = "h") {
