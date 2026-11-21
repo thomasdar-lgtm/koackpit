@@ -55,12 +55,27 @@ function sendShot() {
     shot.src = u;
   }, 'image/jpeg', 0.9);
 }
+// Dans Koackpit : même l'image ordinaire ne s'affiche pas (essai 0.16.5) → chaque vue part en JPEG vers Koackpit,
+// qui l'affiche lui-même par-dessus la page (les gestes continuent d'arriver à la page en dessous)
+const NATIVE = !!(window.KoackpitHost && window.KoackpitHost.frame);
+let nativeAt = 0, nativeTimer = null, nativeCount = 0;
+function nativeShot() {
+  const wait = 70 - (performance.now() - nativeAt);
+  if (wait > 0) { if (!nativeTimer) nativeTimer = setTimeout(() => { nativeTimer = null; nativeShot(); }, wait); return; }
+  nativeAt = performance.now();
+  try {
+    const url = view2d.toDataURL('image/jpeg', 0.85);
+    window.KoackpitHost.frame(url.substring(url.indexOf(',') + 1));
+    if (++nativeCount === 1) hostInfo('images envoyées à Koackpit (' + Math.round(url.length / 1365) + ' Ko la première)');
+  } catch (e) { hostLog('envoi image : ' + e.message); }
+}
+function hostPanel(t, x) { try { window.KoackpitHost && window.KoackpitHost.panel && window.KoackpitHost.panel(t, x); } catch (e) {} }
 function present() {
   if (!ctx2d) return;
   const src = renderer.domElement;
   if (view2d.width !== src.width || view2d.height !== src.height) { view2d.width = src.width; view2d.height = src.height; }
   ctx2d.drawImage(src, 0, 0);
-  sendShot();
+  if (NATIVE) nativeShot(); else sendShot();
 }
 document.body.prepend(VIEW);
 
@@ -690,9 +705,11 @@ function showInfo(obj) {
   card.querySelector('h2').textContent = obj.userData.info.title;
   card.querySelector('p').textContent = obj.userData.info.text;
   card.classList.add('show');
+  hostPanel(obj.userData.info.title, obj.userData.info.text);
 }
 function hideInfo(goHome = true) {
   document.getElementById('info').classList.remove('show'); highlight(null);
+  hostPanel('', '');
   if (goHome) { controls.minDistance = homeMinDist; flyTo(center, homeDist()); }
 }
 document.getElementById('infoBack').onclick = () => hideInfo(true);

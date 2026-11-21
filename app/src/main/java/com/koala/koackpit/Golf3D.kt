@@ -14,6 +14,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
@@ -31,6 +37,9 @@ fun Golf3D(mask: Int, modifier: Modifier = Modifier) {
     // Prête (modèle affiché) / en échec : la photo de la Golf remplace la vue 3D si elle ne s'affiche pas
     val ready = remember { androidx.compose.runtime.mutableStateOf(false) }
     val failed = remember { androidx.compose.runtime.mutableStateOf(false) }
+    // Image de la Golf envoyée par la page (le moteur web de l'autoradio ne l'affiche pas lui-même) et fiche de pièce
+    val frame = remember { androidx.compose.runtime.mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+    val panel = remember { androidx.compose.runtime.mutableStateOf<Pair<String, String>?>(null) }
     LaunchedEffect(Unit) {
         val v = runCatching { android.webkit.WebView.getCurrentWebViewPackage()?.versionName }.getOrNull() ?: "?"
         WakeLog.add(ctx, "Golf 3D : ouverture (WebView $v)")
@@ -47,7 +56,8 @@ fun Golf3D(mask: Int, modifier: Modifier = Modifier) {
             // Fond opaque (couleur de la carte) : WebView et page, voir main.js
             setBackgroundColor(CardSolid.toArgb())
             // La page lit l'état des ouvrants au moment où le modèle a fini de charger
-            addJavascriptInterface(Host(ctx.applicationContext, { ready.value = true }, { failed.value = true }), "KoackpitHost")
+            addJavascriptInterface(Host(ctx.applicationContext, { ready.value = true }, { failed.value = true },
+                { frame.value = it }, { panel.value = it }), "KoackpitHost")
             webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
                     loader.shouldInterceptRequest(request.url)
@@ -69,6 +79,31 @@ fun Golf3D(mask: Int, modifier: Modifier = Modifier) {
     LaunchedEffect(mask) { web.evaluateJavascript("window.koackpitDoors && window.koackpitDoors($mask)", null) }
     androidx.compose.foundation.layout.Box(modifier) {
         AndroidView(factory = { web }, modifier = Modifier.matchParentSize())
+        // Par-dessus la page : l'image de la Golf (sans geste : les doigts arrivent à la page en dessous)
+        frame.value?.let {
+            androidx.compose.foundation.Image(it, "Ma Golf en 3D", Modifier.matchParentSize(),
+                contentScale = androidx.compose.ui.layout.ContentScale.FillBounds)
+        }
+        // Mention de l'auteur du modèle (licence CC BY 4.0), cachée par l'image côté page
+        if (frame.value != null) androidx.compose.material3.Text(
+            "Modèle 3D : bimboit34 (Sketchfab) · CC BY 4.0", color = Muted.copy(alpha = 0.7f), fontSize = 8.sp,
+            modifier = Modifier.align(androidx.compose.ui.Alignment.BottomEnd).padding(4.dp),
+        )
+        panel.value?.let { (title, text) ->
+            androidx.compose.foundation.layout.Column(
+                Modifier.align(androidx.compose.ui.Alignment.TopStart).padding(8.dp).fillMaxWidth(0.55f)
+                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp)).background(CardSolid).padding(12.dp),
+            ) {
+                androidx.compose.material3.Text(title, color = AccentText, fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Black)
+                androidx.compose.material3.Text(text, color = Ink, fontSize = 12.sp, lineHeight = 16.sp)
+                androidx.compose.material3.Text(
+                    "↩ Vue générale", color = OnAccent, fontSize = 13.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Black,
+                    modifier = Modifier.padding(top = 8.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(50)).background(Yellow)
+                        .clickable { web.evaluateJavascript("document.getElementById('infoBack').click()", null) }
+                        .padding(horizontal = 14.dp, vertical = 6.dp),
+                )
+            }
+        }
         if (failed.value && !ready.value) androidx.compose.foundation.layout.Column(
             Modifier.matchParentSize().background(Card),
             horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
@@ -85,9 +120,26 @@ fun Golf3D(mask: Int, modifier: Modifier = Modifier) {
 }
 
 /** Pont avec la page 3D : état des ouvrants, journal des erreurs, modèle affiché. */
-private class Host(private val app: android.content.Context, private val onReady: () -> Unit, private val onFail: () -> Unit) {
+private class Host(
+    private val app: android.content.Context, private val onReady: () -> Unit, private val onFail: () -> Unit,
+    private val onFrame: (androidx.compose.ui.graphics.ImageBitmap) -> Unit, private val onPanel: (Pair<String, String>?) -> Unit,
+) {
     private val main = android.os.Handler(android.os.Looper.getMainLooper())
     private var logged = 0
+    private var frames = 0
+
+    /** Une vue de la Golf, en JPEG (base64). Décodée ici (fil du pont), affichée sur le fil principal. */
+    @JavascriptInterface
+    fun frame(b64: String) {
+        val bytes = runCatching { android.util.Base64.decode(b64, android.util.Base64.DEFAULT) }.getOrNull() ?: return
+        val bmp = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return
+        if (frames++ == 0) WakeLog.add(app, "Golf 3D : première image reçue par Koackpit (${bmp.width}x${bmp.height})")
+        val img = bmp.asImageBitmap()
+        main.post { onFrame(img) }
+    }
+
+    @JavascriptInterface
+    fun panel(title: String, text: String) { main.post { onPanel(if (title.isBlank()) null else title to text) } }
 
     @JavascriptInterface
     fun doors(): Int = CanBus.doors.value
