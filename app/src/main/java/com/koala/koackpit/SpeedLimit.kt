@@ -128,17 +128,41 @@ object SpeedLimit {
         return if (bestScore < 25) best?.limit else null
     }
 
-    private fun fetch(lat: Double, lon: Double): List<Way> {
-        val q = "[out:json][timeout:20];way(around:1000,%.5f,%.5f)[highway~\"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|motorway_link|trunk_link|primary_link|secondary_link|tertiary_link|service)$\"];out tags geom;"
-            .format(java.util.Locale.US, lat, lon)
-        val conn = URL("https://overpass-api.de/api/interpreter").openConnection() as HttpURLConnection
-        val txt = try {
+    private val SERVERS = listOf(
+        "https://overpass-api.de/api/interpreter",
+        "http://overpass-api.de/api/interpreter",
+        "https://overpass.kumi.systems/api/interpreter",
+    )
+    @Volatile private var server = 0
+
+    private fun post(url: String, q: String): String {
+        val conn = URL(url).openConnection() as HttpURLConnection
+        return try {
             conn.connectTimeout = 10_000; conn.readTimeout = 25_000
             conn.requestMethod = "POST"; conn.doOutput = true
             conn.setRequestProperty("User-Agent", "Koackpit/${BuildConfig.VERSION_NAME}")
             conn.outputStream.use { it.write(("data=" + URLEncoder.encode(q, "UTF-8")).toByteArray()) }
+            if (conn.responseCode != 200) throw java.io.IOException("réponse ${conn.responseCode}")
             conn.inputStream.bufferedReader().readText()
         } finally { conn.disconnect() }
+    }
+
+    private fun fetch(lat: Double, lon: Double): List<Way> {
+        val q = "[out:json][timeout:20];way(around:1000,%.5f,%.5f)[highway~\"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|motorway_link|trunk_link|primary_link|secondary_link|tertiary_link|service)$\"];out tags geom;"
+            .format(java.util.Locale.US, lat, lon)
+        // Le serveur principal refuse la connexion sécurisée de l'autoradio (« Handshake failed », journal du 21/11) :
+        // on essaie les adresses dans l'ordre et on garde la première qui répond
+        var txt: String? = null
+        var err: Exception? = null
+        for (k in SERVERS.indices) {
+            val url = SERVERS[(server + k) % SERVERS.size]
+            try {
+                txt = post(url, q)
+                if ((server + k) % SERVERS.size != server) { server = (server + k) % SERVERS.size; log("serveur utilisé : $url") }
+                break
+            } catch (e: Exception) { err = e }
+        }
+        if (txt == null) throw err ?: java.io.IOException("aucun serveur")
         val els = JSONObject(txt).getJSONArray("elements")
         val out = ArrayList<Way>(els.length())
         for (i in 0 until els.length()) {
