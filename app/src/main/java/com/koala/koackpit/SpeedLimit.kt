@@ -92,8 +92,16 @@ object SpeedLimit {
                 } finally { busy = false }
             }.start()
         }
-        limit.value = match(loc)
+        // Garde le dernier panneau connu : il s'effaçait dès que la route n'était plus reconnue un instant
+        // (virage, croisement, position imprécise, route sans limitation renseignée)
+        val m = match(loc)
+        if (m != null) { held = m; heldAt = now; heldLoc = loc }
+        else if (held != null && (now - heldAt > 30_000 || (heldLoc?.distanceTo(loc) ?: 0f) > 500f)) held = null
+        limit.value = held
     }
+    private var held: Int? = null
+    private var heldAt = 0L
+    private var heldLoc: Location? = null
 
     /** Route la plus proche (moins de 25 m), en écartant celles qui partent dans une autre direction. */
     private fun match(loc: Location): Int? {
