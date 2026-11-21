@@ -14,6 +14,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
@@ -79,11 +82,28 @@ fun Golf3D(mask: Int, modifier: Modifier = Modifier) {
     LaunchedEffect(mask) { web.evaluateJavascript("window.koackpitDoors && window.koackpitDoors($mask)", null) }
     androidx.compose.foundation.layout.Box(modifier) {
         AndroidView(factory = { web }, modifier = Modifier.matchParentSize())
-        // Par-dessus la page : l'image de la Golf (sans geste : les doigts arrivent à la page en dessous)
+        // Par-dessus la page : l'image de la Golf, et les gestes captés ici puis transmis à la page (dans le moteur
+        // web de l'autoradio, la page ne reçoit ni n'anime rien d'elle-même : constaté le 21/11)
         frame.value?.let {
             androidx.compose.foundation.Image(it, "Ma Golf en 3D", Modifier.matchParentSize(),
                 contentScale = androidx.compose.ui.layout.ContentScale.FillBounds)
         }
+        androidx.compose.foundation.layout.Box(
+            Modifier.matchParentSize()
+                .pointerInput(Unit) {
+                    detectTransformGestures { _, pan, zoom, _ ->
+                        val w = size.width.toFloat().coerceAtLeast(1f); val h = size.height.toFloat().coerceAtLeast(1f)
+                        if (pan.x != 0f || pan.y != 0f) web.evaluateJavascript("window.koackpitDrag&&koackpitDrag(${pan.x / w},${pan.y / h})", null)
+                        if (zoom != 1f) web.evaluateJavascript("window.koackpitZoom&&koackpitZoom($zoom)", null)
+                    }
+                }
+                .pointerInput(Unit) {
+                    detectTapGestures { o ->
+                        val w = size.width.toFloat().coerceAtLeast(1f); val h = size.height.toFloat().coerceAtLeast(1f)
+                        web.evaluateJavascript("window.koackpitTap&&koackpitTap(${o.x / w},${o.y / h})", null)
+                    }
+                },
+        )
         // Mention de l'auteur du modèle (licence CC BY 4.0), cachée par l'image côté page
         if (frame.value != null) androidx.compose.material3.Text(
             "Modèle 3D : bimboit34 (Sketchfab) · CC BY 4.0", color = Muted.copy(alpha = 0.7f), fontSize = 8.sp,

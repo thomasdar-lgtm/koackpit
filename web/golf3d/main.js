@@ -717,13 +717,16 @@ let down = null;
 VIEW.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; });
 VIEW.addEventListener('pointerup', e => {
   if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6 || performance.now() - down.t > 450) return;
-  ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  tapAt(e.clientX, e.clientY);
+});
+function tapAt(cx, cy) {
+  ndc.set(cx / innerWidth * 2 - 1, -(cy / innerHeight) * 2 + 1);
   ray.setFromCamera(ndc, camera);
   const hit = ray.intersectObjects(scene.children, true).find(h => isShown(h.object) && !(h.object.material && h.object.material.transparent && h.object.material.opacity < 0.3));
   const obj = hit && infoOf(hit.object);
   if (obj) { setRot(false); showInfo(obj); }
   else if (document.getElementById('info').classList.contains('show')) hideInfo(false);
-});
+}
 window.focusPart = name => { const o = scene.getObjectByName(name); if (o && o.userData.info) showInfo(o); };
 
 function setDoor(k, open) {
@@ -766,7 +769,7 @@ const clock = new THREE.Clock();
 let idle = 0; function wake() { idle = 0; }
 ['pointerdown', 'pointermove', 'wheel'].forEach(e => VIEW.addEventListener(e, wake, { passive: true }));
 addEventListener('resize', wake);
-renderer.setAnimationLoop(() => {
+const frameLoop = () => {
   const dt = Math.min(clock.getDelta(), 0.1);
   if (focusAnim) {
     focusAnim.t = Math.min(1, focusAnim.t + dt / 0.85); const k = ease(focusAnim.t);
@@ -809,4 +812,21 @@ renderer.setAnimationLoop(() => {
   idle = busy ? 0 : idle + 1;
   if (idle > 45) return;
   renderer.render(scene, camera); present();
-});
+};
+// Dans Koackpit, le moteur web de l'autoradio ne cadence pas l'affichage (sa page n'est jamais redessinée à
+// l'écran) : requestAnimationFrame ne tourne donc pas, et les gestes n'y arrivent pas non plus.
+// → minuterie de 25 images/s, et gestes captés par Koackpit puis transmis ici (koackpitDrag/Zoom/Tap).
+if (NATIVE) setInterval(frameLoop, 40); else renderer.setAnimationLoop(frameLoop);
+const _off = new THREE.Vector3(), _sph = new THREE.Spherical();
+window.koackpitDrag = (dx, dy) => {   // déplacement du doigt en fraction de la largeur / hauteur
+  _off.copy(camera.position).sub(controls.target); _sph.setFromVector3(_off);
+  _sph.theta -= dx * Math.PI * 1.6; _sph.phi = Math.max(0.15, Math.min(controls.maxPolarAngle, _sph.phi - dy * Math.PI * 0.9));
+  _off.setFromSpherical(_sph); camera.position.copy(controls.target).add(_off);
+  setRot(false); anim = null; focusAnim = null; wake();
+};
+window.koackpitZoom = f => {          // f > 1 : rapprocher
+  _off.copy(camera.position).sub(controls.target);
+  const d = Math.max(controls.minDistance, Math.min(controls.maxDistance, _off.length() / f));
+  camera.position.copy(controls.target).add(_off.setLength(d)); wake();
+};
+window.koackpitTap = (nx, ny) => { tapAt(nx * innerWidth, ny * innerHeight); wake(); };
