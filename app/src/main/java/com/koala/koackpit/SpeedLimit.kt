@@ -83,7 +83,7 @@ object SpeedLimit {
         val ty = Math.floor(loc.latitude / TILE).toInt(); val tx = Math.floor(loc.longitude / TILE).toInt()
         // Carreau actuel d'abord, puis ses voisins
         val want = listOf(0 to 0, -1 to 0, 1 to 0, 0 to -1, 0 to 1, -1 to -1, -1 to 1, 1 to -1, 1 to 1).map { (a, b) -> key(ty + a, tx + b) }
-        val missing = want.firstOrNull { it !in tiles && !loadCached(it) }
+        val missing = want.firstOrNull { !tiles.containsKey(it) && !loadCached(it) }
         if (missing != null && !busy && SystemClock.elapsedRealtime() - (lastTry[missing] ?: 0L) > 20_000) {
             busy = true; lastTry[missing] = SystemClock.elapsedRealtime()
             Thread {
