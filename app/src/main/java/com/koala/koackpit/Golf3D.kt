@@ -106,7 +106,7 @@ fun Golf3D(mask: Int, modifier: Modifier = Modifier) {
         panel.value?.let { (title, text) ->
             Column(
                 Modifier.align(Alignment.TopStart).padding(8.dp).fillMaxWidth(0.5f)
-                    .clip(RoundedCornerShape(14.dp)).background(CardSolid).padding(12.dp),
+                    .clip(RoundedCornerShape(14.dp)).cardBg(RoundedCornerShape(14.dp)).padding(12.dp),
             ) {
                 Text(title, color = AccentText, fontSize = 16.sp, fontWeight = FontWeight.Black)
                 Text(text, color = Ink, fontSize = 12.sp, lineHeight = 16.sp)
