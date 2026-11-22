@@ -117,11 +117,11 @@ class WakeService : Service() {
                 var back = 0
                 var started = false
                 while (android.os.SystemClock.elapsedRealtime() < guardUntil && back < 6) {
-                    Thread.sleep(1000)
+                    Thread.sleep(400)
                     val now = android.os.SystemClock.elapsedRealtime()
                     if (Front.visible > 0) continue
                     if ((CarLink.hfpState() ?: 0) >= 4) continue
-                    if (now - BtSound.openedAt < 3000) continue
+                    if (now - BtSound.openedAt < 7000) continue   // la remise du son gère elle-même son retour
                     if (System.currentTimeMillis() - Apps.userOpenAt(app) in 0..60_000) continue
                     if (!(app.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager).isInteractive) continue
                     // Outil résident : un seul lancement autorisé par surveillance (après une mise à jour il change)
@@ -133,14 +133,8 @@ class WakeService : Service() {
                     }
                     back++
                     WakeLog.add(app, "Démarrage : $what devant (+${(now - start) / 1000} s) → retour sur Koackpit")
-                    Handler(Looper.getMainLooper()).post {
-                        runCatching {
-                            if (MusicActivity.isOpen()) MusicActivity.restart()
-                            else app.startActivity(Intent(app, MainActivity::class.java)
-                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
-                        }
-                    }
-                    Thread.sleep(1500)
+                    Handler(Looper.getMainLooper()).post { ComeBack.bring(app) }
+                    Thread.sleep(2500)
                 }
             }.start()
         }

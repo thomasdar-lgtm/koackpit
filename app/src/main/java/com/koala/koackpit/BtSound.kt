@@ -59,38 +59,22 @@ object BtSound {
         }.start()
     }
 
-    private fun cover(app: Context): android.view.View? = runCatching {
-        val wm = app.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
-        val v = android.widget.FrameLayout(app).apply { setBackgroundColor(android.graphics.Color.rgb(0, 7, 26)) }
-        val lp = android.view.WindowManager.LayoutParams(
-            android.view.WindowManager.LayoutParams.MATCH_PARENT, android.view.WindowManager.LayoutParams.MATCH_PARENT,
-            android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-                android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-            android.graphics.PixelFormat.OPAQUE,
-        )
-        wm.addView(v, lp); v
-    }.getOrNull()
-
     /** Page Bluetooth d'origine un instant, puis retour à Koackpit (accueil, ou conduite si elle était ouverte). */
     private fun fix(app: Context) {
         val h = Handler(Looper.getMainLooper())
-        val driving = MusicActivity.isOpen()
         WakeLog.add(app, "Son Bluetooth : page Bluetooth un instant (téléphone connecté)")
         // Cache-écran aux couleurs de Koackpit par-dessus tout : la page Bluetooth s'ouvre dessous
         // (elle doit être réellement affichée pour que l'autoradio rouvre le son) sans être vue.
         openedAt = android.os.SystemClock.elapsedRealtime()
-        val cover = cover(app)
+        val cover = ComeBack.cover(app)
         runCatching {
             app.startActivity(Intent().setComponent(SplitScreen.BT_MAIN).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }.onFailure { WakeLog.add(app, "Page Bluetooth refusée : ${it.message}") }
         sp(app).edit().putBoolean("btFix", false).putLong("btFixSlept", sleptMs()).putLong("btFixBoot", bootAt()).apply()
         h.postDelayed({
-            if (driving) MusicActivity.restart()
-            else app.startActivity(Intent(app, MainActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
+            // Retour à Koackpit (accueil ou conduite) ; le cache reste tant que Koackpit n'est pas réellement affiché
+            ComeBack.bring(app, cover)
             busy = false
-            h.postDelayed({ cover?.let { v -> runCatching { (app.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager).removeView(v) } } }, 700)
         }, 1500)
     }
 }
