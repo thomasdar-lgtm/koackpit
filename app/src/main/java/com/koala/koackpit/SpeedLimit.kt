@@ -24,12 +24,15 @@ import kotlin.math.cos
  * Maintenant : la carte est découpée en carreaux d'environ 2 km ; pour chaque carreau on ne télécharge QUE les
  * routes qui ont une limitation (petite réponse), une seule fois : gardé ensuite sur l'autoradio (30 jours),
  * donc les trajets habituels n'ont plus besoin du réseau. Le carreau où l'on est et ses voisins sont chargés
- * d'avance. Le dernier panneau reconnu reste affiché jusqu'au suivant (ou l'arrêt de la voiture).
+ * d'avance. Depuis 0.17.2, toutes les routes sont téléchargées (pas seulement celles avec panneau) : le panneau
+ * suit la route où l'on est vraiment, et disparaît sur une route dont la limitation n'est pas connue (avant, le
+ * dernier panneau restait affiché à tort : 110 ou 80 longtemps après avoir changé de route, constaté le 22/11).
  */
 object SpeedLimit {
     val limit = mutableStateOf<Int?>(null)
 
-    private class Way(val limit: Int, val pts: DoubleArray)   // lat, lon, lat, lon…
+    /** Une route : limitation connue (null = pas renseignée dans OpenStreetMap) et tracé lat, lon, lat, lon… */
+    private class Way(val limit: Int?, val pts: DoubleArray)
     private const val TILE = 0.02                              // degrés (≈ 2,2 km × 1,6 km ici)
     private val tiles = java.util.concurrent.ConcurrentHashMap<String, List<Way>>()
     @Volatile private var busy = false
@@ -62,7 +65,7 @@ object SpeedLimit {
     fun stop() {
         runCatching { lm?.removeUpdates(listener) }
         lm = null
-        held = null; limit.value = null
+        current = null; candidate = null; limit.value = null
     }
 
     /** Position du téléphone (plus précise) : utilisée en priorité quand elle arrive. */
@@ -90,7 +93,7 @@ object SpeedLimit {
                 try {
                     val w = fetchTile(missing)
                     tiles[missing] = w; saveCached(missing, w)
-                    log("carreau ${if (missing == want[0]) "actuel" else "voisin"} téléchargé : ${w.size} routes avec limitation")
+                    log("carreau ${if (missing == want[0]) "actuel" else "voisin"} téléchargé : ${w.size} routes, ${w.count { it.limit != null }} avec limitation")
                     lastError = null
                 } catch (e: Exception) {
                     val m = e.javaClass.simpleName + (e.message?.let { ": " + it.take(80) } ?: "")
@@ -99,20 +102,37 @@ object SpeedLimit {
                 } finally { busy = false }
             }.start()
         }
-        val m = match(loc, want.mapNotNull { tiles[it] }.flatten())
-        if (m != null) held = m
-        if (limit.value != held) { limit.value = held; if (held != null) log("panneau affiché : $held") }
+        // Toutes les routes sont connues (pas seulement celles avec panneau) : on sait donc quand on quitte une route.
+        // Changement de route validé sur 2 positions de suite (évite les sauts aux carrefours).
+        val now = SystemClock.elapsedRealtime()
+        val w = match(loc, want.mapNotNull { tiles[it] }.flatten())
+        if (w != null) {
+            lastMatch = now
+            if (w === current) candidate = null
+            else if (w === candidate) { current = w; candidate = null }
+            else candidate = w
+        } else if (now - lastMatch > 8_000) current = null   // plus aucune route connue sous la voiture
+        val shown = current?.limit
+        if (limit.value != shown) {
+            limit.value = shown
+            log(if (shown != null) "panneau affiché : $shown" else if (current != null) "route sans limitation connue : panneau retiré" else "hors route connue : panneau retiré")
+        }
     }
-    /** Dernier panneau reconnu : reste affiché jusqu'au suivant (remis à zéro à l'arrêt de la voiture). */
-    private var held: Int? = null
+    private var current: Way? = null
+    private var candidate: Way? = null
+    private var lastMatch = 0L
 
     // ---- Carreaux gardés sur l'autoradio ----
-    private fun file(k: String) = app?.let { java.io.File(java.io.File(it.filesDir, "limitations").apply { mkdirs() }, k.replace(',', '_') + ".txt") }
+    // « limitations2 » : toutes les routes (l'ancien dossier ne gardait que celles avec panneau)
+    private fun file(k: String) = app?.let { ctx ->
+        java.io.File(ctx.filesDir, "limitations").takeIf { it.exists() }?.deleteRecursively()
+        java.io.File(java.io.File(ctx.filesDir, "limitations2").apply { mkdirs() }, k.replace(',', '_') + ".txt")
+    }
 
-    /** Format : une route par ligne « limite;lat,lon;lat,lon… ». */
+    /** Format : une route par ligne « limite (ou -);lat,lon;lat,lon… ». */
     private fun saveCached(k: String, ws: List<Way>) = runCatching {
         file(k)?.writeText(ws.joinToString("\n") { w ->
-            w.limit.toString() + ";" + (0 until w.pts.size / 2).joinToString(";") { "%.6f,%.6f".format(java.util.Locale.US, w.pts[2 * it], w.pts[2 * it + 1]) }
+            (w.limit?.toString() ?: "-") + ";" + (0 until w.pts.size / 2).joinToString(";") { "%.6f,%.6f".format(java.util.Locale.US, w.pts[2 * it], w.pts[2 * it + 1]) }
         })
     }
 
@@ -123,15 +143,15 @@ object SpeedLimit {
             f.readLines().filter { it.isNotBlank() }.map { line ->
                 val parts = line.split(';')
                 val pts = parts.drop(1).flatMap { it.split(',').map(String::toDouble) }.toDoubleArray()
-                Way(parts[0].toInt(), pts)
+                Way(parts[0].toIntOrNull(), pts)
             }
         }.getOrNull() ?: return false
         tiles[k] = ws
         return true
     }
 
-    /** Route la plus proche (moins de 25 m), en écartant celles qui partent dans une autre direction. */
-    private fun match(loc: Location, ws: List<Way>): Int? {
+    /** Route la plus proche (moins de 20 m), en écartant celles qui partent dans une autre direction. */
+    private fun match(loc: Location, ws: List<Way>): Way? {
         if (ws.isEmpty()) return null
         val lat0 = loc.latitude; val lon0 = loc.longitude
         val kx = 111_320.0 * cos(Math.toRadians(lat0)); val ky = 110_540.0
@@ -149,7 +169,7 @@ object SpeedLimit {
                 val t = if (len2 > 0) (-(ax * dx + ay * dy) / len2).coerceIn(0.0, 1.0) else 0.0
                 val px = ax + t * dx; val py = ay + t * dy
                 var score = Math.sqrt(px * px + py * py)
-                if (score < 25 && moving && len2 > 4) {
+                if (score < 20 && moving && len2 > 4) {
                     val seg = (Math.toDegrees(Math.atan2(dx, dy)) + 360) % 180
                     val dir = (loc.bearing.toDouble() + 360) % 180
                     val diff = abs(seg - dir).let { if (it > 90) 180 - it else it }
@@ -159,7 +179,7 @@ object SpeedLimit {
                 i += 2
             }
         }
-        return if (bestScore < 25) best?.limit else null
+        return if (bestScore < 20) best else null
     }
 
     private val SERVERS = listOf(
@@ -172,7 +192,7 @@ object SpeedLimit {
     private fun post(url: String, q: String): String {
         val conn = URL(url).openConnection() as HttpURLConnection
         return try {
-            conn.connectTimeout = 8_000; conn.readTimeout = 30_000
+            conn.connectTimeout = 8_000; conn.readTimeout = 45_000
             conn.requestMethod = "POST"; conn.doOutput = true
             conn.setRequestProperty("User-Agent", "Koackpit/${BuildConfig.VERSION_NAME}")
             conn.outputStream.use { it.write(("data=" + URLEncoder.encode(q, "UTF-8")).toByteArray()) }
@@ -186,12 +206,9 @@ object SpeedLimit {
         val (ty, tx) = k.split(',').map { it.toInt() }
         val s0 = ty * TILE; val w0 = tx * TILE
         val bbox = "%.4f,%.4f,%.4f,%.4f".format(java.util.Locale.US, s0, w0, s0 + TILE, w0 + TILE)
-        val q = "[out:json][timeout:25];(" +
-            "way[highway][maxspeed]($bbox);" +
-            "way[highway][\"maxspeed:type\"]($bbox);" +
-            "way[highway][\"source:maxspeed\"]($bbox);" +
-            "way[highway][\"zone:maxspeed\"]($bbox);" +
-            "way[highway=motorway]($bbox););out tags geom;"
+        val q = "[out:json][timeout:40];" +
+            "way[highway~\"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|" +
+            "tertiary|tertiary_link|unclassified|residential|living_street|road)$\"]($bbox);out tags geom;"
         // Le serveur principal refuse parfois la connexion sécurisée de l'autoradio : on essaie les adresses
         // dans l'ordre et on garde la première qui répond
         var txt: String? = null
@@ -211,12 +228,13 @@ object SpeedLimit {
             val e = els.getJSONObject(i)
             val g = e.optJSONArray("geometry") ?: continue
             val tags = e.optJSONObject("tags") ?: continue
+            val hw = tags.optString("highway")
             val lim = parse(tags.optString("maxspeed"))
+                ?: parse(tags.optString("maxspeed:forward"))
                 ?: parse(tags.optString("maxspeed:type"))
                 ?: parse(tags.optString("source:maxspeed"))
                 ?: parse(tags.optString("zone:maxspeed"))
-                ?: if (tags.optString("highway") == "motorway") 130 else null
-            if (lim == null) continue
+                ?: when (hw) { "motorway" -> 130; "living_street" -> 20; else -> null }   // règles françaises sans ambiguïté
             val pts = DoubleArray(g.length() * 2)
             for (j in 0 until g.length()) { val o = g.getJSONObject(j); pts[2 * j] = o.getDouble("lat"); pts[2 * j + 1] = o.getDouble("lon") }
             out.add(Way(lim, pts))
