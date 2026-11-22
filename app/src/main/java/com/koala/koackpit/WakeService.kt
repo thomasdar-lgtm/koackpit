@@ -362,12 +362,37 @@ class WakeService : Service() {
                     if (s != null && s != lastSource) {
                         if (lastSource != null) WakeLog.add(this@WakeService, "Source audio : ${CarLink.sourceName(lastSource)} → ${CarLink.sourceName(s)}")
                         else WakeLog.add(this@WakeService, "Source audio : ${CarLink.sourceName(s)}")
+                        if (lastSource == CarLink.SRC_BT && (s == CarLink.SRC_ANDROID || s == 0)) btLost()
                         lastSource = s
                     }
                 }
             }.start()
             main.postDelayed(this, 2000)
         }
+    }
+
+    /**
+     * Son Bluetooth coupé d'un coup (constaté le 22/11 : l'autoradio passe tout seul sur une source vide,
+     * « enterApp:EmptySource, reason=mcu », le Bluetooth reste connecté mais plus aucun son). Si ce n'est pas
+     * toi (aucune appli ouverte dans la minute, pas d'appel), Koackpit remet la source Bluetooth.
+     * 3 fois maximum en 5 minutes, pour ne jamais se battre avec un vrai changement de source.
+     */
+    private val btRestores = ArrayDeque<Long>()
+    private fun btLost() {
+        if (System.currentTimeMillis() - Apps.userOpenAt(this) < 60_000) return
+        val now = android.os.SystemClock.elapsedRealtime()
+        while (btRestores.isNotEmpty() && now - btRestores.first() > 300_000) btRestores.removeFirst()
+        if (btRestores.size >= 3) { WakeLog.add(this, "Source Bluetooth perdue : remise abandonnée (trop souvent)"); return }
+        main.postDelayed({
+            Thread {
+                val src = CarLink.currentSource()
+                val hfp = CarLink.hfpState()
+                if (src == CarLink.SRC_BT || hfp == null || hfp != 3) return@Thread   // revenue seule, pas de téléphone ou appel
+                btRestores.addLast(android.os.SystemClock.elapsedRealtime())
+                val ok = CarLink.enterSource(CarLink.SRC_BT)
+                WakeLog.add(this, "Source Bluetooth perdue (autoradio) : remise " + if (ok) "demandée" else "refusée")
+            }.start()
+        }, 1500)
     }
 
     private val reverseWatch = object : Runnable {
