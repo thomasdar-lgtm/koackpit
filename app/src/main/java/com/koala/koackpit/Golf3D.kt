@@ -406,7 +406,11 @@ private class GolfScene(
         view.pick(x.toInt(), h - y.toInt(), android.os.Handler(android.os.Looper.getMainLooper())) { r ->
                         val tm = engine.transformManager
             var e = r.renderable
-            if (BuildConfig.DEBUG) android.util.Log.i("Golf3D", "appui sur ${asset.getName(e)}")
+            if (BuildConfig.DEBUG) {
+                val chain = generateSequence(e) { x -> engine.transformManager.getInstance(x).takeIf { it != 0 }?.let { engine.transformManager.getParent(it) }?.takeIf { it != 0 } }
+                    .take(12).joinToString(" < ") { "$it:${asset.getName(it)}" }
+                android.util.Log.i("Golf3D", "appui ${x.toInt()},${y.toInt()} → $chain (profondeur ${r.depth})")
+            }
             var guard = 0
             while (e != 0 && guard++ < 30) {
                 val name = asset.getName(e)
