@@ -14,6 +14,6 @@ cp index.html dist/ 2>/dev/null || true
 T=$(mktemp -d)
 python3 export-run.py dist "$T/golf"
 mkdir -p ../../app/src/main/assets/golf
-npx -y gltfpack@0.21.0 -i "$T/golf.glb" -o ../../app/src/main/assets/golf/golf.glb -kn -km -ke -vp 16
+npx -y gltfpack@0.21.0 -i "$T/golf.glb" -o ../../app/src/main/assets/golf/golf.glb -kn -km -ke -vp 16 -si 0.5
 cp "$T/golf.json" ../../app/src/main/assets/golf/golf.json
 rm -rf "$T"

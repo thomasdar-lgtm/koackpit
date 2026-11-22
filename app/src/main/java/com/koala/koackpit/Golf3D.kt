@@ -3,7 +3,7 @@ package com.koala.koackpit
 import android.content.Context
 import android.view.Choreographer
 import android.view.MotionEvent
-import android.view.TextureView
+import android.view.SurfaceView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -82,7 +82,7 @@ fun Golf3D(mask: Int, modifier: Modifier = Modifier) {
     Box(modifier.background(CardSolid)) {
         if (!failed.value) AndroidView(
             factory = { c ->
-                TextureView(c).also { sv ->
+                SurfaceView(c).also { sv ->
                     val r = runCatching {
                         Golf3DGuard.starting(c)
                         GolfScene(c.applicationContext, sv, CardSolid.toArgb(), onPanel = { panel.value = it }).also {
@@ -146,13 +146,17 @@ object Golf3DGuard {
 }
 
 /** Réglages de rendu (modifiables par l'écran de test sur émulateur). */
-object Golf3DOptions { var post = false; var msaa = false }
+object Golf3DOptions {
+    var post = false; var msaa = false
+    /** Image calculée à 60 % de la taille de l'écran puis agrandie par l'écran lui-même : ~3× moins de travail. */
+    var scale = 0.6f
+}
 
 private fun isRobolectric() = android.os.Build.FINGERPRINT == "robolectric"
 
 /** Scène Filament de la Golf : chargement, caméra, ouvrants, appui sur une pièce, boucle d'image. */
 private class GolfScene(
-    private val app: Context, private val sv: TextureView, private val bg: Int, private val onPanel: (Pair<String, String>?) -> Unit,
+    private val app: Context, private val sv: SurfaceView, private val bg: Int, private val onPanel: (Pair<String, String>?) -> Unit,
 ) : Choreographer.FrameCallback {
     private val meta: JSONObject
     private val manip: Manipulator
@@ -175,6 +179,9 @@ private class GolfScene(
     private var activeUntil = 0L
     private var lastFrame = 0L
     private var frames = 0
+    /** Rapport taille de calcul / taille à l'écran (coordonnées du doigt converties). */
+    private var k = 1f
+    private var burstStart = 0L; private var burstFrames = 0; private var lastFpsLog = 0L
 
     private class Door(val entity: Int, val base: FloatArray, val axisX: Boolean, val sign: Float, val max: Float) {
         var t = 0f; var target = 0f
@@ -219,6 +226,9 @@ private class GolfScene(
         // intermédiaire (bien plus léger pour la puce de l'autoradio ; les autres modes ont planté sur émulateur).
         view.isPostProcessingEnabled = Golf3DOptions.post
         view.antiAliasing = if (Golf3DOptions.post) View.AntiAliasing.FXAA else View.AntiAliasing.NONE
+        view.isShadowingEnabled = false
+        view.isScreenSpaceRefractionEnabled = false
+        view.dithering = View.Dithering.NONE
         if (Golf3DOptions.msaa) view.multiSampleAntiAliasingOptions = view.multiSampleAntiAliasingOptions.apply { enabled = true; sampleCount = 4 }
 
         // Modèle
@@ -256,6 +266,8 @@ private class GolfScene(
                 swapChain?.let { engine.destroySwapChain(it); engine.flushAndWait(); swapChain = null }
             }
             override fun onResized(width: Int, height: Int) {
+                k = width.toFloat() / maxOf(sv.width, 1)
+                WakeLog.add(app, "Golf 3D : image ${width}×${height} (écran ${sv.width}×${sv.height})")
                 view.viewport = Viewport(0, 0, width, height)
                 manip.setViewport(width, height)
                 camera.setLensProjection(28.0, width.toDouble() / maxOf(height, 1), 1.0, 5000.0)
@@ -267,11 +279,18 @@ private class GolfScene(
         setDoors(pendingMask)
         // Gestes : ModelViewer tourne / zoome ; un appui court ouvre la fiche de la pièce touchée
         val taps = android.view.GestureDetector(app, object : android.view.GestureDetector.SimpleOnGestureListener() {
-            override fun onSingleTapUp(e: MotionEvent): Boolean { pick(e.x, e.y); return true }
+            override fun onSingleTapUp(e: MotionEvent): Boolean { pick(e.x * k, e.y * k); return true }
         })
         sv.setOnTouchListener { _, e -> touch(e); taps.onTouchEvent(e); wake(); true }
         // Retour sur l'écran (surface recréée) : redessiner
-        sv.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> wake(1500) }
+        // Taille de calcul réduite (l'écran agrandit l'image gratuitement)
+        sv.addOnLayoutChangeListener { _, l, t, r, b, ol, ot, orr, ob ->
+            if (r - l != orr - ol || b - t != ob - ot) {
+                val w = ((r - l) * Golf3DOptions.scale).toInt(); val h = ((b - t) * Golf3DOptions.scale).toInt()
+                if (w > 0 && h > 0) ui.setDesiredSize(w, h)
+            }
+            wake(1500)
+        }
         wake(4000)
         choreographer.postFrameCallback(this)
         WakeLog.add(app, "Golf 3D : moteur 3D natif prêt (${meta.getJSONArray("infos").length()} pièces, sRGB ${if (srgb) "oui" else "non"})")
@@ -358,8 +377,13 @@ private class GolfScene(
         val dx = e.getX(0) - e.getX(1); val dy = e.getY(0) - e.getY(1); return sqrt(dx * dx + dy * dy)
     }
 
-    private fun touch(e: MotionEvent) {
-        val h = sv.height
+    private fun touch(e0: MotionEvent) {
+        val e = MotionEvent.obtain(e0).also { it.setLocation(e0.x * k, e0.y * k) }
+        try { touchScaled(e) } finally { e.recycle() }
+    }
+
+    private fun touchScaled(e: MotionEvent) {
+        val h = (sv.height * k).toInt()
         when (e.actionMasked) {
             MotionEvent.ACTION_DOWN -> { mode = 0; downX = e.x; downY = e.y; onPanel(null) }
             MotionEvent.ACTION_POINTER_DOWN -> {
@@ -398,7 +422,7 @@ private class GolfScene(
         val max = meta.optDouble("maxDist", 600.0).toFloat() * 0.8f
         val d = camDist()
         if ((delta < 0 && d <= min) || (delta > 0 && d >= max)) return
-        manip.scroll(sv.width / 2, sv.height / 2, delta)
+        manip.scroll((sv.width * k / 2).toInt(), (sv.height * k / 2).toInt(), delta)
     }
 
     private fun pick(x: Float, y: Float) {
@@ -437,7 +461,19 @@ private class GolfScene(
         lastFrame = frameTimeNanos
         if (animate(dt)) wake()
         if (resLoader.asyncGetLoadProgress() < 1f) wake(500)       // textures encore en chargement
-        if (frameTimeNanos > activeUntil) return   // rien ne bouge : pas d'image (puce graphique au repos)
+        if (frameTimeNanos > activeUntil) {   // rien ne bouge : pas d'image (puce graphique au repos)
+            if (burstFrames > 0) {
+                val secs = (lastFrame - burstStart) / 1e9f
+                val now = android.os.SystemClock.elapsedRealtime()
+                if (secs > 1f && now - lastFpsLog > 60_000) {
+                    lastFpsLog = now
+                    WakeLog.add(app, "Golf 3D : ${"%.0f".format(burstFrames / secs)} images/s")
+                }
+            }
+            burstFrames = 0; burstStart = 0L
+            return
+        }
+        if (burstStart == 0L) burstStart = frameTimeNanos
         render(frameTimeNanos)
     }
 
@@ -449,7 +485,7 @@ private class GolfScene(
         manip.getLookAt(eyeD, tgtD, upD)
         camera.lookAt(eyeD[0], eyeD[1], eyeD[2], tgtD[0], tgtD[1], tgtD[2], upD[0], upD[1], upD[2])
         if (renderer.beginFrame(sc, t)) {
-            renderer.render(view); renderer.endFrame()
+            renderer.render(view); renderer.endFrame(); burstFrames++
             if (++frames == 40) Golf3DGuard.ok(app)   // ~2 s d'images sans souci
         }
     }
