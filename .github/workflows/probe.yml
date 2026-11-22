@@ -1,0 +1,11 @@
+name: Probe
+on: { push: { branches: [probe-maven] } }
+permissions: { contents: write }
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          mkdir out
+          for a in filament-android gltfio-android filament-utils-android; do curl -s https://repo1.maven.org/maven2/com/google/android/filament/$a/maven-metadata.xml | grep -o '<version>[^<]*' | sed 's/<version>//' | tr '\n' ' ' > out/$a.txt; done
+          cd out && git init -q -b probe-result && git config user.name b && git config user.email b@b && git add -A && git commit -qm r && git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" probe-result
