@@ -233,7 +233,7 @@ private class GolfScene(
 
         // Lumière : environnement studio + soleil, sans ombres calculées (ombre au sol déjà dessinée dans le modèle).
         // Plus forte sans surface sRGB (sinon image trop sombre).
-        val boost = if (srgb || Golf3DOptions.post) 1f else 2.2f
+        val boost = if (srgb || Golf3DOptions.post) 1f else 1.8f
         scene.indirectLight = KTX1Loader.createIndirectLight(engine, direct(app.assets.open("golf/ibl.ktx").readBytes()))
             .also { it.intensity = 30_000f * boost }
         sun = EntityManager.get().create()
@@ -406,6 +406,7 @@ private class GolfScene(
         view.pick(x.toInt(), h - y.toInt(), android.os.Handler(android.os.Looper.getMainLooper())) { r ->
                         val tm = engine.transformManager
             var e = r.renderable
+            if (BuildConfig.DEBUG) android.util.Log.i("Golf3D", "appui sur ${asset.getName(e)}")
             var guard = 0
             while (e != 0 && guard++ < 30) {
                 val name = asset.getName(e)
