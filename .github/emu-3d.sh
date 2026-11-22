@@ -4,8 +4,11 @@ mkdir -p emu
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb shell wm size 1024x600; adb shell wm density 160
 A=com.koala.koackpit/.Golf3DPreview
+adb shell settings put secure immersive_mode_confirmations confirmed
 adb logcat -c
-adb shell am start -n $A; sleep 25
+# 1er lancement : le service de Koackpit démarre et ramène l'accueil ; on relance l'écran 3D par-dessus ensuite
+adb shell am start -n $A; sleep 20
+adb shell am start -n $A; sleep 12
 adb exec-out screencap -p > emu/1-depart.png
 adb shell input swipe 700 300 400 320 600; sleep 4
 adb exec-out screencap -p > emu/2-tourne.png
