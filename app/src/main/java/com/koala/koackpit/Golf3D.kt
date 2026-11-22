@@ -206,7 +206,7 @@ private class GolfScene(
             .targetPosition(cx, cy, cz)
             .orbitHomePosition(hx, hy, hz)
             .upVector(0f, 1f, 0f)
-            .orbitSpeed(0.0035f, 0.0035f)
+            .orbitSpeed(0.005f, 0.005f)
             .zoomSpeed(0.05f)
             .viewport(maxOf(sv.width, 1), maxOf(sv.height, 1))
             .build(Manipulator.Mode.ORBIT)
