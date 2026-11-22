@@ -198,10 +198,10 @@ private class GolfScene(
         val c = meta.getJSONArray("center"); val h = meta.getJSONArray("home")
         val cx = c.getDouble(0).toFloat(); val cy = c.getDouble(1).toFloat(); val cz = c.getDouble(2).toFloat()
         // Vue de départ de 3/4 avant, plus rapprochée qu'avant (demande du 22/11)
-        val k = 0.72f
-        val hx = cx + (h.getDouble(0).toFloat() - cx) * k
-        val hy = cy + (h.getDouble(1).toFloat() - cy) * k
-        val hz = cz + (h.getDouble(2).toFloat() - cz) * k
+        val near = 0.72f
+        val hx = cx + (h.getDouble(0).toFloat() - cx) * near
+        val hy = cy + (h.getDouble(1).toFloat() - cy) * near
+        val hz = cz + (h.getDouble(2).toFloat() - cz) * near
         manip = Manipulator.Builder()
             .targetPosition(cx, cy, cz)
             .orbitHomePosition(hx, hy, hz)
@@ -226,8 +226,8 @@ private class GolfScene(
         // intermédiaire (bien plus léger pour la puce de l'autoradio ; les autres modes ont planté sur émulateur).
         view.isPostProcessingEnabled = Golf3DOptions.post
         view.antiAliasing = if (Golf3DOptions.post) View.AntiAliasing.FXAA else View.AntiAliasing.NONE
-        view.isShadowingEnabled = false
-        view.isScreenSpaceRefractionEnabled = false
+        view.setShadowingEnabled(false)
+        view.setScreenSpaceRefractionEnabled(false)
         view.dithering = View.Dithering.NONE
         if (Golf3DOptions.msaa) view.multiSampleAntiAliasingOptions = view.multiSampleAntiAliasingOptions.apply { enabled = true; sampleCount = 4 }
 
