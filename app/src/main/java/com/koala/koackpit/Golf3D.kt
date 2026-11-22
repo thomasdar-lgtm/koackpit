@@ -72,7 +72,7 @@ import kotlin.math.sqrt
 @Composable
 fun Golf3D(mask: Int, modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
-    val failed = remember { mutableStateOf(isRobolectric()) }
+    val failed = remember { mutableStateOf(isRobolectric() || Golf3DGuard.blocked(ctx)) }
     val panel = remember { mutableStateOf<Pair<String, String>?>(null) }
     val holder = remember { arrayOfNulls<GolfScene>(1) }
     LaunchedEffect(mask) { holder[0]?.setDoors(mask) }
@@ -82,6 +82,7 @@ fun Golf3D(mask: Int, modifier: Modifier = Modifier) {
             factory = { c ->
                 TextureView(c).also { sv ->
                     val r = runCatching {
+                        Golf3DGuard.starting(c)
                         GolfScene(c.applicationContext, sv, onPanel = { panel.value = it }).also {
                             it.setDoors(mask); holder[0] = it
                         }
@@ -121,8 +122,29 @@ fun Golf3D(mask: Int, modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * Garde-fou : une erreur du moteur 3D dans la puce graphique arrête l'appli d'un coup (impossible à rattraper).
+ * On note « démarrage en cours » avant, et on l'efface après 2 s d'images réussies. Si l'appli a été coupée entre
+ * les deux 2 fois, la 3D est remplacée par la photo jusqu'à la prochaine mise à jour de Koackpit.
+ */
+object Golf3DGuard {
+    private fun prefs(c: Context) = c.getSharedPreferences("golf3d", Context.MODE_PRIVATE)
+    fun blocked(c: Context): Boolean {
+        val p = prefs(c)
+        if (p.getInt("version", 0) != BuildConfig.VERSION_CODE) { p.edit().clear().putInt("version", BuildConfig.VERSION_CODE).apply(); return false }
+        var crashes = p.getInt("crashes", 0)
+        if (p.getBoolean("starting", false)) {
+            crashes++; p.edit().putBoolean("starting", false).putInt("crashes", crashes).apply()
+            WakeLog.add(c, "Golf 3D : l'appli s'est arrêtée pendant l'affichage 3D ($crashes fois)")
+        }
+        return crashes >= 2
+    }
+    fun starting(c: Context) = prefs(c).edit().putBoolean("starting", true).commit()
+    fun ok(c: Context) { if (prefs(c).getBoolean("starting", false)) prefs(c).edit().putBoolean("starting", false).putInt("crashes", 0).apply() }
+}
+
 /** Réglages de rendu (modifiables par l'écran de test sur émulateur). */
-object Golf3DOptions { var post = false; var msaa = true }
+object Golf3DOptions { var post = false; var msaa = false }
 
 private fun isRobolectric() = android.os.Build.FINGERPRINT == "robolectric"
 
@@ -150,6 +172,7 @@ private class GolfScene(
     private var alive = true
     private var activeUntil = 0L
     private var lastFrame = 0L
+    private var frames = 0
 
     private class Door(val entity: Int, val base: FloatArray, val axisX: Boolean, val sign: Float, val max: Float) {
         var t = 0f; var target = 0f
@@ -187,9 +210,8 @@ private class GolfScene(
         view = engine.createView().also { it.scene = scene; it.camera = camera }
         // Fond transparent : la carte Koackpit (couleur du thème) se voit derrière la voiture
         renderer.clearOptions = renderer.clearOptions.apply { clear = true; clearColor = floatArrayOf(0f, 0f, 0f, 0f) }
-        view.blendMode = View.BlendMode.TRANSLUCENT
-        // Sans post-traitement : bien plus léger pour la puce de l'autoradio, et le seul rendu fiable constaté
-        // sur émulateur. Couleurs justes grâce à une surface sRGB ; bords lissés par multi-échantillonnage.
+        // Sans post-traitement ni lissage : la voiture est dessinée directement sur l'écran, sans image
+        // intermédiaire (bien plus léger pour la puce de l'autoradio ; les autres modes ont planté sur émulateur).
         view.isPostProcessingEnabled = Golf3DOptions.post
         view.antiAliasing = if (Golf3DOptions.post) View.AntiAliasing.FXAA else View.AntiAliasing.NONE
         if (Golf3DOptions.msaa) view.multiSampleAntiAliasingOptions = view.multiSampleAntiAliasingOptions.apply { enabled = true; sampleCount = 4 }
@@ -415,13 +437,17 @@ private class GolfScene(
         resLoader.asyncUpdateLoad()
         manip.getLookAt(eyeD, tgtD, upD)
         camera.lookAt(eyeD[0], eyeD[1], eyeD[2], tgtD[0], tgtD[1], tgtD[2], upD[0], upD[1], upD[2])
-        if (renderer.beginFrame(sc, t)) { renderer.render(view); renderer.endFrame() }
+        if (renderer.beginFrame(sc, t)) {
+            renderer.render(view); renderer.endFrame()
+            if (++frames == 40) Golf3DGuard.ok(app)   // ~2 s d'images sans souci
+        }
     }
 
     /** Écran quitté : tout est libéré (mémoire graphique rendue). */
     fun stop() {
         if (!alive) return
         alive = false; choreographer.removeFrameCallback(this)
+        Golf3DGuard.ok(app)   // fermeture normale : pas un plantage
         runCatching {
             ui.detach()
             resLoader.asyncCancelLoad()
