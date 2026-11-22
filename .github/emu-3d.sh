@@ -2,6 +2,10 @@
 # Lancé dans l'émulateur par emulator-3d.yml : installe la version de test, affiche la Golf 3D, captures.
 mkdir -p emu
 adb install -r app/build/outputs/apk/debug/app-debug.apk
+# Pas de service Koackpit ici (il ramène l'accueil par-dessus l'écran de test)
+adb root; sleep 3
+adb shell pm disable com.koala.koackpit/.WakeService
+adb shell pm disable com.koala.koackpit/.BootReceiver
 adb shell wm size 1024x600; adb shell wm density 160
 A=com.koala.koackpit/.Golf3DPreview
 adb shell settings put secure immersive_mode_confirmations confirmed
