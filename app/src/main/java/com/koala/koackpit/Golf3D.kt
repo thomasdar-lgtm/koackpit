@@ -107,6 +107,9 @@ fun Golf3D(mask: Int, modifier: Modifier = Modifier) {
     }
 }
 
+/** Réglages de rendu (modifiables par l'écran de test sur émulateur). */
+object Golf3DOptions { var post = true }
+
 private fun isRobolectric() = android.os.Build.FINGERPRINT == "robolectric"
 
 /** Scène Filament de la Golf : chargement, caméra, ouvrants, appui sur une pièce, boucle d'image. */
@@ -166,8 +169,8 @@ private class GolfScene(
             clear = true
             clearColor = floatArrayOf(lin(android.graphics.Color.red(bg)), lin(android.graphics.Color.green(bg)), lin(android.graphics.Color.blue(bg)), 1f)
         }
-        viewer.view.antiAliasing = View.AntiAliasing.FXAA
-        viewer.view.isPostProcessingEnabled = true
+        viewer.view.isPostProcessingEnabled = Golf3DOptions.post
+        viewer.view.antiAliasing = if (Golf3DOptions.post) View.AntiAliasing.FXAA else View.AntiAliasing.NONE
         setupParts()
         setDoors(pendingMask)
         // Gestes : ModelViewer tourne / zoome ; un appui court ouvre la fiche de la pièce touchée
@@ -292,8 +295,9 @@ private class GolfScene(
 
     private val eye = FloatArray(3); private val tgt = FloatArray(3); private val up = FloatArray(3)
     private fun camDist(): Float {
-        manip.getLookAt(eye, tgt, up)
-        return dist(floatArrayOf(eye[0] - tgt[0], eye[1] - tgt[1], eye[2] - tgt[2]))
+        manip.getLookAt(eye, tgt, up)   // tgt = un point devant la caméra (pas le centre) : on mesure jusqu'au centre
+        val c = meta.getJSONArray("center")
+        return dist(floatArrayOf(eye[0] - c.getDouble(0).toFloat(), eye[1] - c.getDouble(1).toFloat(), eye[2] - c.getDouble(2).toFloat()))
     }
 
     /** Zoom vers le centre, borné : ni dans la voiture, ni trop loin. delta > 0 = recule. */

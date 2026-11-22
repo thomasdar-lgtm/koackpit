@@ -13,6 +13,7 @@ class Golf3DPreview : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         mask.intValue = intent.getIntExtra("mask", 0)
+        Golf3DOptions.post = intent.getBooleanExtra("post", true)
         setContent { Golf3D(mask.intValue, Modifier.fillMaxSize()) }
     }
     override fun onNewIntent(intent: android.content.Intent) {
