@@ -22,12 +22,10 @@ adb shell input tap 512 300; sleep 3
 adb exec-out screencap -p > emu/4-fiche.png
 adb shell am start -n $A --ei mask 0; sleep 4
 adb exec-out screencap -p > emu/5-ferme.png
-# Même chose sans lissage des bords (comparaison)
+# Thème jour (fond clair)
 adb shell am force-stop com.koala.koackpit
-adb shell am start -n $A --ez msaa false; sleep 15
-adb exec-out screencap -p > emu/6-sans-msaa.png
-adb shell input swipe 700 300 400 320 600; sleep 4
-adb exec-out screencap -p > emu/7-sans-msaa-tourne.png
+adb shell am start -n $A --ez jour true; sleep 15
+adb exec-out screencap -p > emu/6-jour.png
 adb shell dumpsys gfxinfo com.koala.koackpit > emu/gfxinfo.txt
 adb logcat -d | grep -iE "filament|golf3d|koackpit|AndroidRuntime|FATAL|gltfio" | tail -300 > emu/logcat.txt
 adb shell run-as com.koala.koackpit cat files/wake-log.txt > emu/journal.txt

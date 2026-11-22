@@ -14,7 +14,8 @@ class Golf3DPreview : ComponentActivity() {
         super.onCreate(savedInstanceState)
         mask.intValue = intent.getIntExtra("mask", 0)
         Golf3DOptions.post = intent.getBooleanExtra("post", false)
-        Golf3DOptions.msaa = intent.getBooleanExtra("msaa", true)
+        Golf3DOptions.msaa = intent.getBooleanExtra("msaa", false)
+        if (intent.getBooleanExtra("jour", false)) KTheme.day.value = true
         setContent { Golf3D(mask.intValue, Modifier.fillMaxSize()) }
     }
     override fun onNewIntent(intent: android.content.Intent) {
