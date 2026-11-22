@@ -22,7 +22,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -30,10 +29,25 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.google.android.filament.Camera
+import com.google.android.filament.Colors
+import com.google.android.filament.Engine
+import com.google.android.filament.EntityManager
+import com.google.android.filament.LightManager
+import com.google.android.filament.Renderer
+import com.google.android.filament.Scene
+import com.google.android.filament.SwapChain
+import com.google.android.filament.SwapChainFlags
 import com.google.android.filament.View
+import com.google.android.filament.Viewport
+import com.google.android.filament.android.DisplayHelper
+import com.google.android.filament.android.UiHelper
+import com.google.android.filament.gltfio.AssetLoader
+import com.google.android.filament.gltfio.FilamentAsset
+import com.google.android.filament.gltfio.ResourceLoader
+import com.google.android.filament.gltfio.UbershaderProvider
 import com.google.android.filament.utils.KTX1Loader
 import com.google.android.filament.utils.Manipulator
-import com.google.android.filament.utils.ModelViewer
 import com.google.android.filament.utils.Utils
 import org.json.JSONObject
 import java.nio.ByteBuffer
@@ -68,7 +82,7 @@ fun Golf3D(mask: Int, modifier: Modifier = Modifier) {
             factory = { c ->
                 TextureView(c).also { sv ->
                     val r = runCatching {
-                        GolfScene(c.applicationContext, sv, CardSolid.toArgb(), onPanel = { panel.value = it }).also {
+                        GolfScene(c.applicationContext, sv, onPanel = { panel.value = it }).also {
                             it.setDoors(mask); holder[0] = it
                         }
                     }
@@ -108,17 +122,30 @@ fun Golf3D(mask: Int, modifier: Modifier = Modifier) {
 }
 
 /** Réglages de rendu (modifiables par l'écran de test sur émulateur). */
-object Golf3DOptions { var post = true }
+object Golf3DOptions { var post = false; var msaa = true }
 
 private fun isRobolectric() = android.os.Build.FINGERPRINT == "robolectric"
 
 /** Scène Filament de la Golf : chargement, caméra, ouvrants, appui sur une pièce, boucle d'image. */
 private class GolfScene(
-    private val app: Context, private val sv: TextureView, bg: Int, private val onPanel: (Pair<String, String>?) -> Unit,
+    private val app: Context, private val sv: TextureView, private val onPanel: (Pair<String, String>?) -> Unit,
 ) : Choreographer.FrameCallback {
     private val meta: JSONObject
-    private val viewer: ModelViewer
     private val manip: Manipulator
+    private val engine: Engine
+    private val renderer: Renderer
+    private val scene: Scene
+    private val view: View
+    private val camera: Camera
+    private val materials: UbershaderProvider
+    private val loader: AssetLoader
+    private val resLoader: ResourceLoader
+    private val asset: FilamentAsset
+    private val sun: Int
+    private val ui = UiHelper(UiHelper.ContextErrorPolicy.DONT_CHECK)
+    private val display: DisplayHelper
+    private var swapChain: SwapChain? = null
+    private var srgb = false
     private val choreographer = Choreographer.getInstance()
     private var alive = true
     private var activeUntil = 0L
@@ -147,30 +174,69 @@ private class GolfScene(
             .targetPosition(cx, cy, cz)
             .orbitHomePosition(hx, hy, hz)
             .upVector(0f, 1f, 0f)
-            .orbitSpeed(0.006f, 0.006f)
+            .orbitSpeed(0.0035f, 0.0035f)
             .zoomSpeed(0.05f)
             .viewport(maxOf(sv.width, 1), maxOf(sv.height, 1))
             .build(Manipulator.Mode.ORBIT)
-        viewer = ModelViewer(sv, manipulator = manip)
-        viewer.cameraNear = 1f; viewer.cameraFar = 5000f
-        val bytes = app.assets.open("golf/golf.glb").readBytes()
-        viewer.loadModelGlb(direct(bytes))
-        val engine = viewer.engine
-        // Lumière : environnement studio + soleil, sans ombres calculées (ombre au sol déjà dessinée dans le modèle)
-        val ibl = app.assets.open("golf/ibl.ktx").readBytes()
-        viewer.scene.indirectLight = KTX1Loader.createIndirectLight(engine, direct(ibl)).also { it.intensity = 32_000f }
-        engine.lightManager.getInstance(viewer.light).let { li ->
-            engine.lightManager.setDirection(li, -0.45f, -0.85f, -0.3f)
-            engine.lightManager.setIntensity(li, 70_000f)
-            engine.lightManager.setShadowCaster(li, false)
+
+        engine = Engine.create()
+        srgb = SwapChain.isSRGBSwapChainSupported(engine)
+        renderer = engine.createRenderer()
+        scene = engine.createScene()
+        camera = engine.createCamera(engine.entityManager.create()).apply { setExposure(16f, 1f / 125f, 100f) }
+        view = engine.createView().also { it.scene = scene; it.camera = camera }
+        // Fond transparent : la carte Koackpit (couleur du thème) se voit derrière la voiture
+        renderer.clearOptions = renderer.clearOptions.apply { clear = true; clearColor = floatArrayOf(0f, 0f, 0f, 0f) }
+        view.blendMode = View.BlendMode.TRANSLUCENT
+        // Sans post-traitement : bien plus léger pour la puce de l'autoradio, et le seul rendu fiable constaté
+        // sur émulateur. Couleurs justes grâce à une surface sRGB ; bords lissés par multi-échantillonnage.
+        view.isPostProcessingEnabled = Golf3DOptions.post
+        view.antiAliasing = if (Golf3DOptions.post) View.AntiAliasing.FXAA else View.AntiAliasing.NONE
+        if (Golf3DOptions.msaa) view.multiSampleAntiAliasingOptions = view.multiSampleAntiAliasingOptions.apply { enabled = true; sampleCount = 4 }
+
+        // Modèle
+        materials = UbershaderProvider(engine)
+        loader = AssetLoader(engine, materials, EntityManager.get())
+        resLoader = ResourceLoader(engine, true)
+        asset = loader.createAsset(direct(app.assets.open("golf/golf.glb").readBytes()))
+            ?: throw IllegalStateException("modèle illisible")
+        resLoader.asyncBeginLoad(asset)
+        asset.releaseSourceData()
+        scene.addEntities(asset.entities)
+
+        // Lumière : environnement studio + soleil, sans ombres calculées (ombre au sol déjà dessinée dans le modèle).
+        // Plus forte sans surface sRGB (sinon image trop sombre).
+        val boost = if (srgb || Golf3DOptions.post) 1f else 2.2f
+        scene.indirectLight = KTX1Loader.createIndirectLight(engine, direct(app.assets.open("golf/ibl.ktx").readBytes()))
+            .also { it.intensity = 30_000f * boost }
+        sun = EntityManager.get().create()
+        val (r, g, bl) = Colors.cct(6_500f)
+        LightManager.Builder(LightManager.Type.DIRECTIONAL).color(r, g, bl).intensity(90_000f * boost)
+            .direction(-0.45f, -0.85f, -0.3f).castShadows(false).build(engine, sun)
+        scene.addEntity(sun)
+
+        display = DisplayHelper(app)
+        ui.isOpaque = false
+        ui.renderCallback = object : UiHelper.RendererCallback {
+            override fun onNativeWindowChanged(surface: android.view.Surface) {
+                swapChain?.let { engine.destroySwapChain(it) }
+                val flags = SwapChainFlags.CONFIG_TRANSPARENT or (if (srgb && !Golf3DOptions.post) SwapChainFlags.CONFIG_SRGB_COLORSPACE else 0L)
+                swapChain = engine.createSwapChain(surface, flags)
+                sv.display?.let { display.attach(renderer, it) }
+                wake(1500)
+            }
+            override fun onDetachedFromSurface() {
+                display.detach()
+                swapChain?.let { engine.destroySwapChain(it); engine.flushAndWait(); swapChain = null }
+            }
+            override fun onResized(width: Int, height: Int) {
+                view.viewport = Viewport(0, 0, width, height)
+                manip.setViewport(width, height)
+                camera.setLensProjection(28.0, width.toDouble() / maxOf(height, 1), 1.0, 5000.0)
+                wake(1500)
+            }
         }
-        // Fond aux couleurs de Koackpit
-        viewer.renderer.clearOptions = viewer.renderer.clearOptions.apply {
-            clear = true
-            clearColor = floatArrayOf(lin(android.graphics.Color.red(bg)), lin(android.graphics.Color.green(bg)), lin(android.graphics.Color.blue(bg)), 1f)
-        }
-        viewer.view.isPostProcessingEnabled = Golf3DOptions.post
-        viewer.view.antiAliasing = if (Golf3DOptions.post) View.AntiAliasing.FXAA else View.AntiAliasing.NONE
+        ui.attachTo(sv)
         setupParts()
         setDoors(pendingMask)
         // Gestes : ModelViewer tourne / zoome ; un appui court ouvre la fiche de la pièce touchée
@@ -182,14 +248,11 @@ private class GolfScene(
         sv.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> wake(1500) }
         wake(4000)
         choreographer.postFrameCallback(this)
-        WakeLog.add(app, "Golf 3D : moteur 3D natif prêt (${meta.getJSONArray("infos").length()} pièces)")
+        WakeLog.add(app, "Golf 3D : moteur 3D natif prêt (${meta.getJSONArray("infos").length()} pièces, sRGB ${if (srgb) "oui" else "non"})")
     }
 
-    private fun lin(c: Int): Float { val s = c / 255f; return if (s <= 0.04045f) s / 12.92f else Math.pow(((s + 0.055f) / 1.055f).toDouble(), 2.4).toFloat() }
-
     private fun setupParts() {
-        val asset = viewer.asset ?: return
-        val tm = viewer.engine.transformManager
+                val tm = engine.transformManager
         val d = meta.getJSONObject("doors")
         for (key in d.keys()) {
             val e = asset.getFirstEntityByName("open_$key")
@@ -238,7 +301,7 @@ private class GolfScene(
     }
 
     private fun animate(dt: Float): Boolean {
-        val tm = viewer.engine.transformManager
+        val tm = engine.transformManager
         var moving = false
         for ((k, d) in doors) {
             if (d.t == d.target) continue
@@ -252,7 +315,7 @@ private class GolfScene(
         val show = hood == null || hood.t > 0f || hood.target > 0f
         if (show != bayShown) {
             bayShown = show
-            val rm = viewer.engine.renderableManager
+            val rm = engine.renderableManager
             for (e in bayEntities) { val ri = rm.getInstance(e); if (ri != 0) rm.setLayerMask(ri, 0xff, if (show) 0x01 else 0x00) }
         }
         return moving
@@ -311,10 +374,9 @@ private class GolfScene(
     }
 
     private fun pick(x: Float, y: Float) {
-        val h = viewer.view.viewport.height
-        viewer.view.pick(x.toInt(), h - y.toInt(), android.os.Handler(android.os.Looper.getMainLooper())) { r ->
-            val asset = viewer.asset ?: return@pick
-            val tm = viewer.engine.transformManager
+        val h = view.viewport.height
+        view.pick(x.toInt(), h - y.toInt(), android.os.Handler(android.os.Looper.getMainLooper())) { r ->
+                        val tm = engine.transformManager
             var e = r.renderable
             var guard = 0
             while (e != 0 && guard++ < 30) {
@@ -338,16 +400,39 @@ private class GolfScene(
     override fun doFrame(frameTimeNanos: Long) {
         if (!alive) return
         choreographer.postFrameCallback(this)
-        if (!sv.isAttachedToWindow) return   // vue pas encore affichée ou retirée (Filament arrêté)
         val dt = if (lastFrame == 0L) 0f else ((frameTimeNanos - lastFrame) / 1e9f).coerceAtMost(0.1f)
         lastFrame = frameTimeNanos
         if (animate(dt)) wake()
-        if (viewer.progress < 1f) wake(500)       // textures encore en chargement
+        if (resLoader.asyncGetLoadProgress() < 1f) wake(500)       // textures encore en chargement
         if (frameTimeNanos > activeUntil) return   // rien ne bouge : pas d'image (puce graphique au repos)
-        viewer.render(frameTimeNanos)
+        render(frameTimeNanos)
     }
 
-    fun stop() { alive = false; choreographer.removeFrameCallback(this) }
+    private val eyeD = DoubleArray(3); private val tgtD = DoubleArray(3); private val upD = DoubleArray(3)
+    private fun render(t: Long) {
+        val sc = swapChain ?: return
+        if (!ui.isReadyToRender) return
+        resLoader.asyncUpdateLoad()
+        manip.getLookAt(eyeD, tgtD, upD)
+        camera.lookAt(eyeD[0], eyeD[1], eyeD[2], tgtD[0], tgtD[1], tgtD[2], upD[0], upD[1], upD[2])
+        if (renderer.beginFrame(sc, t)) { renderer.render(view); renderer.endFrame() }
+    }
+
+    /** Écran quitté : tout est libéré (mémoire graphique rendue). */
+    fun stop() {
+        if (!alive) return
+        alive = false; choreographer.removeFrameCallback(this)
+        runCatching {
+            ui.detach()
+            resLoader.asyncCancelLoad()
+            loader.destroyAsset(asset); loader.destroy()
+            materials.destroyMaterials(); materials.destroy(); resLoader.destroy()
+            engine.destroyEntity(sun); EntityManager.get().destroy(sun)
+            engine.destroyRenderer(renderer); engine.destroyView(view); engine.destroyScene(scene)
+            engine.destroyCameraComponent(camera.entity); EntityManager.get().destroy(camera.entity)
+            engine.destroy()
+        }
+    }
 
     private fun dist(a: FloatArray) = sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2])
 }

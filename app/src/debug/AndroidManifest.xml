@@ -2,7 +2,7 @@
 <!-- Version de test uniquement (jamais dans l'APK de l'autoradio) : écran 3D seul, pour les captures sur émulateur. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
-        <activity android:name=".Golf3DPreview" android:exported="true"
+        <activity android:name=".Golf3DPreview" android:exported="true" android:launchMode="singleTop"
             android:screenOrientation="landscape" android:theme="@android:style/Theme.Material.NoActionBar.Fullscreen" />
     </application>
 </manifest>
