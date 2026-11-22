@@ -407,13 +407,14 @@ fun GolfButton(onClick: () -> Unit) {
 
 /** Panneau de limitation de vitesse (cercle rouge, chiffre noir sur blanc). */
 @Composable
-fun LimitSign(limit: Int, modifier: Modifier = Modifier) {
+fun LimitSign(limit: Int, modifier: Modifier = Modifier, size: Int = 48) {
+    val k = size / 48f
     Box(
-        modifier.size(48.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xFFD62828)).padding(5.dp)
+        modifier.size(size.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xFFD62828)).padding((5 * k).dp)
             .clip(androidx.compose.foundation.shape.CircleShape).background(Color.White),
         contentAlignment = Alignment.Center,
     ) {
-        Text(limit.toString(), color = Color.Black, fontSize = if (limit >= 100) 16.sp else 19.sp, fontWeight = FontWeight.Black)
+        Text(limit.toString(), color = Color.Black, fontSize = ((if (limit >= 100) 16 else 19) * k).sp, fontWeight = FontWeight.Black)
     }
 }
 
@@ -523,6 +524,7 @@ fun DrivePanel(
     onPrev: () -> Unit, onPlay: () -> Unit, onNext: () -> Unit,
     onHome: () -> Unit, onClose: () -> Unit, onPhone: () -> Unit, onCar: () -> Unit, onApps: () -> Unit,
     onBtSource: (() -> Unit)?,
+    limit: Int? = SpeedLimit.limit.value,
 ) {
     BoxWithConstraints(Modifier.fillMaxSize().screenBg()) {
         val narrow = maxWidth < 300.dp
@@ -530,6 +532,8 @@ fun DrivePanel(
             // Barre du haut : accueil, heure, fermer
             Row(verticalAlignment = Alignment.CenterVertically) {
                 SmallRound(Icons.Filled.Home, onHome)
+                // Limitation de la route : toujours en vue pendant la conduite (à côté du GPS aussi)
+                if (limit != null) { Spacer(Modifier.width(8.dp)); LimitSign(limit, size = 38) }
                 Spacer(Modifier.weight(1f))
                 Text(time, color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.width(8.dp))

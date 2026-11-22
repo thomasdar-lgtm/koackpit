@@ -66,7 +66,7 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.core:core-ktx:1.15.0")
     // Vue 3D de la Golf : Filament (moteur 3D libre de Google, Apache 2.0, hors ligne, aucune connexion)
-    val filament = "1.56.6"
+    val filament = "1.56.0"
     implementation("com.google.android.filament:filament-android:$filament")
     implementation("com.google.android.filament:gltfio-android:$filament")
     implementation("com.google.android.filament:filament-utils-android:$filament")
