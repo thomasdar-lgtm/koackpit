@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -36,6 +37,7 @@ import com.google.android.filament.EntityManager
 import com.google.android.filament.LightManager
 import com.google.android.filament.Renderer
 import com.google.android.filament.Scene
+import com.google.android.filament.Skybox
 import com.google.android.filament.SwapChain
 import com.google.android.filament.SwapChainFlags
 import com.google.android.filament.View
@@ -83,7 +85,7 @@ fun Golf3D(mask: Int, modifier: Modifier = Modifier) {
                 TextureView(c).also { sv ->
                     val r = runCatching {
                         Golf3DGuard.starting(c)
-                        GolfScene(c.applicationContext, sv, onPanel = { panel.value = it }).also {
+                        GolfScene(c.applicationContext, sv, CardSolid.toArgb(), onPanel = { panel.value = it }).also {
                             it.setDoors(mask); holder[0] = it
                         }
                     }
@@ -150,7 +152,7 @@ private fun isRobolectric() = android.os.Build.FINGERPRINT == "robolectric"
 
 /** Scène Filament de la Golf : chargement, caméra, ouvrants, appui sur une pièce, boucle d'image. */
 private class GolfScene(
-    private val app: Context, private val sv: TextureView, private val onPanel: (Pair<String, String>?) -> Unit,
+    private val app: Context, private val sv: TextureView, private val bg: Int, private val onPanel: (Pair<String, String>?) -> Unit,
 ) : Choreographer.FrameCallback {
     private val meta: JSONObject
     private val manip: Manipulator
@@ -208,8 +210,11 @@ private class GolfScene(
         scene = engine.createScene()
         camera = engine.createCamera(engine.entityManager.create()).apply { setExposure(16f, 1f / 125f, 100f) }
         view = engine.createView().also { it.scene = scene; it.camera = camera }
-        // Fond transparent : la carte Koackpit (couleur du thème) se voit derrière la voiture
-        renderer.clearOptions = renderer.clearOptions.apply { clear = true; clearColor = floatArrayOf(0f, 0f, 0f, 0f) }
+        // Fond : couleur de la carte Koackpit (thème du moment). Surface opaque : une surface transparente
+        // oblige le moteur à passer par une image intermédiaire (plantage constaté sur émulateur).
+        val bc = floatArrayOf(android.graphics.Color.red(bg) / 255f, android.graphics.Color.green(bg) / 255f, android.graphics.Color.blue(bg) / 255f)
+        val sky = if (srgb) bc.map { lin(it) } else bc.toList()
+        scene.skybox = Skybox.Builder().color(sky[0], sky[1], sky[2], 1f).build(engine)
         // Sans post-traitement ni lissage : la voiture est dessinée directement sur l'écran, sans image
         // intermédiaire (bien plus léger pour la puce de l'autoradio ; les autres modes ont planté sur émulateur).
         view.isPostProcessingEnabled = Golf3DOptions.post
@@ -238,11 +243,10 @@ private class GolfScene(
         scene.addEntity(sun)
 
         display = DisplayHelper(app)
-        ui.isOpaque = false
         ui.renderCallback = object : UiHelper.RendererCallback {
             override fun onNativeWindowChanged(surface: android.view.Surface) {
                 swapChain?.let { engine.destroySwapChain(it) }
-                val flags = SwapChainFlags.CONFIG_TRANSPARENT or (if (srgb && !Golf3DOptions.post) SwapChainFlags.CONFIG_SRGB_COLORSPACE else 0L)
+                val flags = if (srgb && !Golf3DOptions.post) SwapChainFlags.CONFIG_SRGB_COLORSPACE else 0L
                 swapChain = engine.createSwapChain(surface, flags)
                 sv.display?.let { display.attach(renderer, it) }
                 wake(1500)
@@ -272,6 +276,8 @@ private class GolfScene(
         choreographer.postFrameCallback(this)
         WakeLog.add(app, "Golf 3D : moteur 3D natif prêt (${meta.getJSONArray("infos").length()} pièces, sRGB ${if (srgb) "oui" else "non"})")
     }
+
+    private fun lin(v: Float): Float = if (v <= 0.04045f) v / 12.92f else Math.pow(((v + 0.055f) / 1.055f).toDouble(), 2.4).toFloat()
 
     private fun setupParts() {
                 val tm = engine.transformManager
@@ -454,6 +460,8 @@ private class GolfScene(
             loader.destroyAsset(asset); loader.destroy()
             materials.destroyMaterials(); materials.destroy(); resLoader.destroy()
             engine.destroyEntity(sun); EntityManager.get().destroy(sun)
+            scene.skybox?.let { engine.destroySkybox(it) }
+            scene.indirectLight?.let { engine.destroyIndirectLight(it) }
             engine.destroyRenderer(renderer); engine.destroyView(view); engine.destroyScene(scene)
             engine.destroyCameraComponent(camera.entity); EntityManager.get().destroy(camera.entity)
             engine.destroy()
