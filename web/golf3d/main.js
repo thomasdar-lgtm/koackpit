@@ -1,9 +1,11 @@
 
 import * as THREE from 'three';
 const EMBED = /[?&]embed/.test(location.search);
+const EXPORT = /[?&]export/.test(location.search);   // outil build-native.sh : modèle chargé comme dans Koackpit, en pleine qualité
 if (EMBED) { document.body.classList.add('embed'); document.documentElement.style.background = 'transparent'; }
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
@@ -178,7 +180,7 @@ function onLoaded(gltf) {
       ' · page ' + innerWidth + 'x' + innerHeight);
   } catch (e) { hostLog('contrôle image : ' + e.message); } }, 1500);
   window.__ready = true; try { window.KoackpitHost && window.KoackpitHost.ready(); } catch (e) {}
-  if (window.KoackpitHost) { try { window.koackpitDoors(window.KoackpitHost.doors()); } catch (e) {} } window.__cam = camera; window.__controls = controls; window.__center = center;
+  if (window.KoackpitHost) { try { window.koackpitDoors(window.KoackpitHost.doors()); } catch (e) {} } window.__cam = camera; window.__controls = controls; window.__center = center; window.__car = car;
 }
 function loader() { return new GLTFLoader(); }
 /**
@@ -222,7 +224,7 @@ function mergeStatic(car) {
 }
 function loadErr(err) { document.querySelector('#load div').textContent = 'Erreur de chargement du modèle'; console.error(err); hostLog('chargement : ' + (err && err.message || err)); }
 function hostLog(m) { try { window.KoackpitHost && window.KoackpitHost.log(String(m)); } catch (e) {} }
-if (EMBED) {
+if (EMBED || EXPORT) {
   prog.style.width = '30%';
   fetch('golf5.glb').then(r => r.arrayBuffer()).then(buf => { prog.style.width = '100%'; loader().parse(buf, '', onLoaded, loadErr); }).catch(loadErr);
 } else {
@@ -830,3 +832,40 @@ window.koackpitZoom = f => {          // f > 1 : rapprocher
   camera.position.copy(controls.target).add(_off.setLength(d)); wake();
 };
 window.koackpitTap = (nx, ny) => { tapAt(nx * innerWidth, ny * innerHeight); wake(); };
+
+/**
+ * Outil (build-native.sh) : exporte la Golf telle qu'affichée ici — pneus détaillés, compartiment moteur, coffre,
+ * textures intérieures, peinture « Ma Golf » — en un fichier glTF unique pour le moteur 3D natif de Koackpit
+ * (Filament), avec à part : fiches des pièces, centre, vue de départ.
+ */
+window.koackpitExport = async () => {
+  const car = window.__car;
+  if (bayGroup) { bayGroup.visible = true; bayGroup.name = 'bay'; }
+  for (const d of Object.values(doors)) { d.t = d.target = 0; d.node.quaternion.copy(d.base); }
+  const infos = [];
+  car.traverse(o => { if (o.userData && o.userData.info) { o.name = 'info_' + infos.length; infos.push({ title: o.userData.info.title, text: o.userData.info.text }); } });
+  // Ombre au sol : disque dégradé (pas d'ombre calculée en direct, plus léger pour l'autoradio)
+  const cv = document.createElement('canvas'); cv.width = cv.height = 256;
+  const g = cv.getContext('2d'), gr = g.createRadialGradient(128, 128, 10, 128, 128, 128);
+  gr.addColorStop(0, 'rgba(0,0,0,0.55)'); gr.addColorStop(0.6, 'rgba(0,0,0,0.3)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
+  const box = new THREE.Box3().setFromObject(car), sz = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+  const blob = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
+  blob.name = 'ground_shadow'; blob.rotation.x = -Math.PI / 2;
+  blob.scale.set(sz.x * 1.35, sz.z * 1.35, 1); blob.position.set(c.x, box.min.y + 0.002, c.z);
+  scene.add(blob);
+  const root = new THREE.Group(); root.name = 'golf';
+  scene.add(root); root.attach(car); root.attach(blob);
+  const glb = await new GLTFExporter().parseAsync(root, { binary: true, maxTextureSize: 2048 });
+  const b = new Uint8Array(glb); let str = '';
+  for (let i = 0; i < b.length; i += 0x8000) str += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000));
+  setView('front3q', false);
+  const meta = {
+    infos, center: [center.x, center.y, center.z], size,
+    home: [camera.position.x, camera.position.y, camera.position.z],
+    minDist: controls.minDistance, maxDist: controls.maxDistance,
+    doors: { FL: ['z', -1, 62], FR: ['z', 1, 62], RL: ['z', -1, 62], RR: ['z', 1, 62], HOOD: ['x', -1, 52], TAIL: ['x', 1, 72] },
+  };
+  return { glb: btoa(str), meta };
+};

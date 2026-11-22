@@ -76,7 +76,7 @@ open class Screenshots {
         Row(Modifier.fillMaxSize()) {
             Box(Modifier.weight(2f).fillMaxHeight().background(Color(0xFF2A3F5C)))
             Box(Modifier.width(285.dp).fillMaxHeight()) {
-                DrivePanel("17:42", media, {}, {}, {}, {}, {}, {}, {}, {}, null)
+                DrivePanel("17:42", media, {}, {}, {}, {}, {}, {}, {}, {}, null, limit = 80)
                 DoorAlert(Doors.FR, Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 60.dp), compact = true)
             }
         }
@@ -144,7 +144,7 @@ open class Screenshots {
         Row(Modifier.fillMaxSize()) {
             Box(Modifier.weight(2f).fillMaxHeight().background(Color(0xFF2A3F5C)))
             Box(Modifier.width(285.dp).fillMaxHeight()) {
-                DrivePanel("17:42", media, {}, {}, {}, {}, {}, {}, {}, {}, null)
+                DrivePanel("17:42", media, {}, {}, {}, {}, {}, {}, {}, {}, null, limit = 80)
             }
         }
     } }
@@ -154,7 +154,7 @@ open class Screenshots {
         Row(Modifier.fillMaxSize()) {
             Box(Modifier.weight(1f).fillMaxHeight().background(Color(0xFF2A3F5C)))
             Box(Modifier.weight(1f).fillMaxHeight()) {
-                DrivePanel("17:42", media.copy(sourceIsBt = false), {}, {}, {}, {}, {}, {}, {}, {}, {})
+                DrivePanel("17:42", media.copy(sourceIsBt = false), {}, {}, {}, {}, {}, {}, {}, {}, {}, limit = 130)
             }
         }
     } }
@@ -249,7 +249,7 @@ open class Screenshots {
 
     @Test
     fun musique_plein_ecran() = captureRoboImage("build/screens/${p}musique.png") { Scaled {
-        DrivePanel("17:42", media, {}, {}, {}, {}, {}, {}, {}, {}, null)
+        DrivePanel("17:42", media, {}, {}, {}, {}, {}, {}, {}, {}, null, limit = 80)
     } }
 
     private val generique = MediaInfo(title = "Titre du morceau", artist = "Nom de l'artiste", playing = true)
