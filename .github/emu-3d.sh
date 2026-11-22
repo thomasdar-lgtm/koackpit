@@ -23,6 +23,6 @@ adb exec-out screencap -p > emu/4-fiche.png
 adb shell am start -n $A --ei mask 0; sleep 4
 adb exec-out screencap -p > emu/5-ferme.png
 adb shell dumpsys gfxinfo com.koala.koackpit > emu/gfxinfo.txt
-adb logcat -d | grep -iE "filament|koackpit|AndroidRuntime|FATAL|gltfio" | tail -300 > emu/logcat.txt
+adb logcat -d | grep -iE "filament|golf3d|koackpit|AndroidRuntime|FATAL|gltfio" | tail -300 > emu/logcat.txt
 adb shell run-as com.koala.koackpit cat files/wake-log.txt > emu/journal.txt
 true

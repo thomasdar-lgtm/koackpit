@@ -3,7 +3,7 @@ package com.koala.koackpit
 import android.content.Context
 import android.view.Choreographer
 import android.view.MotionEvent
-import android.view.SurfaceView
+import android.view.TextureView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -66,7 +66,7 @@ fun Golf3D(mask: Int, modifier: Modifier = Modifier) {
     Box(modifier.background(CardSolid)) {
         if (!failed.value) AndroidView(
             factory = { c ->
-                SurfaceView(c).also { sv ->
+                TextureView(c).also { sv ->
                     val r = runCatching {
                         GolfScene(c.applicationContext, sv, CardSolid.toArgb(), onPanel = { panel.value = it }).also {
                             it.setDoors(mask); holder[0] = it
@@ -111,7 +111,7 @@ private fun isRobolectric() = android.os.Build.FINGERPRINT == "robolectric"
 
 /** Scène Filament de la Golf : chargement, caméra, ouvrants, appui sur une pièce, boucle d'image. */
 private class GolfScene(
-    private val app: Context, private val sv: SurfaceView, bg: Int, private val onPanel: (Pair<String, String>?) -> Unit,
+    private val app: Context, private val sv: TextureView, bg: Int, private val onPanel: (Pair<String, String>?) -> Unit,
 ) : Choreographer.FrameCallback {
     private val meta: JSONObject
     private val viewer: ModelViewer
@@ -176,11 +176,7 @@ private class GolfScene(
         })
         sv.setOnTouchListener { _, e -> touch(e); taps.onTouchEvent(e); wake(); true }
         // Retour sur l'écran (surface recréée) : redessiner
-        sv.holder.addCallback(object : android.view.SurfaceHolder.Callback {
-            override fun surfaceCreated(h: android.view.SurfaceHolder) { wake(1500) }
-            override fun surfaceChanged(h: android.view.SurfaceHolder, f: Int, w: Int, hh: Int) { wake(1500) }
-            override fun surfaceDestroyed(h: android.view.SurfaceHolder) {}
-        })
+        sv.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> wake(1500) }
         wake(4000)
         choreographer.postFrameCallback(this)
         WakeLog.add(app, "Golf 3D : moteur 3D natif prêt (${meta.getJSONArray("infos").length()} pièces)")
@@ -287,7 +283,10 @@ private class GolfScene(
                 }
             }
             MotionEvent.ACTION_POINTER_UP -> if (mode == 2) mode = 3   // fin du zoom : on ignore le doigt restant
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { if (mode == 1) manip.grabEnd(); mode = 0 }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                if (mode == 1) manip.grabEnd(); mode = 0
+                if (BuildConfig.DEBUG) { manip.getLookAt(eye, tgt, up); android.util.Log.i("Golf3D", "caméra ${eye.joinToString()} → ${tgt.joinToString()}") }
+            }
         }
     }
 
