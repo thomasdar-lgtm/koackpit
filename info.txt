@@ -1,0 +1,12 @@
+keylen 43
+9 389629
+10 1559546
+11 6236149
+12 24940522
+13 99753941
+--- 43.7899,-0.9312
+{"items":[{"title":"Rue des Coquelicots, 40465 Pontonx-sur-l'Adour, France","id":"here:af:streetsection:RrPe.H1dU4.thAV5Y086EC","resultType":"street","address":{"label":"Rue des Coquelicots, 40465 Pontonx-sur-l'Adour, France","countryCode":"FRA","countryName":"France","stateCode":"NAQ","state":"Nouvelle-Aquitaine","county":"Landes","city":"Pontonx-sur-l'Adour","street":"Rue des Coquelicots","postalCode":"40465"},"position":{"lat":43.78992,"lng":-0.93136},"distance":13,"mapView":{"west":-0.93138,"south":43.78967,"east":-0.93105,"north":43.79098},"navigationAttributes":{"speedLimits":[{"maxSpeed":50,"direction":"NE","speedUnit":"kph","source":"derived"},{"maxSpeed":50,"direction":"SW","speedUnit":"kph","source":"derived"}],"functionalClass":[{"value":"5"}]}}]}
+--- 43.7340,-1.0480
+{"items":[{"title":"Impasse des Lavandières, 40990 Saint-Paul-lès-Dax, France","id":"here:af:streetsection:.EhFbpz0uIzPE8hmh2CwRB","resultType":"street","address":{"label":"Impasse des Lavandières, 40990 Saint-Paul-lès-Dax, France","countryCode":"FRA","countryName":"France","stateCode":"NAQ","state":"Nouvelle-Aquitaine","county":"Landes","city":"Saint-Paul-lès-Dax","street":"Impasse des Lavandières","postalCode":"40990"},"position":{"lat":43.73386,"lng":-1.04814},"distance":19,"mapView":{"west":-1.04837,"south":43.73361,"east":-1.0476,"north":43.73408},"navigationAttributes":{"speedLimits":[{"maxSpeed":30,"direction":"SE","speedUnit":"kph","source":"derived"},{"maxSpeed":30,"direction":"NW","speedUnit":"kph","source":"derived"}],"functionalClass":[{"value":"5"}]}}]}
+--- 43.7020,-1.0530
+{"items":[{"title":"Résidence Auribat, 40100 Dax, France","id":"here:af:streetsection:NGXEagvj2ZpEtq8Tm6eYlD","resultType":"street","address":{"label":"Résidence Auribat, 40100 Dax, France","countryCode":"FRA","countryName":"France","stateCode":"NAQ","state":"Nouvelle-Aquitaine","county":"Landes","city":"Dax","street":"Résidence Auribat","postalCode":"40100"},"position":{"lat":43.70192,"lng":-1.05302},"distance":9,"mapView":{"west":-1.05354,"south":43.70153,"east":-1.0514,"north":43.70215},"navigationAttributes":{"speedLimits":[{"maxSpeed":50,"direction":"SE","speedUnit":"kph","source":"derived"},{"maxSpeed":50,"direction":"NW","speedUnit":"kph","source":"derived"}],"functionalClass":[{"value":"5"}]}}]}
