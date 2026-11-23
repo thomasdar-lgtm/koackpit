@@ -1,0 +1,17 @@
+name: ProbeOverpass
+on: { push: { branches: [probe-ovp] } }
+permissions: { contents: write }
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          mkdir out
+          Q='[out:json][timeout:40];way[highway~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street|road)$"](43.7800,-0.9400,43.8000,-0.9200);out tags geom;'
+          for u in https://overpass-api.de/api/interpreter http://overpass-api.de/api/interpreter https://overpass.kumi.systems/api/interpreter https://overpass.private.coffee/api/interpreter https://maps.mail.ru/osm/tools/overpass/api/interpreter; do
+            curl -s -m 60 --data-urlencode "data=$Q" "$u" -o r.json -w "%{http_code} %{size_download} %{time_total}" > code.txt || true
+            n=$(python3 -c "import json;d=json.load(open('r.json'));e=d['elements'];print(len(e), sum(1 for x in e if 'maxspeed' in x.get('tags',{})), d.get('remark',''))" 2>&1 | head -c 300)
+            echo "$u $(cat code.txt) -> $n" >> out/res.txt
+          done
+          cp r.json out/last.json
+          cd out && git init -q -b probe-ovp-result && git config user.name b && git config user.email b@b && git add -A && git commit -qm r && git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" probe-ovp-result
