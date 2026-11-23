@@ -1,0 +1,35 @@
+name: ProbeHere
+on: { push: { branches: [probe-here] } }
+permissions: { contents: write }
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          K: ${{ secrets.HERE_API_KEY }}
+        run: |
+          mkdir out
+          echo "keylen ${#K}" > out/info.txt
+          python3 - <<'PY' >> out/info.txt
+          import math
+          lat,lon=43.79,-0.93
+          for lv in range(9,14):
+              s=180/2**lv; y=int((lat+90)/s); x=int((lon+180)/s); print(lv, y*2*2**lv+x)
+          PY
+          ids=$(python3 -c "
+          lat,lon=43.79,-0.93
+          print(','.join(str(int((lat+90)/(180/2**lv))*2*2**lv+int((lon+180)/(180/2**lv))) for lv in range(9,14)))")
+          L=SPEED_LIMITS_FC1,ROAD_GEOM_FC1,SPEED_LIMITS_FC2,ROAD_GEOM_FC2,SPEED_LIMITS_FC3,ROAD_GEOM_FC3,SPEED_LIMITS_FC4,ROAD_GEOM_FC4,SPEED_LIMITS_FC5,ROAD_GEOM_FC5
+          curl -s -m 60 -o out/r.json -w "%{http_code} %{size_download}\n" "https://smap.hereapi.com/v8/maps/attributes?layers=$L&in=tile:$ids&apiKey=$K" >> out/info.txt
+          python3 - <<'PY' >> out/info.txt
+          import json
+          d=json.load(open('out/r.json'))
+          print(list(d.keys()))
+          for t in d.get('Tiles',[]):
+              m=t['Meta']; r=t.get('Rows',[])
+              print(m, len(r))
+              if r: print('  ', json.dumps(r[0])[:400])
+          if 'Tiles' not in d: print(json.dumps(d)[:600])
+          PY
+          rm out/r.json
+          cd out && git init -q -b probe-here-result && git config user.name b && git config user.email b@b && git add -A && git commit -qm r && git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" probe-here-result
