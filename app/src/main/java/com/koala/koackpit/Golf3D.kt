@@ -4,6 +4,7 @@ import android.content.Context
 import android.view.Choreographer
 import android.view.MotionEvent
 import android.view.SurfaceView
+import android.view.TextureView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -77,15 +78,19 @@ fun Golf3D(mask: Int, modifier: Modifier = Modifier) {
     val failed = remember { mutableStateOf(isRobolectric() || Golf3DGuard.blocked(ctx)) }
     val panel = remember { mutableStateOf<Pair<String, String>?>(null) }
     val holder = remember { arrayOfNulls<GolfScene>(1) }
+    val mode = remember { mutableStateOf(Golf3DOptions.mode(ctx)) }
+    val fps = remember { mutableStateOf<Int?>(null) }
     LaunchedEffect(mask) { holder[0]?.setDoors(mask) }
     DisposableEffect(Unit) { onDispose { holder[0]?.stop(); holder[0] = null } }
     Box(modifier.background(CardSolid)) {
-        if (!failed.value) AndroidView(
+        if (!failed.value) androidx.compose.runtime.key(mode.value) { AndroidView(
             factory = { c ->
-                SurfaceView(c).also { sv ->
+                holder[0]?.stop(); holder[0] = null; fps.value = null
+                val m = Golf3DOptions.MODES[mode.value]
+                (if (m.texture) TextureView(c) else SurfaceView(c)).also { sv ->
                     val r = runCatching {
                         Golf3DGuard.starting(c)
-                        GolfScene(c.applicationContext, sv, CardSolid.toArgb(), onPanel = { panel.value = it }).also {
+                        GolfScene(c.applicationContext, sv, m.scale, CardSolid.toArgb(), onFps = { fps.value = it }, onPanel = { panel.value = it }).also {
                             it.setDoors(mask); holder[0] = it
                         }
                     }
@@ -96,6 +101,18 @@ fun Golf3D(mask: Int, modifier: Modifier = Modifier) {
                 }
             },
             modifier = Modifier.matchParentSize(),
+        ) }
+        // Essai des modes d'affichage (le bon dépend de la puce graphique) : appui = mode suivant, gardé en mémoire
+        if (!failed.value) Text(
+            "Affichage ${mode.value + 1}/${Golf3DOptions.MODES.size} · ${Golf3DOptions.MODES[mode.value].label}" +
+                (fps.value?.let { " · $it img/s" } ?: ""),
+            color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+            modifier = Modifier.align(Alignment.BottomStart).padding(6.dp).clip(RoundedCornerShape(50)).cardBg(RoundedCornerShape(50))
+                .clickable {
+                    mode.value = (mode.value + 1) % Golf3DOptions.MODES.size
+                    Golf3DOptions.setMode(ctx, mode.value)
+                    WakeLog.add(ctx, "Golf 3D : affichage ${mode.value + 1} (${Golf3DOptions.MODES[mode.value].label}) choisi")
+                }.padding(horizontal = 12.dp, vertical = 6.dp),
         )
         if (failed.value) Column(
             Modifier.matchParentSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
@@ -148,15 +165,25 @@ object Golf3DGuard {
 /** Réglages de rendu (modifiables par l'écran de test sur émulateur). */
 object Golf3DOptions {
     var post = false; var msaa = false
-    /** Image calculée à 60 % de la taille de l'écran puis agrandie par l'écran lui-même : ~3× moins de travail. */
-    var scale = 0.6f
+    /**
+     * Façons d'afficher l'image 3D. Sur l'autoradio (puce PowerVR + affichage Rockchip) : la 2 (calcul réduit
+     * agrandi par l'écran) reste noire, la 3 (pleine taille, vue « texture ») sort des images découpées.
+     */
+    class Mode(val label: String, val texture: Boolean, val scale: Float)
+    val MODES = listOf(
+        Mode("direct", false, 1f), Mode("direct réduit", false, 0.6f),
+        Mode("texture", true, 1f), Mode("texture réduit", true, 0.6f),
+    )
+    private fun prefs(c: Context) = c.getSharedPreferences("golf3d_mode", Context.MODE_PRIVATE)
+    fun mode(c: Context) = prefs(c).getInt("mode", 0).coerceIn(0, MODES.size - 1)
+    fun setMode(c: Context, m: Int) = prefs(c).edit().putInt("mode", m).apply()
 }
 
 private fun isRobolectric() = android.os.Build.FINGERPRINT == "robolectric"
 
 /** Scène Filament de la Golf : chargement, caméra, ouvrants, appui sur une pièce, boucle d'image. */
 private class GolfScene(
-    private val app: Context, private val sv: SurfaceView, private val bg: Int, private val onPanel: (Pair<String, String>?) -> Unit,
+    private val app: Context, private val sv: android.view.View, private val scale: Float, private val bg: Int, private val onFps: (Int) -> Unit, private val onPanel: (Pair<String, String>?) -> Unit,
 ) : Choreographer.FrameCallback {
     private val meta: JSONObject
     private val manip: Manipulator
@@ -181,6 +208,7 @@ private class GolfScene(
     private var frames = 0
     /** Rapport taille de calcul / taille à l'écran (coordonnées du doigt converties). */
     private var k = 1f
+    private var lastFpsShown = 0L
     private var burstStart = 0L; private var burstFrames = 0; private var lastFpsLog = 0L
 
     private class Door(val entity: Int, val base: FloatArray, val axisX: Boolean, val sign: Float, val max: Float) {
@@ -274,7 +302,7 @@ private class GolfScene(
                 wake(1500)
             }
         }
-        ui.attachTo(sv)
+        if (sv is TextureView) ui.attachTo(sv) else ui.attachTo(sv as SurfaceView)
         setupParts()
         setDoors(pendingMask)
         // Gestes : ModelViewer tourne / zoome ; un appui court ouvre la fiche de la pièce touchée
@@ -286,8 +314,8 @@ private class GolfScene(
         // Taille de calcul réduite (l'écran agrandit l'image gratuitement)
         sv.addOnLayoutChangeListener { _, l, t, r, b, ol, ot, orr, ob ->
             if (r - l != orr - ol || b - t != ob - ot) {
-                val w = ((r - l) * Golf3DOptions.scale).toInt(); val h = ((b - t) * Golf3DOptions.scale).toInt()
-                if (w > 0 && h > 0) ui.setDesiredSize(w, h)
+                val w = ((r - l) * scale).toInt(); val h = ((b - t) * scale).toInt()
+                if (w > 0 && h > 0 && scale < 1f) ui.setDesiredSize(w, h)
             }
             wake(1500)
         }
@@ -475,6 +503,8 @@ private class GolfScene(
         }
         if (burstStart == 0L) burstStart = frameTimeNanos
         render(frameTimeNanos)
+        val secs = (frameTimeNanos - burstStart) / 1e9f
+        if (secs > 1f && frameTimeNanos - lastFpsShown > 1_000_000_000L) { lastFpsShown = frameTimeNanos; onFps((burstFrames / secs).toInt()) }
     }
 
     private val eyeD = DoubleArray(3); private val tgtD = DoubleArray(3); private val upD = DoubleArray(3)
