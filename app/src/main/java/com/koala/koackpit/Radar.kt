@@ -61,16 +61,22 @@ object Radar {
         loading = true; app = ctx.applicationContext
         Thread {
             try {
-                val l = ctx.assets.open("radars.txt").bufferedReader().readLines().filter { it.isNotBlank() && !it.startsWith("#") }.mapNotNull { line ->
-                    val p = line.split(';')
-                    if (p.size < 4) null else Spot(p[0], p[1].toIntOrNull(), p[2].toDouble(), p[3].toDouble())
-                }
-                spots = l
-                log("${l.size} radars fixes chargés (liste officielle)")
+                val n = loadFrom(ctx.assets.open("radars.txt").bufferedReader().readLines())
+                log("$n radars fixes chargés (liste officielle)")
             } catch (e: Exception) {
                 log("liste illisible (${e.javaClass.simpleName})")
             } finally { loading = false }
         }.start()
+    }
+
+    /** Lit la liste « type;vitesse;lat;lon » (aussi utilisé par l'essai automatique). */
+    internal fun loadFrom(lines: List<String>): Int {
+        val l = lines.filter { it.isNotBlank() && !it.startsWith("#") }.mapNotNull { line ->
+            val p = line.split(';')
+            if (p.size < 4) null else Spot(p[0], p[1].toIntOrNull(), p[2].toDouble(), p[3].toDouble())
+        }
+        spots = l; cur = null; done.clear()
+        return l.size
     }
 
     /** Appelé à chaque position (téléphone ou GPS de l'autoradio). */
