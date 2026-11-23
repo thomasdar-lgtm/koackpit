@@ -44,7 +44,7 @@ fun RadarAlert(x: Radar.Alert, modifier: Modifier = Modifier, compact: Boolean =
             .padding(horizontal = if (compact) 8.dp else 12.dp, vertical = if (compact) 5.dp else 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RadarSign(if (compact) 34 else 42)
+        RadarSign(if (compact) 40 else 50)
         Spacer(Modifier.width(if (compact) 8.dp else 12.dp))
         Column(Modifier.weight(1f)) {
             Text("Zone de danger", color = if (x.over) Color.White else Ink, fontSize = if (compact) 14.sp else 17.sp, fontWeight = FontWeight.Black, maxLines = 1)
