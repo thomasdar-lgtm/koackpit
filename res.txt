@@ -1,0 +1,17 @@
+https://overpass-api.de/api/interpreter 406 156 0.543644 -> Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import json;d=json.load(open('r.json'));e=d['elements'];print(len(e), sum(1 for x in e if 'maxspeed' in x.get('tags',{})), d.get('remark',''))
+                  ~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/json/__
+http://overpass-api.de/api/interpreter 406 156 0.232922 -> Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import json;d=json.load(open('r.json'));e=d['elements'];print(len(e), sum(1 for x in e if 'maxspeed' in x.get('tags',{})), d.get('remark',''))
+                  ~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/json/__
+https://overpass.kumi.systems/api/interpreter 200 127684 1.375954 -> 172 29 
+https://overpass.private.coffee/api/interpreter 000 0 60.001838 -> 172 29 
+https://maps.mail.ru/osm/tools/overpass/api/interpreter 504 695 43.850332 -> Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import json;d=json.load(open('r.json'));e=d['elements'];print(len(e), sum(1 for x in e if 'maxspeed' in x.get('tags',{})), d.get('remark',''))
+                  ~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/json/__
