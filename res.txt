@@ -1,0 +1,14 @@
+liste-des-radars-fixes-en-france jeu-de-donnees-liste-des-radars-fixes-en-france-12-2025.csv csv 2025-12-30T13:42:47.222000+00:00 https://static.data.gouv.fr/resources/liste-des-radars-fixes-en-france/20251230-134204/jeu-de-donnees-liste-des-radars-fixes-en-france-12-2025.csv
+liste-des-radars-fixes-en-france jeu-de-donnees-liste-des-radars-fixes-en-france-v2.pdf pdf 2025-12-30T13:51:11.725000+00:00 https://static.data.gouv.fr/resources/liste-des-radars-fixes-en-france/20251230-135111/jeu-de-donnees-liste-des-radars-fixes-en-france-v2.pdf
+liste-des-radars-fixes-en-france jeu-de-donnees-liste-des-radars-fixes-en-france-2024-.csv csv 2024-10-18T12:45:52.667000+00:00 https://static.data.gouv.fr/resources/liste-des-radars-fixes-en-france/20241018-124508/jeu-de-donnees-liste-des-radars-fixes-en-france-2024-.csv
+radars-automatiques Git html 2024-07-11T20:39:29.074750+00:00 https://github.com/AntoineAugusti/radars-france
+radars-automatiques radars.csv csv 2018-10-25T14:12:36.237000+00:00 https://static.data.gouv.fr/resources/radars-automatiques/20181025-141231/radars.csv
+total 844
+drwxr-xr-x 2 runner runner   4096 Nov 23 14:01 .
+drwxr-xr-x 3 runner runner   4096 Nov 23 14:01 ..
+-rw-r--r-- 1 runner runner  11558 Nov 23 14:01 liste-des-radars-fixes-en-france.json
+-rw-r--r-- 1 runner runner 169819 Nov 23 14:01 liste-des-radars-fixes-en-france_17f7cfd9.csv
+-rw-r--r-- 1 runner runner 141024 Nov 23 14:01 liste-des-radars-fixes-en-france_402aa4fe.csv
+-rw-r--r-- 1 runner runner   7843 Nov 23 14:01 radars-automatiques.json
+-rw-r--r-- 1 runner runner 513636 Nov 23 14:01 radars-automatiques_8a22b5a8.csv
+-rw-r--r-- 1 runner runner   1080 Nov 23 14:01 res.txt
