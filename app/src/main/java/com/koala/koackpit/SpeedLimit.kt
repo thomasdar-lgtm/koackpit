@@ -30,9 +30,15 @@ import kotlin.math.cos
  */
 object SpeedLimit {
     val limit = mutableStateOf<Int?>(null)
+    /** Limitation déduite (route sans panneau dans OpenStreetMap) : panneau affiché atténué. */
+    val estimated = mutableStateOf(false)
 
-    /** Une route : limitation connue (null = pas renseignée dans OpenStreetMap) et tracé lat, lon, lat, lon… */
-    private class Way(val limit: Int?, val pts: DoubleArray)
+    /**
+     * Une route : limitation et tracé lat, lon, lat, lon… Depuis 0.17.7, chaque route a une limitation :
+     * celle d'OpenStreetMap, sinon déduite selon les règles françaises (est = true) : 50 en ville (zone
+     * d'habitation dans OpenStreetMap, ou rue résidentielle), 80 hors ville, 130 autoroute, 20 zone de rencontre.
+     */
+    private class Way(val limit: Int?, val pts: DoubleArray, val est: Boolean = false)
     private const val TILE = 0.02                              // degrés (≈ 2,2 km × 1,6 km ici)
     private val tiles = java.util.concurrent.ConcurrentHashMap<String, List<Way>>()
     @Volatile private var busy = false
@@ -65,7 +71,7 @@ object SpeedLimit {
     fun stop() {
         runCatching { lm?.removeUpdates(listener) }
         lm = null
-        current = null; candidate = null; limit.value = null
+        current = null; candidate = null; limit.value = null; estimated.value = false
     }
 
     /** Position du téléphone (plus précise) : utilisée en priorité quand elle arrive. */
@@ -93,7 +99,7 @@ object SpeedLimit {
                 try {
                     val w = fetchTile(missing)
                     tiles[missing] = w; saveCached(missing, w)
-                    log("carreau ${if (missing == want[0]) "actuel" else "voisin"} téléchargé : ${w.size} routes, ${w.count { it.limit != null }} avec limitation")
+                    log("carreau ${if (missing == want[0]) "actuel" else "voisin"} ($missing) téléchargé : ${w.size} routes, ${w.count { !it.est }} avec limitation, ${w.count { it.est }} déduites")
                     lastError = null
                 } catch (e: Exception) {
                     val m = e.javaClass.simpleName + (e.message?.let { ": " + it.take(80) } ?: "")
@@ -113,9 +119,10 @@ object SpeedLimit {
             else candidate = w
         } else if (now - lastMatch > 8_000) current = null   // plus aucune route connue sous la voiture
         val shown = current?.limit
-        if (limit.value != shown) {
-            limit.value = shown
-            log(if (shown != null) "panneau affiché : $shown" else if (current != null) "route sans limitation connue : panneau retiré" else "hors route connue : panneau retiré")
+        val est = current?.est == true
+        if (limit.value != shown || estimated.value != est) {
+            limit.value = shown; estimated.value = est
+            log(if (shown != null) "panneau affiché : $shown" + (if (est) " (déduit)" else "") else if (current != null) "route sans limitation connue : panneau retiré" else "hors route connue : panneau retiré")
         }
     }
     private var current: Way? = null
@@ -123,16 +130,16 @@ object SpeedLimit {
     private var lastMatch = 0L
 
     // ---- Carreaux gardés sur l'autoradio ----
-    // « limitations2 » : toutes les routes (l'ancien dossier ne gardait que celles avec panneau)
+    // « limitations3 » (0.17.7) : limitations déduites en plus ; les anciens carreaux (parfois incomplets) sont effacés
     private fun file(k: String) = app?.let { ctx ->
-        java.io.File(ctx.filesDir, "limitations").takeIf { it.exists() }?.deleteRecursively()
-        java.io.File(java.io.File(ctx.filesDir, "limitations2").apply { mkdirs() }, k.replace(',', '_') + ".txt")
+        for (old in listOf("limitations", "limitations2")) java.io.File(ctx.filesDir, old).takeIf { it.exists() }?.deleteRecursively()
+        java.io.File(java.io.File(ctx.filesDir, "limitations3").apply { mkdirs() }, k.replace(',', '_') + ".txt")
     }
 
-    /** Format : une route par ligne « limite (ou -);lat,lon;lat,lon… ». */
+    /** Format : une route par ligne « limite (suivie de e si déduite, ou -);lat,lon;lat,lon… ». */
     private fun saveCached(k: String, ws: List<Way>) = runCatching {
         file(k)?.writeText(ws.joinToString("\n") { w ->
-            (w.limit?.toString() ?: "-") + ";" + (0 until w.pts.size / 2).joinToString(";") { "%.6f,%.6f".format(java.util.Locale.US, w.pts[2 * it], w.pts[2 * it + 1]) }
+            (w.limit?.let { "$it" + if (w.est) "e" else "" } ?: "-") + ";" + (0 until w.pts.size / 2).joinToString(";") { "%.6f,%.6f".format(java.util.Locale.US, w.pts[2 * it], w.pts[2 * it + 1]) }
         })
     }
 
@@ -143,7 +150,7 @@ object SpeedLimit {
             f.readLines().filter { it.isNotBlank() }.map { line ->
                 val parts = line.split(';')
                 val pts = parts.drop(1).flatMap { it.split(',').map(String::toDouble) }.toDoubleArray()
-                Way(parts[0].toIntOrNull(), pts)
+                Way(parts[0].trimEnd('e').toIntOrNull(), pts, parts[0].endsWith("e"))
             }
         }.getOrNull() ?: return false
         tiles[k] = ws
@@ -183,9 +190,12 @@ object SpeedLimit {
     }
 
     private val SERVERS = listOf(
+        // Ordre revu le 23/11 (essai depuis un serveur de GitHub) : kumi répond bien ; overpass-api.de refuse
+        // souvent (réponse 406, connexion sécurisée refusée par l'autoradio)
+        "https://overpass.kumi.systems/api/interpreter",
         "https://overpass-api.de/api/interpreter",
         "http://overpass-api.de/api/interpreter",
-        "https://overpass.kumi.systems/api/interpreter",
+        "https://overpass.private.coffee/api/interpreter",
     )
     @Volatile private var server = 0
 
@@ -208,7 +218,9 @@ object SpeedLimit {
         val bbox = "%.4f,%.4f,%.4f,%.4f".format(java.util.Locale.US, s0, w0, s0 + TILE, w0 + TILE)
         val q = "[out:json][timeout:40];" +
             "way[highway~\"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|" +
-            "tertiary|tertiary_link|unclassified|residential|living_street|road)$\"]($bbox);out tags geom;"
+            "tertiary|tertiary_link|unclassified|residential|living_street|road)$\"]($bbox);out tags geom;" +
+            // Zones d'habitation (= en ville, 50 par défaut) : pour déduire la limitation des routes sans panneau
+            "way[landuse=residential]($bbox);out geom;"
         // Le serveur principal refuse parfois la connexion sécurisée de l'autoradio : on essaie les adresses
         // dans l'ordre et on garde la première qui répond
         var txt: String? = null
@@ -222,24 +234,48 @@ object SpeedLimit {
             } catch (e: Exception) { err = e }
         }
         if (txt == null) throw err ?: java.io.IOException("aucun serveur")
-        val els = JSONObject(txt).getJSONArray("elements")
-        val out = ArrayList<Way>(els.length())
+        val js = JSONObject(txt)
+        // Serveur surchargé : réponse coupée (« remark ») → carreau incomplet, on ne le garde pas
+        js.optString("remark").takeIf { it.isNotBlank() }?.let { throw java.io.IOException("réponse incomplète du serveur : ${it.take(60)}") }
+        val els = js.getJSONArray("elements")
+        class Raw(val hw: String, val tags: JSONObject, val pts: DoubleArray)
+        val roads = ArrayList<Raw>(); val towns = ArrayList<DoubleArray>()
         for (i in 0 until els.length()) {
             val e = els.getJSONObject(i)
             val g = e.optJSONArray("geometry") ?: continue
             val tags = e.optJSONObject("tags") ?: continue
-            val hw = tags.optString("highway")
-            val lim = parse(tags.optString("maxspeed"))
-                ?: parse(tags.optString("maxspeed:forward"))
-                ?: parse(tags.optString("maxspeed:type"))
-                ?: parse(tags.optString("source:maxspeed"))
-                ?: parse(tags.optString("zone:maxspeed"))
-                ?: when (hw) { "motorway" -> 130; "living_street" -> 20; else -> null }   // règles françaises sans ambiguïté
             val pts = DoubleArray(g.length() * 2)
-            for (j in 0 until g.length()) { val o = g.getJSONObject(j); pts[2 * j] = o.getDouble("lat"); pts[2 * j + 1] = o.getDouble("lon") }
-            out.add(Way(lim, pts))
+            for (j in 0 until g.length()) { val o = g.optJSONObject(j) ?: continue; pts[2 * j] = o.optDouble("lat"); pts[2 * j + 1] = o.optDouble("lon") }
+            if (tags.optString("landuse") == "residential") towns.add(pts)
+            else roads.add(Raw(tags.optString("highway"), tags, pts))
+        }
+        val out = ArrayList<Way>(roads.size)
+        for (r in roads) {
+            val t = r.tags
+            val known = parse(t.optString("maxspeed"))
+                ?: parse(t.optString("maxspeed:forward"))
+                ?: parse(t.optString("maxspeed:type"))
+                ?: parse(t.optString("source:maxspeed"))
+                ?: parse(t.optString("zone:maxspeed"))
+                ?: when (r.hw) { "motorway", "motorway_link" -> 130; "living_street" -> 20; else -> null }   // sans ambiguïté
+            if (known != null) { out.add(Way(known, r.pts)); continue }
+            // Déduite : rue résidentielle ou route dans une zone d'habitation → 50, sinon 80
+            val n = r.pts.size / 2
+            val inTown = r.hw == "residential" || (n > 0 && towns.any { inside(it, r.pts[2 * (n / 2)], r.pts[2 * (n / 2) + 1]) })
+            out.add(Way(if (inTown) 50 else 80, r.pts, est = true))
         }
         return out
+    }
+
+    /** Point dans un polygone (contour lat, lon…). */
+    private fun inside(poly: DoubleArray, lat: Double, lon: Double): Boolean {
+        var c = false; val n = poly.size / 2; var j = n - 1
+        for (i in 0 until n) {
+            val yi = poly[2 * i]; val xi = poly[2 * i + 1]; val yj = poly[2 * j]; val xj = poly[2 * j + 1]
+            if ((yi > lat) != (yj > lat) && lon < (xj - xi) * (lat - yi) / (yj - yi) + xi) c = !c
+            j = i
+        }
+        return c
     }
 
     /** « 50 », « FR:urban » (50), « FR:rural » (80), « FR:motorway » (130), « FR:zone30 »… */

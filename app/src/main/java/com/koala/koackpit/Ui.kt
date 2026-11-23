@@ -38,6 +38,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -355,7 +356,7 @@ fun NavCard(
                 Text("km/h", color = Muted, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
                 if (limit != null) {
                     Spacer(Modifier.width(14.dp))
-                    LimitSign(limit, Modifier.padding(bottom = 4.dp))
+                    LimitSign(limit, Modifier.padding(bottom = 4.dp).graphicsLayer { alpha = if (SpeedLimit.estimated.value) 0.6f else 1f })
                 }
                 Spacer(Modifier.weight(1f))
                 if (car?.outTemp != null) Column(horizontalAlignment = Alignment.End) {
@@ -533,7 +534,7 @@ fun DrivePanel(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 SmallRound(Icons.Filled.Home, onHome)
                 // Limitation de la route : toujours en vue pendant la conduite (à côté du GPS aussi)
-                if (limit != null) { Spacer(Modifier.width(8.dp)); LimitSign(limit, size = 38) }
+                if (limit != null) { Spacer(Modifier.width(8.dp)); LimitSign(limit, Modifier.graphicsLayer { alpha = if (SpeedLimit.estimated.value) 0.6f else 1f }, size = 38) }
                 Spacer(Modifier.weight(1f))
                 Text(time, color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.width(8.dp))
