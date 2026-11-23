@@ -364,12 +364,12 @@ open class Screenshots {
         HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {},
             speedKmh = speed, car = CarStats(45, 690, 13.5f, true), weather = meteo, limit = a.vma, radar = a)
     } }
-    @Test fun radar_accueil() = accueilRadar("radar-accueil", Radar.Alert("Contrôle de vitesse", 80, 1400, false), 78)
-    @Test fun radar_exces() = accueilRadar("radar-exces", Radar.Alert("Contrôle de vitesse", 80, 650, true), 92)
+    @Test fun radar_accueil() = accueilRadar("radar-accueil", Radar.Alert("Vitesse", 80, 1400, false), 78)
+    @Test fun radar_exces() = accueilRadar("radar-exces", Radar.Alert("Vitesse", 80, 650, true), 92)
     @Test fun radar_appel() = captureRoboImage("build/screens/${p}radar-appel.png") { Scaled {
         Box(Modifier.fillMaxSize()) {
             HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {},
-                speedKmh = 78, car = CarStats(45, 690, 13.5f, true), weather = meteo, limit = 80, radar = Radar.Alert("Contrôle de vitesse", 80, 1400, false))
+                speedKmh = 78, car = CarStats(45, 690, 13.5f, true), weather = meteo, limit = 80, radar = Radar.Alert("Vitesse", 80, 1400, false))
             androidx.compose.ui.viewinterop.AndroidView(
                 { ctx -> CallOverlay.build(ctx, CallOverlay.Call(5, "Cindy", "06 12 34 56 78", 0, true)) {} },
                 Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 12.dp),

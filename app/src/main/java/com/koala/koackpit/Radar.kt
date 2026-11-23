@@ -40,7 +40,7 @@ object Radar {
             "ETVM" -> "Vitesse moyenne"
             "ETFR" -> "Feu rouge"
             "ETPN" -> "Passage à niveau"
-            else -> "Contrôle de vitesse"
+            else -> "Vitesse"
         }
     }
 
