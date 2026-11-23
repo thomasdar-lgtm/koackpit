@@ -51,8 +51,8 @@ class ScreenshotsRadarCheck {
         out.append("Radars chargés : ${Radar.loadFrom(lines)}\n")
         // ETD 80 près de Saint-Geours (43.711, -1.2282) : zone 2 km attendue
         val a = summary("ETD 80, vers le nord à 78", drive(43.711, -1.2282, 0f, 78, 3000, 3000))
-        assertTrue(a.first != null && a.first!! < 0 && a.last!! > 0)
-        assertTrue(a.last!! - a.first!! in 1800..2100)
+        assertTrue(a.first != null && a.first!! < 0 && a.second!! > 0)
+        assertTrue(a.second!! - a.first!! in 1800..2100)
         Radar.loadFrom(lines)
         summary("ETD 80, vers le nord à 95 (excès)", drive(43.711, -1.2282, 0f, 95, 3000, 3000))
         Radar.loadFrom(lines)
@@ -63,7 +63,7 @@ class ScreenshotsRadarCheck {
         Radar.loadFrom(lines)
         val fr = lines.first { it.startsWith("ETFR;") }.split(';')
         val f = summary("feu rouge ${fr[2]},${fr[3]} à 45", drive(fr[2].toDouble(), fr[3].toDouble(), 90f, 45, 800, 800))
-        assertTrue(f.first != null && f.last!! - f.first!! in 250..350)
+        assertTrue(f.first != null && f.second!! - f.first!! in 250..350)
         // Voiture arrêtée : rien
         Radar.loadFrom(lines)
         val s = summary("arrêté (5 km/h)", drive(43.711, -1.2282, 0f, 5, 3000, 3000))
