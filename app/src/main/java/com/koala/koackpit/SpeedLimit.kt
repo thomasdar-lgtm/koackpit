@@ -72,6 +72,7 @@ object SpeedLimit {
         runCatching { lm?.removeUpdates(listener) }
         lm = null
         current = null; candidate = null; limit.value = null; estimated.value = false
+        Radar.stop()
     }
 
     /** Position du téléphone (plus précise) : utilisée en priorité quand elle arrive. */
@@ -89,6 +90,7 @@ object SpeedLimit {
     private fun key(ty: Int, tx: Int) = "$ty,$tx"
 
     private fun handle(loc: Location) {
+        app?.let { Radar.tick(it, loc) }   // zones de danger (0.19.0)
         Here.tick(loc)
         val hv = Here.value
         if (Here.active && hv != null) {   // HERE connaît la rue : sa limitation passe avant OpenStreetMap
