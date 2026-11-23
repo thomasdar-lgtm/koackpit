@@ -22,7 +22,7 @@ adb shell input tap 512 300; sleep 3
 adb exec-out screencap -p > emu/4-fiche.png
 adb shell am start -n $A --ei mask 0; sleep 4
 adb exec-out screencap -p > emu/5-ferme.png
-adb shell input tap 668 372; sleep 3
+adb shell input tap 590 425; sleep 3
 adb exec-out screencap -p > emu/5b-fiche-roue.png
 # Thème jour (fond clair)
 adb shell am force-stop com.koala.koackpit
