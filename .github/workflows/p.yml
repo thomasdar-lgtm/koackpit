@@ -1,0 +1,23 @@
+name: ProbeRadars
+on: { push: { branches: [probe-radars] } }
+permissions: { contents: write }
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          mkdir out
+          for s in liste-des-radars-fixes-en-france radars-automatiques; do
+            curl -sL -m 60 "https://www.data.gouv.fr/api/1/datasets/$s/" -o out/$s.json || true
+            python3 - "$s" <<'PY' >> out/res.txt 2>&1
+          import json,sys,subprocess
+          s=sys.argv[1]; d=json.load(open(f"out/{s}.json"))
+          for r in d.get("resources",[]):
+              print(s, r.get("title"), r.get("format"), r.get("last_modified"), r.get("url"))
+              if r.get("format","").lower()=="csv":
+                  fn="out/"+s+"_"+str(r.get("id"))[:8]+".csv"
+                  subprocess.run(["curl","-sL","-m","90",r["url"],"-o",fn])
+          PY
+          done
+          ls -la out >> out/res.txt
+          cd out && git init -q -b probe-radars-result && git config user.name b && git config user.email b@b && git add -A && git commit -qm r && git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" probe-radars-result
