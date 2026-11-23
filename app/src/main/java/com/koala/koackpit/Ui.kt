@@ -360,15 +360,13 @@ fun NavCard(
                     LimitSign(limit, Modifier.padding(bottom = 4.dp).graphicsLayer { alpha = if (SpeedLimit.estimated.value) 0.6f else 1f })
                 }
                 Spacer(Modifier.weight(1f))
-                if (car?.outTemp != null) Column(horizontalAlignment = Alignment.End) {
-                    Text("%.1f °C".format(car.outTemp).replace('.', ','), color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Black)
-                    Text("Extérieur", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
+                // Température de la voiture : dans la zone météo ; ici seulement s'il n'y a pas de météo
+                if (car?.outTemp != null && weather == null) OutTemp(car.outTemp, Modifier.padding(bottom = 8.dp))
             }
             // Zone de danger (radars fixes) : sous la vitesse, ne cache rien
             if (radar != null) { Spacer(Modifier.height(8.dp)); RadarAlert(radar) }
             Spacer(Modifier.weight(1f))
-            if (weather != null) { WeatherStrip(weather); Spacer(Modifier.weight(1f)) }
+            if (weather != null) { WeatherStrip(weather, car?.outTemp); Spacer(Modifier.weight(1f)) }
             // En bas : bouton Ma Golf (photo de profil, ouvre l'écran voiture / entretien), carburant et autonomie
             Row(verticalAlignment = Alignment.CenterVertically) {
                 GolfButton(onCar)
@@ -422,17 +420,24 @@ fun LimitSign(limit: Int, modifier: Modifier = Modifier, size: Int = 48) {
     }
 }
 
+/** Température extérieure de la voiture (sonde de la Golf, lue sur le CAN). */
+@Composable
+fun OutTemp(t: Float, modifier: Modifier = Modifier) =
+    Text("%.1f °C".format(t).replace('.', ','), color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Black, maxLines = 1, modifier = modifier)
+
 /** Météo de la route : temps actuel et pluie à venir (les heures suivantes : retirées, pas utiles). */
 @Composable
-fun WeatherStrip(w: Weather.Forecast) {
+fun WeatherStrip(w: Weather.Forecast, outTemp: Float? = null) {
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Ink.copy(alpha = 0.07f)).padding(horizontal = 12.dp, vertical = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(Weather.icon(w.code), fontSize = 28.sp)
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text("${Weather.label(w.code)} · ${w.temp} °C", color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                Text(Weather.label(w.code), color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Black, maxLines = 1)
                 Text(w.rainNote, color = if (w.rainSoon) AccentText else Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
             }
+            // Température mesurée par la sonde de la Golf (plus juste que la prévision, qui n'est plus affichée)
+            if (outTemp != null) { Spacer(Modifier.width(10.dp)); OutTemp(outTemp) }
         }
     }
 }
