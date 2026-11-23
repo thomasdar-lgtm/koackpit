@@ -224,6 +224,7 @@ class WakeService : Service() {
                     // réseau toutes les 3 s au lieu d'attendre la recherche espacée d'Android (jusqu'à ~1 min).
                     if (on) kickWifi()
                     // Téléphone connecté : c'est le bon moment pour (re)ouvrir le son Bluetooth
+                    if (!on) CutLog.capture(c, "Bluetooth")
                     "Bluetooth : " + (if (on) "téléphone connecté" else "TÉLÉPHONE DÉCONNECTÉ")
                 }
                 else -> "Bluetooth : alimentation " + (i.extras?.keySet()?.joinToString { k -> "$k=${i.extras?.get(k)}" } ?: "")
@@ -454,6 +455,7 @@ class WakeService : Service() {
                 val screen = if ((getSystemService(POWER_SERVICE) as android.os.PowerManager).isInteractive) "écran allumé" else "écran éteint"
                 wifiDownAt = now; wifiOn = false
                 main.post { WakeLog.add(this@WakeService, "Wi-Fi PERDU$dur (dernier signal ${wifiRssi ?: "?"} dBm, $screen)") }
+                CutLog.capture(this@WakeService, "Wi-Fi")
             }
         }
         cm.registerNetworkCallback(
