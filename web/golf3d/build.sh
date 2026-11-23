@@ -1,5 +1,5 @@
 #!/bin/sh
-# Construit la vue 3D de la Golf (page web de travail, dist/ ; sert à exporter le modèle natif, voir build-native.sh).
+# Construit la vue 3D de la Golf (page web de travail, dist/ ; sert à dessiner les vues de Koackpit, voir build-views.sh).
 # Prérequis : npm i three@0.160.0 esbuild@0.24.0 (dans ce dossier ou un dossier parent).
 set -e
 cd "$(dirname "$0")"

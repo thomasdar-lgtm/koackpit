@@ -1,7 +1,7 @@
 
 import * as THREE from 'three';
 const EMBED = /[?&]embed/.test(location.search);
-const EXPORT = /[?&]export/.test(location.search);   // outil build-native.sh : modèle chargé comme dans Koackpit, en pleine qualité
+const EXPORT = /[?&]export/.test(location.search);   // outil render-views.py : modèle chargé comme dans Koackpit, en pleine qualité
 if (EMBED) { document.body.classList.add('embed'); document.documentElement.style.background = 'transparent'; }
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -834,7 +834,7 @@ window.koackpitZoom = f => {          // f > 1 : rapprocher
 window.koackpitTap = (nx, ny) => { tapAt(nx * innerWidth, ny * innerHeight); wake(); };
 
 /**
- * Outil (build-native.sh) : exporte la Golf telle qu'affichée ici — pneus détaillés, compartiment moteur, coffre,
+ * Outil (ancien, 0.17.0–0.17.4, moteur Filament) : exporte la Golf telle qu'affichée ici — pneus détaillés, compartiment moteur, coffre,
  * textures intérieures, peinture « Ma Golf » — en un fichier glTF unique pour le moteur 3D natif de Koackpit
  * (Filament), avec à part : fiches des pièces, centre, vue de départ.
  */
@@ -869,3 +869,70 @@ window.koackpitExport = async () => {
   };
   return { glb: btoa(str), meta };
 };
+
+// ---- Outil render-views.py (0.17.5) : vues pré-calculées de la Golf pour Koackpit ----
+// La puce graphique de l'autoradio n'affiche correctement ni WebGL ni Filament : la voiture est donc dessinée
+// à l'avance ici (chaque angle, chaque ouvrant), et Koackpit fait défiler ces images sous le doigt.
+window.koackpitPose = mask => {
+  const st = { FL: mask & 1, FR: mask & 2, RL: mask & 4, RR: mask & 8, TAIL: mask & 16, HOOD: mask & 32 };
+  for (const [k, d] of Object.entries(doors)) {
+    d.t = d.target = st[k] ? 1 : 0;
+    qz.setFromAxisAngle(d.axis, d.sign * d.max * ease(d.t));
+    d.node.quaternion.copy(d.base).multiply(qz);
+  }
+  if (bayGroup) bayGroup.visible = !!st.HOOD;
+  const shelf = scene.getObjectByName('open_SHELF');
+  if (shelf) {
+    if (!shelf.userData.base) shelf.userData.base = shelf.quaternion.clone();
+    qz.setFromAxisAngle(xAxis, THREE.MathUtils.degToRad(26) * (st.TAIL ? 1 : 0));
+    shelf.quaternion.copy(shelf.userData.base).multiply(qz);
+  }
+  if (trunkLamp) trunkLamp.material.emissiveIntensity = st.TAIL ? 2.0 : 0;
+  scene.updateMatrixWorld(true);
+  renderer.shadowMap.needsUpdate = true;
+};
+// Caméra : vue 3/4 avant de départ, tournée de az degrés autour de la voiture, distance × dist
+window.koackpitShot = (az, w, h, dist) => {
+  renderer.setAnimationLoop(null); controls.autoRotate = false; anim = null; focusAnim = null;
+  if (!window.__home) { setView('front3q', false); window.__home = camera.position.clone().sub(center); }
+  const sp = new THREE.Spherical().setFromVector3(window.__home);
+  sp.theta += THREE.MathUtils.degToRad(az); sp.radius *= dist;
+  camera.position.copy(center).add(new THREE.Vector3().setFromSpherical(sp));
+  camera.lookAt(center);
+  renderer.setPixelRatio(1); renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.clearViewOffset(); camera.updateProjectionMatrix();
+  renderer.setClearColor(0x000000, 0);
+  scene.background = null;
+  renderer.shadowMap.needsUpdate = true;
+  renderer.render(scene, camera);
+  return renderer.domElement.toDataURL('image/png');
+};
+// Carte des pièces (appui = fiche) : chaque pièce peinte d'une couleur = son numéro, en petit, sans lissage
+window.koackpitPickMap = (w, h) => {
+  const rt = new THREE.WebGLRenderTarget(w, h);
+  const saved = [];
+  const blk = new THREE.MeshBasicMaterial({ color: 0x000000 });
+  const infos = window.__infos || (window.__infos = []);
+  scene.traverse(o => {
+    if (!o.isMesh) return;
+    saved.push([o, o.material]);
+    const io = infoOf(o);
+    if (io && isShown(o)) {
+      let i = infos.indexOf(io); if (i < 0) { infos.push(io); i = infos.length - 1; }
+      const m = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
+      m.color.setRGB((i + 1) / 255, 0, 0, THREE.LinearSRGBColorSpace);
+      o.material = m;
+    } else o.material = blk;
+  });
+  const sh = renderer.shadowMap.enabled; renderer.shadowMap.enabled = false;
+  const ground0 = ground.visible; ground.visible = false;
+  renderer.setRenderTarget(rt); renderer.setClearColor(0x000000, 1); renderer.clear(); renderer.render(scene, camera);
+  const px = new Uint8Array(w * h * 4); renderer.readRenderTargetPixels(rt, 0, 0, w, h, px);
+  renderer.setRenderTarget(null); rt.dispose(); renderer.shadowMap.enabled = sh; ground.visible = ground0;
+  for (const [o, m] of saved) o.material = m;
+  const out = new Uint8Array(w * h);   // de haut en bas
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) out[(h - 1 - y) * w + x] = px[(y * w + x) * 4];
+  let s = ''; for (let i = 0; i < out.length; i += 8192) s += String.fromCharCode.apply(null, out.subarray(i, i + 8192));
+  return btoa(s);
+};
+window.koackpitInfos = () => (window.__infos || []).map(o => ({ title: o.userData.info.title, text: o.userData.info.text }));

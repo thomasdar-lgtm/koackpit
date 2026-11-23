@@ -12,8 +12,8 @@ android {
         applicationId = "com.koala.koackpit"
         minSdk = 26
         targetSdk = 35
-        versionCode = 143
-        versionName = "0.17.4"
+        versionCode = 144
+        versionName = "0.17.5"
     }
 
     signingConfigs {
@@ -48,8 +48,8 @@ android {
         }
     }
 
-    // Le modèle et la lumière sont déjà compressés : pas de recompression (lecture directe plus rapide)
-    androidResources { noCompress += listOf("glb", "ktx") }
+    // Images déjà compressées : pas de recompression (lecture directe plus rapide)
+    androidResources { noCompress += listOf("webp", "png") }
 
     buildFeatures {
         compose = true
@@ -65,11 +65,7 @@ dependencies {
     implementation("androidx.compose.material:material-icons-core")
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.core:core-ktx:1.15.0")
-    // Vue 3D de la Golf : Filament (moteur 3D libre de Google, Apache 2.0, hors ligne, aucune connexion)
-    val filament = "1.56.0"
-    implementation("com.google.android.filament:filament-android:$filament")
-    implementation("com.google.android.filament:gltfio-android:$filament")
-    implementation("com.google.android.filament:filament-utils-android:$filament")
+    // Vue de la Golf : images pré-calculées (assets/golf/views), aucune bibliothèque 3D
     // QR code du fichier de diagnostic (génération seule, sans appareil photo)
     implementation("com.google.zxing:core:3.5.3")
 
