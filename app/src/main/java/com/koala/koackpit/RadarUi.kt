@@ -60,35 +60,11 @@ fun RadarAlert(x: Radar.Alert, modifier: Modifier = Modifier, compact: Boolean =
     }
 }
 
-/**
- * Pictogramme radar : triangle de danger (blanc bordé de rouge) avec un boîtier de radar et son objectif,
- * et des ondes qui en partent.
- */
+/** Pictogramme radar (image fournie par Thomas, res/drawable-nodpi/radar_zone.png). */
 @Composable
 fun RadarSign(size: Int) {
-    Box(Modifier.size(size.dp), contentAlignment = Alignment.Center) {
-        Canvas(Modifier.fillMaxSize()) {
-            val w = this.size.width; val h = this.size.height
-            val sw = w * 0.10f
-            val p = Path().apply {
-                moveTo(w / 2, sw); lineTo(w - sw * 0.8f, h - sw * 0.9f); lineTo(sw * 0.8f, h - sw * 0.9f); close()
-            }
-            drawPath(p, Color.White)
-            drawPath(p, Color(0xFFD62828), style = Stroke(sw, join = StrokeJoin.Round))
-            // Boîtier du radar (vu de face) sur son pied
-            val bx = w * 0.24f; val by = h * 0.46f; val bw = w * 0.36f; val bh = h * 0.26f
-            drawRoundRect(Color.Black, Offset(bx, by), androidx.compose.ui.geometry.Size(bw, bh), androidx.compose.ui.geometry.CornerRadius(w * 0.03f))
-            drawRect(Color.Black, Offset(bx + bw * 0.40f, by + bh), androidx.compose.ui.geometry.Size(bw * 0.20f, h * 0.07f))
-            // Objectif
-            drawCircle(Color.White, bh * 0.30f, Offset(bx + bw * 0.38f, by + bh / 2))
-            drawCircle(Color.Black, bh * 0.14f, Offset(bx + bw * 0.38f, by + bh / 2))
-            // Ondes
-            val cx = bx + bw; val cy = by + bh / 2
-            for (i in 1..2) {
-                val r = w * 0.065f * i
-                drawArc(Color.Black, -45f, 90f, false, Offset(cx - r + w * 0.02f, cy - r), androidx.compose.ui.geometry.Size(r * 2, r * 2),
-                    style = Stroke(w * 0.045f, cap = androidx.compose.ui.graphics.StrokeCap.Round))
-            }
-        }
-    }
+    androidx.compose.foundation.Image(
+        androidx.compose.ui.res.painterResource(R.drawable.radar_zone), "Zone de danger",
+        Modifier.size(size.dp), contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+    )
 }
