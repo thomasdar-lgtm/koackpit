@@ -361,14 +361,21 @@ open class Screenshots {
     // ---------- 0.19.0 : zones de danger ----------
     private fun accueilRadar(name: String, a: Radar.Alert, speed: Int) = captureRoboImage("build/screens/${p}$name.png") { Scaled {
         LinkStatus.state.value = Links(bt = true, wifi = true, wifiLevel = 3)
-        Box(Modifier.fillMaxSize()) {
-            HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {},
-                speedKmh = speed, car = CarStats(45, 690, 13.5f, true), weather = meteo, limit = a.vma)
-            RadarAlert(a, Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 12.dp))
-        }
+        HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {},
+            speedKmh = speed, car = CarStats(45, 690, 13.5f, true), weather = meteo, limit = a.vma, radar = a)
     } }
     @Test fun radar_accueil() = accueilRadar("radar-accueil", Radar.Alert("Contrôle de vitesse", 80, 1400, false), 78)
     @Test fun radar_exces() = accueilRadar("radar-exces", Radar.Alert("Contrôle de vitesse", 80, 650, true), 92)
+    @Test fun radar_appel() = captureRoboImage("build/screens/${p}radar-appel.png") { Scaled {
+        Box(Modifier.fillMaxSize()) {
+            HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {},
+                speedKmh = 78, car = CarStats(45, 690, 13.5f, true), weather = meteo, limit = 80, radar = Radar.Alert("Contrôle de vitesse", 80, 1400, false))
+            androidx.compose.ui.viewinterop.AndroidView(
+                { ctx -> CallOverlay.build(ctx, CallOverlay.Call(5, "Cindy", "06 12 34 56 78", 0, true)) {} },
+                Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 12.dp),
+            )
+        }
+    } }
     @Test fun radar_feu() = accueilRadar("radar-feu", Radar.Alert("Feu rouge", null, 250, false), 42)
 
     @Test
@@ -376,8 +383,7 @@ open class Screenshots {
         Row(Modifier.fillMaxSize()) {
             Box(Modifier.weight(2f).fillMaxHeight().background(Color(0xFF2A3F5C)))
             Box(Modifier.width(285.dp).fillMaxHeight()) {
-                DrivePanel("17:42", media, {}, {}, {}, {}, {}, {}, {}, {}, null, limit = 110)
-                RadarAlert(Radar.Alert("Vitesse moyenne", 110, 3200, false), Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 60.dp), compact = true)
+                DrivePanel("17:42", media, {}, {}, {}, {}, {}, {}, {}, {}, null, limit = 110, radar = Radar.Alert("Vitesse moyenne", 110, 3200, false))
             }
         }
     } }

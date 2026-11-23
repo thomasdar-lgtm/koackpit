@@ -157,11 +157,7 @@ fun Koackpit(screen: androidx.compose.runtime.MutableState<Screen>, upd: UpdateS
             }
         }
         // Portes / coffre / capot ouverts : alerte en haut, au centre
-        // + zone de danger (radars fixes) juste en dessous
-        androidx.compose.foundation.layout.Column(Modifier.align(Alignment.TopCenter).padding(top = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            DoorAlert(CanBus.doors.value)
-            RadarAlert(Radar.alert.value, Modifier.padding(top = 8.dp))
-        }
+        DoorAlert(CanBus.doors.value, Modifier.align(Alignment.TopCenter).padding(top = 12.dp))
         // Mise à jour : petite carte en bas à droite, par-dessus l'écran
         // (la carte de mise à jour est flottante, gérée par le service : UpdateOverlay)
     }

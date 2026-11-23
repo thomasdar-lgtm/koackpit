@@ -336,6 +336,7 @@ fun NavCard(
     weather: Weather.Forecast? = Weather.state.value,
     limit: Int? = null,
     onCar: () -> Unit = {},
+    radar: Radar.Alert? = null,
 ) {
     val classic = !KTheme.day.value && KTheme.style.value == KTheme.CLASSIC && !KTheme.acc.deep
     Box(
@@ -364,6 +365,8 @@ fun NavCard(
                     Text("Extérieur", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
+            // Zone de danger (radars fixes) : sous la vitesse, ne cache rien
+            if (radar != null) { Spacer(Modifier.height(8.dp)); RadarAlert(radar) }
             Spacer(Modifier.weight(1f))
             if (weather != null) { WeatherStrip(weather); Spacer(Modifier.weight(1f)) }
             // En bas : bouton Ma Golf (photo de profil, ouvre l'écran voiture / entretien), carburant et autonomie
@@ -466,6 +469,7 @@ fun HomeContent(
     onHomeAddr: (() -> Unit)? = null, onWorkAddr: (() -> Unit)? = null,
     weather: Weather.Forecast? = Weather.state.value,
     limit: Int? = SpeedLimit.limit.value,
+    radar: Radar.Alert? = Radar.alert.value,
     lyricsOpen: Boolean = false, lyricsPreview: List<Lyrics.Line>? = null,
 ) {
     var lyrics by remember { mutableStateOf(lyricsOpen) }
@@ -474,7 +478,7 @@ fun HomeContent(
     Row(Modifier.fillMaxSize().screenBg()) {
         AppRail(time, "", rail)
         Row(Modifier.fillMaxSize().padding(10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            NavCard(Modifier.weight(1.25f).fillMaxHeight(), navName, speedKmh, car, rail.onDrive, onHomeAddr, onWorkAddr, weather, limit, rail.onCar)
+            NavCard(Modifier.weight(1.25f).fillMaxHeight(), navName, speedKmh, car, rail.onDrive, onHomeAddr, onWorkAddr, weather, limit, rail.onCar, radar)
             if (lyrics) LyricsPanel(Modifier.weight(1f).fillMaxHeight(), media, onPrev, onPlay, onNext, lyricsPreview) { lyrics = false }
             else MediaCardTall(Modifier.weight(1f).fillMaxHeight(), media, onPrev, onPlay, onNext, rail.onMusic,
                 onLyrics = if (PhoneLink.connected.value || lyricsPreview != null) ({ lyrics = true }) else null)
@@ -526,6 +530,7 @@ fun DrivePanel(
     onHome: () -> Unit, onClose: () -> Unit, onPhone: () -> Unit, onCar: () -> Unit, onApps: () -> Unit,
     onBtSource: (() -> Unit)?,
     limit: Int? = SpeedLimit.limit.value,
+    radar: Radar.Alert? = Radar.alert.value,
 ) {
     BoxWithConstraints(Modifier.fillMaxSize().screenBg()) {
         val narrow = maxWidth < 300.dp
@@ -542,6 +547,8 @@ fun DrivePanel(
                 Spacer(Modifier.weight(1f))
                 SmallRound(Icons.Filled.Close, onClose)
             }
+            // Zone de danger : entre la barre du haut et la musique (pousse la carte, ne cache rien)
+            if (radar != null) RadarAlert(radar, compact = narrow)
             // Carte musique. En plein écran : lecture à gauche, paroles à droite (tout l'écran est utilisé)
             CardBox(Modifier.weight(1f).fillMaxWidth()) {
                 Row(Modifier.fillMaxSize()) {
