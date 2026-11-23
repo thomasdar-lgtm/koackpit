@@ -38,7 +38,8 @@ object SpeedLimit {
      * celle d'OpenStreetMap, sinon déduite selon les règles françaises (est = true) : 50 en ville (zone
      * d'habitation dans OpenStreetMap, ou rue résidentielle), 80 hors ville, 130 autoroute, 20 zone de rencontre.
      */
-    private class Way(val limit: Int?, val pts: DoubleArray, val est: Boolean = false)
+    private class Way(val limit: Int?, val pts: DoubleArray, val est: Boolean = false, val rev: Int? = null)
+    // rev (HERE) : limitation dans le sens inverse du tracé, quand elle diffère (limit = sens du tracé)
     private const val TILE = 0.02                              // degrés (≈ 2,2 km × 1,6 km ici)
     private val tiles = java.util.concurrent.ConcurrentHashMap<String, List<Way>>()
     @Volatile private var busy = false
@@ -89,6 +90,8 @@ object SpeedLimit {
     private fun key(ty: Int, tx: Int) = "$ty,$tx"
 
     private fun handle(loc: Location) {
+        val hereWays = Here.ways(loc)
+        if (hereWays != null) { show(loc, hereWays); return }   // HERE disponible pour cette zone
         val ty = Math.floor(loc.latitude / TILE).toInt(); val tx = Math.floor(loc.longitude / TILE).toInt()
         // Carreau actuel d'abord, puis ses voisins
         val want = listOf(0 to 0, -1 to 0, 1 to 0, 0 to -1, 0 to 1, -1 to -1, -1 to 1, 1 to -1, 1 to 1).map { (a, b) -> key(ty + a, tx + b) }
@@ -108,21 +111,26 @@ object SpeedLimit {
                 } finally { busy = false }
             }.start()
         }
+        show(loc, want.mapNotNull { tiles[it] }.flatten())
+    }
+
+    private fun show(loc: Location, ways: List<Way>) {
         // Toutes les routes sont connues (pas seulement celles avec panneau) : on sait donc quand on quitte une route.
         // Changement de route validé sur 2 positions de suite (évite les sauts aux carrefours).
         val now = SystemClock.elapsedRealtime()
-        val w = match(loc, want.mapNotNull { tiles[it] }.flatten())
+        val w = match(loc, ways)
         if (w != null) {
             lastMatch = now
             if (w === current) candidate = null
             else if (w === candidate) { current = w; candidate = null }
             else candidate = w
         } else if (now - lastMatch > 8_000) current = null   // plus aucune route connue sous la voiture
-        val shown = current?.limit
+        val cw = current
+        val shown = if (cw != null && !lastFwd && cw.rev != null) cw.rev else cw?.limit ?: cw?.rev
         val est = current?.est == true
         if (limit.value != shown || estimated.value != est) {
             limit.value = shown; estimated.value = est
-            log(if (shown != null) "panneau affiché : $shown" + (if (est) " (déduit)" else "") else if (current != null) "route sans limitation connue : panneau retiré" else "hors route connue : panneau retiré")
+            log(if (shown != null) "panneau affiché : $shown" + (if (est) " (déduit)" else "") + (if (Here.active) " [HERE]" else " [OSM]") else if (current != null) "route sans limitation connue : panneau retiré" else "hors route connue : panneau retiré")
         }
     }
     private var current: Way? = null
@@ -165,6 +173,7 @@ object SpeedLimit {
         val moving = loc.hasBearing() && loc.hasSpeed() && loc.speed > 3f
         var best: Way? = null
         var bestScore = Double.MAX_VALUE
+        var bestFwd = true
         for (w in ws) {
             val p = w.pts
             var i = 0
@@ -182,12 +191,22 @@ object SpeedLimit {
                     val diff = abs(seg - dir).let { if (it > 90) 180 - it else it }
                     if (diff > 35) score += 40   // route qui croise : seulement si rien de mieux
                 }
-                if (score < bestScore) { bestScore = score; best = w }
+                if (score < bestScore) {
+                    bestScore = score; best = w
+                    // Sens de marche par rapport au tracé (pour les routes à limitation différente selon le sens)
+                    bestFwd = !moving || len2 <= 4 || run {
+                        val segDir = (Math.toDegrees(Math.atan2(dx, dy)) + 360) % 360
+                        val d = abs(segDir - loc.bearing.toDouble()).let { if (it > 180) 360 - it else it }
+                        d < 90
+                    }
+                }
                 i += 2
             }
         }
+        if (bestScore < 20) lastFwd = bestFwd
         return if (bestScore < 20) best else null
     }
+    private var lastFwd = true
 
     private val SERVERS = listOf(
         // Ordre revu le 23/11 (essai depuis un serveur de GitHub) : kumi répond bien ; overpass-api.de refuse
@@ -290,6 +309,170 @@ object SpeedLimit {
             s == "fr:zone30" -> 30
             s == "fr:zone20" -> 20
             else -> Regex("\\d+").find(s)?.value?.toIntOrNull()?.takeIf { it in 5..150 && !s.contains("mph") }
+        }
+    }
+
+    /**
+     * HERE (depuis 0.18.0) : limitations du fournisseur de cartes des GPS de voiture, bien plus complètes
+     * qu'OpenStreetMap (où seule ~1 route sur 6 a sa limitation, constaté le 23/11 autour de Pontonx).
+     * Service « Map Attributes » : carreaux par catégorie de route (niveau = catégorie + 8, de 9 grands axes à 13
+     * petites rues). Pour la zone autour de la voiture : un seul appel avec tous les carreaux manquants, gardés
+     * ensuite sur l'autoradio (30 jours). Forfait gratuit : 2 500 appels/mois ; Koackpit s'arrête à 2 000 et
+     * repasse alors sur OpenStreetMap. Sans clé (BuildConfig.HERE_KEY vide) : OpenStreetMap seul.
+     */
+    private object Here {
+        private const val MONTH_MAX = 2000
+        private val tiles = java.util.concurrent.ConcurrentHashMap<String, List<Way>>()
+        @Volatile private var busy = false
+        @Volatile private var failAt = 0L
+        @Volatile var active = false
+        private var lastErr: String? = null
+        private var columnsLogged = false
+
+        private fun tileId(level: Int, lat: Double, lon: Double): Long {
+            val size = 180.0 / (1 shl level)
+            val y = ((lat + 90.0) / size).toLong(); val x = ((lon + 180.0) / size).toLong()
+            return y * 2L * (1L shl level) + x
+        }
+
+        /** Carreaux utiles autour de la position : niveau 13 en 3×3, niveaux 9 à 12 qui les couvrent. */
+        private fun needed(loc: Location): List<Pair<Int, Long>> {
+            val s13 = 180.0 / (1 shl 13)
+            val out = LinkedHashSet<Pair<Int, Long>>()
+            for (dy in listOf(0, -1, 1)) for (dx in listOf(0, -1, 1)) {
+                val la = loc.latitude + dy * s13; val lo = loc.longitude + dx * s13
+                for (lv in 13 downTo 9) out.add(lv to tileId(lv, la, lo))
+            }
+            return out.toList()
+        }
+
+        private fun file(k: String) = app?.let { java.io.File(java.io.File(it.filesDir, "here").apply { mkdirs() }, "$k.txt") }
+
+        /** Format : une route par ligne « limite sens tracé|limite sens inverse;lat,lon;… » (- = inconnue). */
+        private fun save(k: String, ws: List<Way>) = runCatching {
+            file(k)?.writeText(ws.joinToString("\n") { w ->
+                (w.limit?.toString() ?: "-") + "|" + (w.rev?.toString() ?: "-") + ";" +
+                    (0 until w.pts.size / 2).joinToString(";") { "%.5f,%.5f".format(java.util.Locale.US, w.pts[2 * it], w.pts[2 * it + 1]) }
+            })
+        }
+
+        private fun load(k: String): Boolean {
+            val f = file(k) ?: return false
+            if (!f.exists() || System.currentTimeMillis() - f.lastModified() > 30L * 86_400_000) return false
+            val ws = runCatching {
+                f.readLines().filter { it.isNotBlank() }.map { line ->
+                    val parts = line.split(';'); val l = parts[0].split('|')
+                    Way(l[0].toIntOrNull(), parts.drop(1).flatMap { it.split(',').map(String::toDouble) }.toDoubleArray(), rev = l.getOrNull(1)?.toIntOrNull())
+                }
+            }.getOrNull() ?: return false
+            tiles[k] = ws
+            return true
+        }
+
+        private fun monthCount(inc: Boolean): Int {
+            val c = app ?: return 0
+            val p = c.getSharedPreferences("here", Context.MODE_PRIVATE)
+            val m = java.text.SimpleDateFormat("yyyy-MM", java.util.Locale.US).format(java.util.Date())
+            var n = if (p.getString("month", "") == m) p.getInt("count", 0) else 0
+            if (inc) { n++; p.edit().putString("month", m).putInt("count", n).apply() }
+            return n
+        }
+
+        /** Routes HERE de la zone, ou null si HERE n'est pas (encore) disponible ici → OpenStreetMap. */
+        fun ways(loc: Location): List<Way>? {
+            if (BuildConfig.HERE_KEY.isBlank()) return null
+            val need = needed(loc).map { (lv, id) -> "${lv}_$id" }
+            val missing = need.filter { !tiles.containsKey(it) && !load(it) }
+            if (missing.isNotEmpty()) {
+                val now = SystemClock.elapsedRealtime()
+                if (!busy && now - failAt > 30_000 && monthCount(false) < MONTH_MAX) {
+                    busy = true
+                    Thread {
+                        try {
+                            fetch(missing)
+                            lastErr = null
+                        } catch (e: Exception) {
+                            failAt = SystemClock.elapsedRealtime()
+                            val m = e.javaClass.simpleName + (e.message?.let { ": " + it.take(140) } ?: "")
+                            if (m != lastErr) log("HERE : téléchargement impossible ($m) → OpenStreetMap en attendant")
+                            lastErr = m
+                        } finally { busy = false }
+                    }.start()
+                }
+                // Le carreau de la petite rue où l'on est manque : pas encore de HERE ici
+                if (missing.contains(need[0])) { active = false; return null }
+            }
+            active = true
+            return need.mapNotNull { tiles[it] }.flatten()
+        }
+
+        private fun fetch(keys: List<String>) {
+            val ids = keys.map { it.substringAfter('_') }
+            val levels = keys.map { it.substringBefore('_').toInt() }.distinct().sorted()
+            val layers = levels.flatMap { listOf("SPEED_LIMITS_FC${it - 8}", "ROAD_GEOM_FC${it - 8}") }
+            val url = "https://smap.hereapi.com/v8/maps/attributes?layers=" + layers.joinToString(",") +
+                "&in=tile:" + ids.joinToString(",") + "&apiKey=" + BuildConfig.HERE_KEY
+            val n = monthCount(true)
+            val conn = URL(url).openConnection() as HttpURLConnection
+            val txt = try {
+                conn.connectTimeout = 10_000; conn.readTimeout = 40_000
+                conn.setRequestProperty("User-Agent", "Koackpit/${BuildConfig.VERSION_NAME}")
+                if (conn.responseCode != 200) {
+                    val body = runCatching { conn.errorStream?.bufferedReader()?.readText() }.getOrNull().orEmpty()
+                    throw java.io.IOException("réponse ${conn.responseCode} ${body.take(120)}")
+                }
+                conn.inputStream.bufferedReader().readText()
+            } finally { conn.disconnect() }
+            val js = JSONObject(txt)
+            val arr = js.optJSONArray("Tiles") ?: throw java.io.IOException("réponse inattendue : ${txt.take(120)}")
+            // Par carreau : limitations (LINK_ID → sens tracé / sens inverse) et tracés (LINK_ID → points)
+            val speeds = HashMap<String, HashMap<String, Pair<Int?, Int?>>>()
+            val geoms = HashMap<String, HashMap<String, DoubleArray>>()
+            for (i in 0 until arr.length()) {
+                val t = arr.getJSONObject(i)
+                val meta = t.optJSONObject("Meta") ?: continue
+                val layer = meta.optString("layerName"); val k = "${meta.optInt("level")}_${meta.optString("tileId")}"
+                val rows = t.optJSONArray("Rows") ?: continue
+                if (!columnsLogged && rows.length() > 0) {
+                    columnsLogged = true
+                    log("HERE : colonnes $layer = " + rows.getJSONObject(0).keys().asSequence().joinToString(","))
+                }
+                for (r in 0 until rows.length()) {
+                    val row = rows.getJSONObject(r); val link = row.optString("LINK_ID")
+                    if (layer.startsWith("SPEED_LIMITS")) {
+                        fun sp(c: String) = row.optString(c).toIntOrNull()?.takeIf { it in 5..150 }
+                        val mph = row.optString("UNIT") == "M"
+                        fun conv(v: Int?) = if (mph && v != null) (v * 1.609).toInt() else v
+                        speeds.getOrPut(k) { HashMap() }[link] = conv(sp("FROM_REF_SPEED_LIMIT")) to conv(sp("TO_REF_SPEED_LIMIT"))
+                    } else if (layer.startsWith("ROAD_GEOM")) {
+                        val la = coords(row.optString("LAT")); val lo = coords(row.optString("LON"))
+                        if (la.size >= 2 && la.size == lo.size) {
+                            val pts = DoubleArray(la.size * 2); for (j in la.indices) { pts[2 * j] = la[j]; pts[2 * j + 1] = lo[j] }
+                            geoms.getOrPut(k) { HashMap() }[link] = pts
+                        }
+                    }
+                }
+            }
+            var withLimit = 0; var total = 0
+            for (k in keys) {
+                val g = geoms[k].orEmpty(); val sp = speeds[k].orEmpty()
+                val ws = g.map { (link, pts) ->
+                    val (from, to) = sp[link] ?: (null to null)
+                    // Sens du tracé = depuis le nœud de référence (HERE) → FROM_REF ; sens inverse → TO_REF
+                    Way(from ?: to, pts, rev = if (from != null && to != null && from != to) to else null)
+                }
+                withLimit += ws.count { it.limit != null }; total += ws.size
+                tiles[k] = ws; save(k, ws)
+            }
+            log("HERE : ${keys.size} carreaux téléchargés, $total routes dont $withLimit avec limitation ($n appels ce mois-ci)")
+        }
+
+        /** « 4378123,12,-5,,3 » : 1er absolu, suivants en écart, vide = 0, en 1/100 000 de degré. */
+        private fun coords(s: String): DoubleArray {
+            if (s.isBlank()) return DoubleArray(0)
+            val parts = s.split(','); val out = DoubleArray(parts.size); var v = 0L
+            for (i in parts.indices) { v += parts[i].trim().toLongOrNull() ?: 0L; out[i] = v / 100_000.0 }
+            return out
         }
     }
 }
