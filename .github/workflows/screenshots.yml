@@ -29,6 +29,7 @@ jobs:
         run: |
           mkdir -p /tmp/out
           cp app/build/screens/*.png /tmp/out/ 2>/dev/null || true
+          cp app/build/screens/*.txt /tmp/out/ 2>/dev/null || true
           grep -E "^e: |error:|FAILED|What went wrong|Could not|Exception" screens.log | head -80 > /tmp/out/errors.txt || true
           echo "${{ job.status }} ${GITHUB_SHA}" > /tmp/out/status.txt
           cd /tmp/out
