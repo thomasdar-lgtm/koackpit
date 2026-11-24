@@ -14,7 +14,12 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -54,12 +59,12 @@ import kotlin.math.roundToInt
  * calculée en direct : page web WebGL (jamais affichée), Filament (images noires ou découpées, 4 façons essayées
  * le 23/11). La voiture est donc dessinée à l'avance, en pleine qualité, depuis 72 angles (tous les 5°) fermée et
  * 36 angles pour chaque ouvrant (web/golf3d/render-views.py, même modèle et même éclairage que la page web).
- * Un doigt fait tourner (les images défilent), deux doigts zooment, un appui ouvre la fiche de la pièce touchée
+ * Un doigt fait tourner (les images défilent), deux doigts zooment (×2,5) et déplacent l'image, un appui ouvre la fiche de la pièce touchée
  * (carte des pièces calculée avec chaque vue). Aucune 3D ni puce graphique sollicitée.
  * Ouvrants : trame CAN « portes » ([Doors]) ; un seul ouvert → sa vue, plusieurs → tout ouvert.
  */
 @Composable
-fun Golf3D(mask: Int, modifier: Modifier = Modifier) {
+fun Golf3D(mask: Int, modifier: Modifier = Modifier, startZoom: Float = 1f, startOff: Offset = Offset.Zero) {
     val ctx = LocalContext.current
     val views = remember { GolfViews.get(ctx) }
     if (views == null) {
@@ -68,7 +73,9 @@ fun Golf3D(mask: Int, modifier: Modifier = Modifier) {
     }
     val state = views.stateFor(mask)
     var rot by remember { mutableFloatStateOf(0f) }        // degrés, 0 = 3/4 avant
-    var zoom by remember { mutableFloatStateOf(1f) }
+    var zoom by remember { mutableFloatStateOf(startZoom) }
+    var offX by remember { mutableFloatStateOf(startOff.x) }  // déplacement de l'image zoomée (deux doigts)
+    var offY by remember { mutableFloatStateOf(startOff.y) }
     var moving by remember { mutableStateOf(false) }        // doigt en mouvement : images légères
     var lastMove by remember { mutableLongStateOf(0L) }
     val panel = remember { mutableStateOf<Pair<String, String>?>(null) }
@@ -94,30 +101,48 @@ fun Golf3D(mask: Int, modifier: Modifier = Modifier) {
             if (img != null) {
                 Image(
                     img, "Ma Golf", contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = zoom; scaleY = zoom },
+                    modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = zoom; scaleY = zoom; translationX = offX; translationY = offY },
                 )
             }
         }
         Box(
             Modifier.fillMaxSize()
-                .pointerInput(Unit) {
-                    detectTransformGestures { _, pan, z, _ ->
-                        zoom = (zoom * z).coerceIn(1f, 1.6f)
-                        if (pan.x != 0f) {
-                            rot -= pan.x / with(density) { 3.dp.toPx() }   // ~1° par 3 dp de doigt
-                            if (!moving) views.startDrag()
-                            moving = true; lastMove = System.nanoTime()
-                            views.shown(state, views.index(state, rot))
-                        }
-                        if (pan.x != 0f || z != 1f) panel.value = null
+                .pointerInput(state, boxW, boxH) {
+                    // Un doigt : tourne. Deux doigts : pincer pour zoomer (jusqu'à ×2,5) et glisser pour se déplacer
+                    // dans l'image zoomée. Dézoomé à fond, l'image se recentre.
+                    val slop = viewConfiguration.touchSlop
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        var past = false; var moved = Offset.Zero
+                        do {
+                            val ev = awaitPointerEvent()
+                            val fingers = ev.changes.count { it.pressed }
+                            val z = ev.calculateZoom(); val pan = ev.calculatePan()
+                            if (!past) { moved += pan; if (moved.getDistance() > slop || z != 1f) past = true }
+                            if (past && fingers > 0) {
+                                if (fingers >= 2) {
+                                    zoom = (zoom * z).coerceIn(1f, 2.5f)
+                                    val mx = (zoom - 1f) * boxW / 2; val my = (zoom - 1f) * boxH / 2
+                                    offX = (offX + pan.x).coerceIn(-mx, mx); offY = (offY + pan.y).coerceIn(-my, my)
+                                    if (zoom <= 1.01f) { offX = 0f; offY = 0f }
+                                } else if (pan.x != 0f) {
+                                    rot -= pan.x / with(density) { 3.dp.toPx() }   // ~1° par 3 dp de doigt
+                                    if (!moving) views.startDrag()
+                                    moving = true; lastMove = System.nanoTime()
+                                    views.shown(state, views.index(state, rot))
+                                }
+                                panel.value = null
+                                ev.changes.forEach { if (it.positionChanged()) it.consume() }
+                            }
+                        } while (ev.changes.any { it.pressed })
                     }
                 }
                 .pointerInput(state) {
                     detectTapGestures { o ->
                         // Point touché → point de l'image (affichée « Fit » au centre, puis zoomée au centre)
                         val s = minOf(boxW / views.w, boxH / views.h) * zoom
-                        val ix = (o.x - boxW / 2) / s + views.w / 2f
-                        val iy = (o.y - boxH / 2) / s + views.h / 2f
+                        val ix = (o.x - boxW / 2 - offX) / s + views.w / 2f
+                        val iy = (o.y - boxH / 2 - offY) / s + views.h / 2f
                         panel.value = views.pick(state, views.index(state, rot), ix / views.w, iy / views.h)
                     }
                 },
