@@ -170,10 +170,20 @@ class MediaBridge : NotificationListenerService() {
         pick()
         startServer()
         RadioWatch.start(applicationContext)
+        main.removeCallbacks(updateCheck); main.postDelayed(updateCheck, 60_000)
+    }
+
+    /** Recherche de mise à jour toutes les 6 h (notification si une nouvelle version existe). */
+    private val updateCheck = object : Runnable {
+        override fun run() {
+            Thread { runCatching { PhoneUpdate.backgroundCheck(applicationContext) } }.start()
+            main.postDelayed(this, 6 * 3600_000L)
+        }
     }
 
     override fun onListenerDisconnected() {
         running = false
+        main.removeCallbacks(updateCheck)
         runCatching { msm?.removeOnActiveSessionsChangedListener(sessions) }
         current?.unregisterCallback(cb); current = null
         runCatching { getSystemService(android.location.LocationManager::class.java).removeUpdates(locListener) }

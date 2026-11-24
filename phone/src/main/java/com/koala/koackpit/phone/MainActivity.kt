@@ -24,6 +24,10 @@ class MainActivity : Activity() {
     private lateinit var restricted: Button
     private lateinit var location: Button
     private lateinit var nearby: Button
+    private lateinit var version: TextView
+    private lateinit var update: Button
+    @Volatile private var available: PhoneUpdate.Info? = null
+    private var checkedAt = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,6 +39,14 @@ class MainActivity : Activity() {
             textSize = size; setTextColor(color); if (bold) typeface = Typeface.DEFAULT_BOLD; setPadding(0, pad / 2, 0, pad / 2)
         }
         col.addView(text(28f, Color.rgb(255, 204, 0), true).apply { text = "Koackpit Téléphone" })
+        version = text(13f, Color.rgb(138, 150, 176)).apply { text = "Version ${PhoneUpdate.installed(this@MainActivity).second}" }
+        col.addView(version)
+        // Mise à jour (1.6) : affiché seulement quand une version plus récente existe
+        update = Button(this).apply {
+            isAllCaps = false; visibility = android.view.View.GONE
+            setOnClickListener { startUpdate() }
+        }
+        col.addView(update)
         status = text(17f, Color.WHITE); col.addView(status)
         track = text(15f, Color.rgb(138, 150, 176)); col.addView(track)
         grant = Button(this).apply {
@@ -80,6 +92,65 @@ class MainActivity : Activity() {
             gravity = Gravity.START
         })
         setContentView(col)
+        // Notification de mise à jour (Android 13+ : à autoriser une fois)
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+            requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 3)
+        handleInstall(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); handleInstall(intent) }
+
+    /** Retour de l'installateur d'Android : confirmation à afficher, ou résultat. */
+    private fun handleInstall(i: Intent?) {
+        if (i?.action != PhoneUpdate.ACTION_INSTALL) return
+        when (i.getIntExtra(android.content.pm.PackageInstaller.EXTRA_STATUS, -999)) {
+            android.content.pm.PackageInstaller.STATUS_PENDING_USER_ACTION -> {
+                @Suppress("DEPRECATION") (i.getParcelableExtra<Intent>(Intent.EXTRA_INTENT))?.let { startActivity(it) }
+            }
+            android.content.pm.PackageInstaller.STATUS_SUCCESS -> version.text = "Mise à jour installée"
+            else -> {
+                update.isEnabled = true
+                update.text = "Échec de la mise à jour (${i.getStringExtra(android.content.pm.PackageInstaller.EXTRA_STATUS_MESSAGE) ?: "?"}) : réessayer"
+            }
+        }
+    }
+
+    private fun checkUpdate() {
+        if (System.currentTimeMillis() - checkedAt < 10 * 60_000) return
+        checkedAt = System.currentTimeMillis()
+        Thread {
+            val r = runCatching { PhoneUpdate.check(this) }
+            h.post {
+                available = r.getOrNull()
+                val cur = PhoneUpdate.installed(this).second
+                version.text = when {
+                    r.isFailure -> "Version $cur (vérification impossible, pas d'Internet ?)"
+                    available == null -> "Version $cur · à jour"
+                    else -> "Version $cur"
+                }
+                available?.let { update.text = "Mettre à jour vers la version ${it.name}"; update.visibility = android.view.View.VISIBLE; update.isEnabled = true }
+                    ?: run { update.visibility = android.view.View.GONE }
+            }
+        }.start()
+    }
+
+    private fun startUpdate() {
+        val info = available ?: return
+        // Android demande une fois d'autoriser cette appli à installer des applis
+        if (!packageManager.canRequestPackageInstalls()) {
+            startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
+            update.text = "Autorise « Installer des applis inconnues », puis reviens ici et touche à nouveau"
+            return
+        }
+        update.isEnabled = false; update.text = "Téléchargement…"
+        Thread {
+            val r = runCatching { PhoneUpdate.install(this, info) { p -> h.post { update.text = "Téléchargement : $p %" } } }
+            h.post {
+                if (r.isFailure) { update.isEnabled = true; update.text = "Échec (${r.exceptionOrNull()?.message}) : réessayer" }
+                else update.text = "Installation : confirme dans la fenêtre d'Android"
+            }
+        }.start()
     }
 
     private fun granted(): Boolean {
@@ -110,6 +181,6 @@ class MainActivity : Activity() {
         }
     }
 
-    override fun onResume() { super.onResume(); h.post(tick) }
+    override fun onResume() { super.onResume(); h.post(tick); checkUpdate() }
     override fun onPause() { super.onPause(); h.removeCallbacks(tick) }
 }

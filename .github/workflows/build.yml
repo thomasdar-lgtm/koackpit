@@ -37,6 +37,9 @@ jobs:
           cp updater/build/outputs/apk/release/updater-release.apk KoackpitUpdater.bin
           # Appli compagnon du téléphone (S25), à installer sur le téléphone
           cp phone/build/outputs/apk/release/phone-release.apk KoackpitTelephone.apk
+          # Version de l'appli du téléphone (« numéro nom ») : l'appli s'en sert pour se mettre à jour (1.6)
+          echo "$(grep -oP 'versionCode = \K[0-9]+' phone/build.gradle.kts) $(grep -oP 'versionName = "\K[^"]+' phone/build.gradle.kts)" > KoackpitTelephone.txt
+          cat KoackpitTelephone.txt
 
       - uses: actions/upload-artifact@v4
         with:
@@ -45,6 +48,7 @@ jobs:
             Koackpit.apk
             KoackpitUpdater.bin
             KoackpitTelephone.apk
+            KoackpitTelephone.txt
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
@@ -55,6 +59,7 @@ jobs:
             Koackpit.apk
             KoackpitUpdater.bin
             KoackpitTelephone.apk
+            KoackpitTelephone.txt
           make_latest: true
 
       - name: Report
