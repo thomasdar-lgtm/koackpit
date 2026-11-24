@@ -337,6 +337,7 @@ fun NavCard(
     limit: Int? = null,
     onCar: () -> Unit = {},
     radar: Radar.Alert? = null,
+    gear: Int? = Gear.state.value,
 ) {
     val classic = !KTheme.day.value && KTheme.style.value == KTheme.CLASSIC && !KTheme.acc.deep
     Box(
@@ -360,8 +361,10 @@ fun NavCard(
                     LimitSign(limit, Modifier.padding(bottom = 4.dp).graphicsLayer { alpha = if (SpeedLimit.estimated.value) 0.6f else 1f })
                 }
                 Spacer(Modifier.weight(1f))
+                // Rapport engagé (déduit du régime et de la vitesse)
+                if (gear != null) GearBadge(gear, Modifier.padding(bottom = 4.dp))
                 // Température de la voiture : dans la zone météo ; ici seulement s'il n'y a pas de météo
-                if (car?.outTemp != null && weather == null) OutTemp(car.outTemp, Modifier.padding(bottom = 8.dp))
+                if (car?.outTemp != null && weather == null) { Spacer(Modifier.width(12.dp)); OutTemp(car.outTemp, Modifier.padding(bottom = 8.dp)) }
             }
             // Zone de danger (radars fixes) : sous la vitesse, ne cache rien
             if (radar != null) { Spacer(Modifier.height(8.dp)); RadarAlert(radar) }
@@ -420,6 +423,18 @@ fun LimitSign(limit: Int, modifier: Modifier = Modifier, size: Int = 48) {
     }
 }
 
+/** Rapport engagé : chiffre dans un carré arrondi ; « – » si aucun rapport ne correspond (embrayage, point mort). */
+@Composable
+fun GearBadge(g: Int, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(12.dp)
+    Box(
+        modifier.size(52.dp).clip(shape).background(Ink.copy(alpha = 0.06f)).border(2.dp, if (g > 0) AccentText else Muted.copy(alpha = 0.5f), shape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(if (g > 0) "$g" else "–", color = if (g > 0) Ink else Muted, fontSize = 30.sp, fontWeight = FontWeight.Black, lineHeight = 30.sp)
+    }
+}
+
 /** Température extérieure de la voiture (sonde de la Golf, lue sur le CAN). */
 @Composable
 fun OutTemp(t: Float, modifier: Modifier = Modifier) =
@@ -475,6 +490,7 @@ fun HomeContent(
     weather: Weather.Forecast? = Weather.state.value,
     limit: Int? = SpeedLimit.limit.value,
     radar: Radar.Alert? = Radar.alert.value,
+    gear: Int? = Gear.state.value,
     lyricsOpen: Boolean = false, lyricsPreview: List<Lyrics.Line>? = null,
 ) {
     var lyrics by remember { mutableStateOf(lyricsOpen) }
@@ -483,7 +499,7 @@ fun HomeContent(
     Row(Modifier.fillMaxSize().screenBg()) {
         AppRail(time, "", rail)
         Row(Modifier.fillMaxSize().padding(10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            NavCard(Modifier.weight(1.25f).fillMaxHeight(), navName, speedKmh, car, rail.onDrive, onHomeAddr, onWorkAddr, weather, limit, rail.onCar, radar)
+            NavCard(Modifier.weight(1.25f).fillMaxHeight(), navName, speedKmh, car, rail.onDrive, onHomeAddr, onWorkAddr, weather, limit, rail.onCar, radar, gear)
             if (lyrics) LyricsPanel(Modifier.weight(1f).fillMaxHeight(), media, onPrev, onPlay, onNext, lyricsPreview) { lyrics = false }
             else MediaCardTall(Modifier.weight(1f).fillMaxHeight(), media, onPrev, onPlay, onNext, rail.onMusic,
                 onLyrics = if (PhoneLink.connected.value || lyricsPreview != null) ({ lyrics = true }) else null)

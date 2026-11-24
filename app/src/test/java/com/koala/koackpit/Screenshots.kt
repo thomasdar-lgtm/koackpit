@@ -366,6 +366,15 @@ open class Screenshots {
     } }
     @Test fun radar_accueil() = accueilRadar("radar-accueil", Radar.Alert("Vitesse", 80, 1400, false), 78)
     @Test fun radar_exces() = accueilRadar("radar-exces", Radar.Alert("Vitesse", 80, 650, true), 92)
+    // ---------- 0.19.3 : rapport engagé ----------
+    private fun accueilRapport(name: String, g: Int?, speed: Int, w: Weather.Forecast?) = captureRoboImage("build/screens/${p}$name.png") { Scaled {
+        LinkStatus.state.value = Links(bt = true, wifi = true, wifiLevel = 3)
+        HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {},
+            speedKmh = speed, car = CarStats(45, 690, 13.5f, true), weather = w, limit = 80, gear = g)
+    } }
+    @Test fun rapport_4() = accueilRapport("rapport-4", 4, 72, meteo)
+    @Test fun rapport_aucun() = accueilRapport("rapport-aucun", 0, 31, meteo)
+    @Test fun rapport_sans_meteo() = accueilRapport("rapport-sans-meteo", 3, 48, null)
     @Test fun radar_appel() = captureRoboImage("build/screens/${p}radar-appel.png") { Scaled {
         Box(Modifier.fillMaxSize()) {
             HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {},

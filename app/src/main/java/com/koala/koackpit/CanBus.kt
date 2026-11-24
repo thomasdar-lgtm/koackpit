@@ -75,6 +75,7 @@ object CanBus {
             if (i.rpm > 0 || i.speed > 0f) { speed.value = Math.round(i.speed); speedAt = SystemClock.elapsedRealtime() }
         }
         app?.let { FuelStats.update(it, i.odometer, i.fuel) }
+        app?.let { a -> main.post { Gear.feed(a, i.rpm, i.speed) } }   // rapport engagé (0.19.3)
         if (infoLogged < 3) {
             infoLogged++
             app?.let {
