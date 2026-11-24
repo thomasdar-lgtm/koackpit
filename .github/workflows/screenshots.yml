@@ -4,7 +4,7 @@ name: Screenshots
 on:
   push:
     branches: [main, 'ui-*']
-    paths: ['app/src/**', 'app/build.gradle.kts', '.github/workflows/screenshots.yml']
+    paths: ['app/src/**', 'app/build.gradle.kts', 'phone/src/**', 'phone/build.gradle.kts', '.github/workflows/screenshots.yml']
   workflow_dispatch:
 
 permissions:
@@ -22,8 +22,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.14.3'
+      - name: Appli du téléphone (compilation)
+        run: gradle :phone:assembleDebug --no-daemon 2>&1 | tee screens.log; exit ${PIPESTATUS[0]}
       - name: Render
-        run: gradle :app:testDebugUnitTest --tests 'com.koala.koackpit.Screenshots*' --no-daemon 2>&1 | tee screens.log; exit ${PIPESTATUS[0]}
+        run: gradle :app:testDebugUnitTest --tests 'com.koala.koackpit.Screenshots*' --no-daemon 2>&1 | tee -a screens.log; exit ${PIPESTATUS[0]}
       - name: Publish
         if: always()
         run: |
