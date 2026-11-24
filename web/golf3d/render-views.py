@@ -14,7 +14,7 @@ W, H, PW, PH, Q = 1280, 640, 320, 160, 78
 STATES = {"0": 0, "FL": 1, "FR": 2, "RL": 4, "RR": 8, "TAIL": 16, "HOOD": 32,
           "FL_TAIL": 17, "FL_FR": 3, "FL_RL": 5, "DOORS": 15, "ALL": 63}
 # Hauteurs : (degrés au-dessus de l'horizon ou None = vue de départ, distance)
-ELEVS = {0: (None, 0.72), 1: (45, 1.2)}
+ELEVS = {0: (None, 0.72), 1: (45, 0.95)}
 os.makedirs(out, exist_ok=True)
 port = 8700 + os.getpid() % 200
 Hd = functools.partial(http.server.SimpleHTTPRequestHandler, directory=d); Hd.log_message = lambda *a: None
