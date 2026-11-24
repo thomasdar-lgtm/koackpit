@@ -27,7 +27,7 @@ adb exec-out screencap -p > emu/5b-fiche-roue.png
 # Zoom ×2,5 décalé vers l'avant de la voiture (0.19.2), puis appui sur une pièce (vérifie le calcul du point touché)
 adb shell am start -n $A --ei mask 0 --ef zoom 2.5 --ef offx 500 --ef offy -60; sleep 4
 adb exec-out screencap -p > emu/7-zoom.png
-adb shell input tap 300 330; sleep 3
+adb shell input tap 570 465; sleep 3
 adb exec-out screencap -p > emu/7b-zoom-fiche.png
 adb shell input swipe 700 300 500 300 500; sleep 3
 adb exec-out screencap -p > emu/7c-zoom-tourne.png
