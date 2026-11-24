@@ -8,6 +8,8 @@ import android.os.Bundle
 class KoackpitApp : Application() {
     override fun onCreate() {
         super.onCreate()
+        // Vues de la Golf préparées en fond 20 s après le démarrage (rotation fluide dès l'ouverture de l'écran Voiture)
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ runCatching { GolfViews.prewarm(this) } }, 20_000)
         HomeMode.installCrashGuard(this)
         registerActivityLifecycleCallbacks(Front)
     }
