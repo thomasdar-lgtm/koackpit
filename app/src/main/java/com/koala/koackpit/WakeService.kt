@@ -445,6 +445,8 @@ class WakeService : Service() {
                 // Internet revenu : météo tout de suite (2 s, le temps que la connexion soit utilisable)
                 main.postDelayed({ runCatching { Weather.tick(this@WakeService) } }, 2000)
                 main.post { WakeLog.add(this@WakeService, "Wi-Fi connecté ($ssid, signal ${info?.rssi ?: "?"} dBm$gap$kick)") }
+                // Pack d'images de la Golf manquant : téléchargé (ou repris) dès qu'il y a une connexion
+                main.postDelayed({ runCatching { GolfPack.ensure(this@WakeService) } }, 15_000)
             }
             override fun onCapabilitiesChanged(network: android.net.Network, caps: android.net.NetworkCapabilities) {
                 runCatching { wm.connectionInfo?.rssi }.getOrNull()?.takeIf { it > -127 }?.let { wifiRssi = it }

@@ -11,19 +11,22 @@ import androidx.compose.ui.Modifier
 class Golf3DPreview : ComponentActivity() {
     private val mask = mutableIntStateOf(0)
     private val zoom = androidx.compose.runtime.mutableStateOf(Triple(1f, 0f, 0f))   // extras « zoom », « offx », « offy »
+    private val elev = mutableIntStateOf(0)                                             // extra « elev » (0 départ, 1 dessus)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         mask.intValue = intent.getIntExtra("mask", 0)
         if (intent.getBooleanExtra("jour", false)) KTheme.day.value = true
         zoom.value = Triple(intent.getFloatExtra("zoom", 1f), intent.getFloatExtra("offx", 0f), intent.getFloatExtra("offy", 0f))
+        elev.intValue = intent.getIntExtra("elev", 0)
         setContent {
             val (z, x, y) = zoom.value
-            androidx.compose.runtime.key(zoom.value) { Golf3D(mask.intValue, Modifier.fillMaxSize(), z, androidx.compose.ui.geometry.Offset(x, y)) }
+            androidx.compose.runtime.key(zoom.value, elev.intValue) { Golf3D(mask.intValue, Modifier.fillMaxSize(), z, androidx.compose.ui.geometry.Offset(x, y), elev.intValue) }
         }
     }
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         mask.intValue = intent.getIntExtra("mask", 0)
         zoom.value = Triple(intent.getFloatExtra("zoom", 1f), intent.getFloatExtra("offx", 0f), intent.getFloatExtra("offy", 0f))
+        elev.intValue = intent.getIntExtra("elev", 0)
     }
 }

@@ -12,7 +12,12 @@ adb shell settings put secure immersive_mode_confirmations confirmed
 adb logcat -c
 # 1er lancement : le service de Koackpit démarre et ramène l'accueil ; on relance l'écran 3D par-dessus ensuite
 adb shell am start -n $A; sleep 20
-adb shell am start -n $A; sleep 12
+adb shell am start -n $A; sleep 3
+adb exec-out screencap -p > emu/0-telechargement.png
+# Pack d'images (0.20.0) : téléchargé par l'appli, on attend qu'il soit prêt (3 min max)
+for i in $(seq 1 36); do adb shell run-as com.koala.koackpit ls files/golf-vues-1/views.json >/dev/null 2>&1 && break; sleep 5; done
+adb shell run-as com.koala.koackpit ls files/golf-vues-1 | wc -l > emu/pack-fichiers.txt
+adb shell am start -n $A; sleep 10
 adb exec-out screencap -p > emu/1-depart.png
 adb shell input swipe 700 300 400 320 600; sleep 4
 adb exec-out screencap -p > emu/2-tourne.png
@@ -32,6 +37,18 @@ adb exec-out screencap -p > emu/7b-zoom-fiche.png
 adb shell input swipe 700 300 500 300 500; sleep 3
 adb exec-out screencap -p > emu/7c-zoom-tourne.png
 adb shell am start -n $A --ei mask 0 --ef zoom 1; sleep 3
+# Vue de dessus (bouton / extra), geste vertical, combinaisons d'ouvrants
+adb shell am start -n $A --ei mask 0 --ei elev 1; sleep 6
+adb exec-out screencap -p > emu/8-dessus.png
+adb shell input swipe 700 300 400 320 600; sleep 4
+adb exec-out screencap -p > emu/8b-dessus-tourne.png
+adb shell input swipe 512 400 512 150 400; sleep 4
+adb exec-out screencap -p > emu/8c-geste-haut.png
+adb shell am start -n $A --ei mask 17 --ei elev 0; sleep 6
+adb exec-out screencap -p > emu/9-conducteur-coffre.png
+adb shell am start -n $A --ei mask 6; sleep 6
+adb exec-out screencap -p > emu/9b-passager-arg.png
+adb shell am start -n $A --ei mask 0; sleep 3
 # Thème jour (fond clair)
 adb shell am force-stop com.koala.koackpit
 adb shell am start -n $A --ez jour true; sleep 15
