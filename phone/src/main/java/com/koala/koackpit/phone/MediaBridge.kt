@@ -169,6 +169,7 @@ class MediaBridge : NotificationListenerService() {
         runCatching { msm?.addOnActiveSessionsChangedListener(sessions, ComponentName(this, MediaBridge::class.java), main) }
         pick()
         startServer()
+        RadioWatch.start(applicationContext)
     }
 
     override fun onListenerDisconnected() {
@@ -257,6 +258,7 @@ class MediaBridge : NotificationListenerService() {
                         put("pos", positionNow()); put("dur", dur)
                         val (b, ch) = battery(); put("batt", b); put("charging", ch)
                         put("notif", notifSeq)
+                        put("jseq", RadioWatch.seq)
                         loc?.let { l ->
                             put("loc", JSONObject().apply {
                                 put("lat", l.latitude); put("lon", l.longitude); put("acc", l.accuracy.toDouble())
@@ -273,6 +275,12 @@ class MediaBridge : NotificationListenerService() {
                             put("seq", n.seq); put("app", n.app); put("appName", n.appName); put("title", n.title)
                             put("text", n.text); put("kind", n.kind); put("time", n.time)
                         })
+                        reply("application/json", arr.toString().toByteArray())
+                    }
+                    path.startsWith("/journal") -> {
+                        val since = Regex("since=(\\d+)").find(path)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                        val arr = org.json.JSONArray()
+                        for (l in RadioWatch.since(since)) arr.put(JSONObject().apply { put("seq", l.seq); put("t", l.text) })
                         reply("application/json", arr.toString().toByteArray())
                     }
                     path.startsWith("/cmd") -> {

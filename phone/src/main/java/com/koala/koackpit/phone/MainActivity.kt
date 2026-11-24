@@ -23,6 +23,7 @@ class MainActivity : Activity() {
     private lateinit var grant: Button
     private lateinit var restricted: Button
     private lateinit var location: Button
+    private lateinit var nearby: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,6 +63,17 @@ class MainActivity : Activity() {
             }
         }
         col.addView(location)
+        // Journal radio : Android exige « Appareils à proximité » pour voir les coupures Bluetooth
+        nearby = Button(this).apply {
+            text = "Autoriser « Appareils à proximité » (journal des coupures)"
+            isAllCaps = false
+            setOnClickListener {
+                if (checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+                    requestPermissions(arrayOf(android.Manifest.permission.BLUETOOTH_CONNECT), 2)
+                else startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+            }
+        }
+        col.addView(nearby)
         col.addView(text(14f, Color.rgb(138, 150, 176)).apply {
             text = "2. Active le partage de connexion du téléphone : l'autoradio s'y connecte et Koackpit vient chercher " +
                 "ici le morceau en cours et sa pochette. Rien d'autre ne sort du téléphone."
@@ -82,6 +94,8 @@ class MainActivity : Activity() {
             restricted.visibility = grant.visibility
             val always = checkSelfPermission(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
             location.visibility = if (always) android.view.View.GONE else android.view.View.VISIBLE
+            val bt = checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            nearby.visibility = if (bt) android.view.View.GONE else android.view.View.VISIBLE
             val ago = (System.currentTimeMillis() - MediaBridge.lastClient) / 1000
             status.text = when {
                 !ok -> "⚠ Accès aux notifications non autorisé"

@@ -149,6 +149,9 @@ object PhoneLink {
                         else if (bmp != null) { art.value = bmp; artId = newArt }
                     }
                     if (!loggedConnect) { loggedConnect = true; app?.let { WakeLog.add(it, "Téléphone compagnon connecté ($gw)") } }
+                    // Journal radio du téléphone (appli 1.5) : ce que le téléphone a vu des coupures, joint au diagnostic
+                    val jseq = js.optInt("jseq", -1)
+                    if (jseq >= 0) app?.let { a -> fetchPhoneJournal(a, gw!!, jseq) }
                 }
             }
             if (ok) lastOk = android.os.SystemClock.elapsedRealtime()
@@ -159,6 +162,32 @@ object PhoneLink {
             val fast = android.os.SystemClock.elapsedRealtime() < fastUntil
             Thread.sleep(if (fast) 250 else if (ok) 1500 else 2000)
         }
+    }
+
+    /** Fichier du journal radio du téléphone (releve-telephone.txt dans le diagnostic). */
+    fun phoneJournalFile(c: Context) = java.io.File(c.filesDir, "releve-telephone.txt")
+
+    private fun fetchPhoneJournal(a: Context, gw: String, jseq: Int) {
+        val p = a.getSharedPreferences("phonelink", Context.MODE_PRIVATE)
+        var last = p.getInt("jseq", 0)
+        if (jseq < last) last = 0                 // appli du téléphone relancée : son compteur repart de zéro
+        if (jseq == last) return
+        val arr = get("http://$gw:$PORT/journal?since=$last")?.let { runCatching { org.json.JSONArray(String(it)) }.getOrNull() } ?: return
+        val f = phoneJournalFile(a)
+        val sb = StringBuilder()
+        for (i in 0 until arr.length()) {
+            val o = arr.getJSONObject(i); val t = o.optString("t")
+            sb.append(t).append('\n')
+            last = maxOf(last, o.optInt("seq"))
+            // Événements qui comptent pour les coupures : aussi dans le journal de Koackpit
+            if (t.contains("LIAISON PERDUE") || t.contains("POINT D'ACCÈS") || t.contains("ÉTEINT") || t.contains("BT liaison établie"))
+                WakeLog.add(a, "Téléphone (vu à ${t.substringBefore("  ").substringAfter(' ').take(10)}) : " + t.substringAfter("  ").substringBefore("  ["))
+        }
+        runCatching {
+            f.appendText(sb.toString())
+            if (f.length() > 400_000) f.writeText(f.readLines().takeLast(2000).joinToString("\n") + "\n")
+        }
+        p.edit().putInt("jseq", last).apply()
     }
 
     /**
