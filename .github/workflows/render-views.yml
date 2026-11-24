@@ -1,0 +1,63 @@
+name: Render views
+
+# Vues pré-calculées de la Golf (0.20.0) : rendu en parallèle (un état × une hauteur par tâche), puis pack
+# golf-vues.zip publié dans la release « vues-<PACK> ». Réglages : web/golf3d/render.conf
+# (TEST=1 : quelques angles seulement, images poussées sur la branche render-test pour contrôle).
+on:
+  push:
+    branches: ['render-*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        state: ["0", FL, FR, RL, RR, TAIL, HOOD, FL_TAIL, FL_FR, FL_RL, DOORS, ALL]
+        elev: [0, 1]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Outils
+        run: |
+          cd web/golf3d && npm i --no-audit --no-fund three@0.160.0 esbuild@0.24.0
+          pip install playwright pillow && python3 -m playwright install --with-deps chromium
+      - name: Rendu
+        run: |
+          . web/golf3d/render.conf
+          cd web/golf3d && ./build.sh && ./build-model.sh
+          python3 render-views.py dist ../../out "${{ matrix.state }}" "${{ matrix.elev }}" "$N"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vues-${{ matrix.state }}-${{ matrix.elev }}
+          path: out
+          retention-days: 3
+
+  pack:
+    needs: render
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { path: rendus }
+      - name: Pack
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          . web/golf3d/render.conf
+          pip install pillow
+          python3 web/golf3d/pack-views.py rendus "$PACK" golf-vues.zip | tee pack.txt
+          if [ "$TEST" = "1" ]; then
+            mkdir -p /tmp/t && cp pack.txt /tmp/t/
+            for f in rendus/*/v*_0.webp rendus/*/v*_1.webp rendus/*/v*_3.webp; do [ -f "$f" ] && python3 -c "import sys;from PIL import Image;Image.open(sys.argv[1]).save(sys.argv[2])" "$f" "/tmp/t/$(basename "$f" .webp).png"; done
+            cd /tmp/t && git init -q -b render-test && git config user.name build-bot && git config user.email build-bot@users.noreply.github.com
+            git add -A && git commit -qm "test ${GITHUB_SHA}" && git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" render-test
+          else
+            gh release delete "vues-$PACK" -y --cleanup-tag 2>/dev/null || true
+            gh release create "vues-$PACK" golf-vues.zip --title "Vues de la Golf, pack $PACK" --notes "Images de la Golf pour Koackpit (téléchargées par l'appli, à part)." --latest=false
+          fi

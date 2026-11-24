@@ -892,11 +892,13 @@ window.koackpitPose = mask => {
   renderer.shadowMap.needsUpdate = true;
 };
 // Caméra : vue 3/4 avant de départ, tournée de az degrés autour de la voiture, distance × dist
-window.koackpitShot = (az, w, h, dist) => {
+// elev (0.20.0) : hauteur de caméra en degrés au-dessus de l'horizon (absent = celle de la vue de départ)
+window.koackpitShot = (az, w, h, dist, elev) => {
   renderer.setAnimationLoop(null); controls.autoRotate = false; anim = null; focusAnim = null;
   if (!window.__home) { setView('front3q', false); window.__home = camera.position.clone().sub(center); }
   const sp = new THREE.Spherical().setFromVector3(window.__home);
   sp.theta += THREE.MathUtils.degToRad(az); sp.radius *= dist;
+  if (elev !== undefined && elev !== null) sp.phi = THREE.MathUtils.degToRad(90 - elev);
   camera.position.copy(center).add(new THREE.Vector3().setFromSpherical(sp));
   camera.lookAt(center);
   renderer.setPixelRatio(1); renderer.setSize(w, h, false);
@@ -934,5 +936,25 @@ window.koackpitPickMap = (w, h) => {
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) out[(h - 1 - y) * w + x] = px[(y * w + x) * 4];
   let s = ''; for (let i = 0; i < out.length; i += 8192) s += String.fromCharCode.apply(null, out.subarray(i, i + 8192));
   return btoa(s);
+};
+// Fiches numérotées une fois pour toutes, dans l'ordre du modèle (rendus en parallèle : mêmes numéros partout)
+window.koackpitInitInfos = () => {
+  const infos = window.__infos = [];
+  scene.traverse(o => { if (!o.isMesh) return; const io = infoOf(o); if (io && infos.indexOf(io) < 0) infos.push(io); });
+  return infos.length;
+};
+// Pose intermédiaire (animation d'ouverture) : ouvrants de mask à la fraction t (0 fermé … 1 ouvert), base = déjà ouverts
+window.koackpitPoseT = (base, mask, t) => {
+  window.koackpitPose(base);
+  const keys = { FL: 1, FR: 2, RL: 4, RR: 8, TAIL: 16, HOOD: 32 };
+  for (const [k, d] of Object.entries(doors)) {
+    if (!(mask & keys[k])) continue;
+    d.t = d.target = t;
+    qz.setFromAxisAngle(d.axis, d.sign * d.max * ease(t));
+    d.node.quaternion.copy(d.base).multiply(qz);
+  }
+  if (bayGroup && (mask & 32)) bayGroup.visible = t > 0.05;
+  scene.updateMatrixWorld(true);
+  renderer.shadowMap.needsUpdate = true;
 };
 window.koackpitInfos = () => (window.__infos || []).map(o => ({ title: o.userData.info.title, text: o.userData.info.text }));
