@@ -1,0 +1,69 @@
+11-24 12:26:16.773  1906  2092 I ActivityTaskManager: START u0 {flg=0x10000000 cmp=com.koala.koackpit/.Golf3DPreview} from uid 0
+11-24 12:26:16.930  1906  3509 I ActivityManager: Start proc 3510:com.koala.koackpit/u0a116 for activity {com.koala.koackpit/com.koala.koackpit.Golf3DPreview}
+11-24 12:26:17.594  3510  3510 W RenderThread: type=1400 audit(0.0:23): avc: denied { write } for name="property_service" dev="tmpfs" ino=855 scontext=u:r:untrusted_app:s0:c116,c256,c512,c768 tcontext=u:object_r:property_socket:s0 tclass=sock_file permissive=0 app=com.koala.koackpit
+11-24 12:26:18.069  1906  1932 I ActivityTaskManager: Displayed com.koala.koackpit/.Golf3DPreview: +1s290ms
+11-24 12:26:22.923  3510  3550 D ProfileInstaller: Installing profile for com.koala.koackpit
+11-24 12:26:36.851  1906  2869 I ActivityTaskManager: START u0 {flg=0x10000000 cmp=com.koala.koackpit/.Golf3DPreview} from uid 0
+11-24 12:26:40.104  3596  3596 W ls      : type=1400 audit(0.0:24): avc: denied { ioctl } for path="socket:[27180]" dev="sockfs" ino=27180 ioctlcmd=0x5401 scontext=u:r:runas_app:s0:c116,c256,c512,c768 tcontext=u:r:su:s0 tclass=unix_stream_socket permissive=0 app=com.koala.koackpit
+11-24 12:26:40.114  3596  3596 I chatty  : uid=10116(com.koala.koackpit) ls identical 1 line
+11-24 12:26:40.114  3596  3596 W ls      : type=1400 audit(0.0:26): avc: denied { ioctl } for path="socket:[27180]" dev="sockfs" ino=27180 ioctlcmd=0x5401 scontext=u:r:runas_app:s0:c116,c256,c512,c768 tcontext=u:r:su:s0 tclass=unix_stream_socket permissive=0 app=com.koala.koackpit
+11-24 12:26:40.114  3596  3596 W ls      : type=1400 audit(0.0:27): avc: denied { ioctl } for path="socket:[27182]" dev="sockfs" ino=27182 ioctlcmd=0x5401 scontext=u:r:runas_app:s0:c116,c256,c512,c768 tcontext=u:r:su:s0 tclass=unix_stream_socket permissive=0 app=com.koala.koackpit
+11-24 12:26:40.134  3598  3598 W ls      : type=1400 audit(0.0:28): avc: denied { ioctl } for path="socket:[27212]" dev="sockfs" ino=27212 ioctlcmd=0x5401 scontext=u:r:runas_app:s0:c116,c256,c512,c768 tcontext=u:r:su:s0 tclass=unix_stream_socket permissive=0 app=com.koala.koackpit
+11-24 12:26:40.228  1906  2869 I ActivityTaskManager: START u0 {flg=0x10000000 cmp=com.koala.koackpit/.Golf3DPreview} from uid 0
+11-24 12:26:40.134  3598  3598 I chatty  : uid=10116(com.koala.koackpit) ls identical 1 line
+11-24 12:26:40.134  3598  3598 W ls      : type=1400 audit(0.0:30): avc: denied { ioctl } for path="socket:[27212]" dev="sockfs" ino=27212 ioctlcmd=0x5401 scontext=u:r:runas_app:s0:c116,c256,c512,c768 tcontext=u:r:su:s0 tclass=unix_stream_socket permissive=0 app=com.koala.koackpit
+11-24 12:26:50.440  3610  3610 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 0 <<<<<<
+11-24 12:26:50.444  3610  3610 I AndroidRuntime: Using default boot image
+11-24 12:26:50.444  3610  3610 I AndroidRuntime: Leaving lock profiling enabled
+11-24 12:26:50.551  3610  3610 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-24 12:26:51.236  3610  3610 D AndroidRuntime: Shutting down VM
+11-24 12:26:55.444  1906  2142 I ActivityTaskManager: START u0 {flg=0x10000000 cmp=com.koala.koackpit/.Golf3DPreview (has extras)} from uid 0
+11-24 12:27:01.654  3639  3639 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 0 <<<<<<
+11-24 12:27:01.655  3639  3639 I AndroidRuntime: Using default boot image
+11-24 12:27:01.655  3639  3639 I AndroidRuntime: Leaving lock profiling enabled
+11-24 12:27:01.713  3639  3639 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-24 12:27:01.721  3639  3639 D AndroidRuntime: Shutting down VM
+11-24 12:27:04.906  1906  2122 I ActivityTaskManager: START u0 {flg=0x10000000 cmp=com.koala.koackpit/.Golf3DPreview (has extras)} from uid 0
+11-24 12:27:09.109  3664  3664 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 0 <<<<<<
+11-24 12:27:09.111  3664  3664 I AndroidRuntime: Using default boot image
+11-24 12:27:09.111  3664  3664 I AndroidRuntime: Leaving lock profiling enabled
+11-24 12:27:09.157  3664  3664 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-24 12:27:09.164  3664  3664 D AndroidRuntime: Shutting down VM
+11-24 12:27:11.944  1906  3676 I PackageManager.DexOptimizer: Running dexopt (dexoptNeeded=1) on: /data/app/com.koala.koackpit-5nqO3k_OKVMcnsZnaxH5PQ==/base.apk pkg=com.koala.koackpit isa=x86_64 dexoptFlags=boot_complete,debuggable,public,enable_hidden_api_checks targetFilter=verify oatDir=/data/app/com.koala.koackpit-5nqO3k_OKVMcnsZnaxH5PQ==/oat classLoaderContext=PCL[]
+11-24 12:27:11.945  1767  1991 V installd: DexInv: --- BEGIN '/data/app/com.koala.koackpit-5nqO3k_OKVMcnsZnaxH5PQ==/base.apk' ---
+11-24 12:27:11.974  3677  3677 I dex2oat : /apex/com.android.runtime/bin/dex2oat --input-vdex-fd=-1 --output-vdex-fd=10 --resolve-startup-const-strings=true --max-image-block-size=524288 --compiler-filter=verify --debuggable --classpath-dir=/data/app/com.koala.koackpit-5nqO3k_OKVMcnsZnaxH5PQ== --class-loader-context=PCL[] --generate-mini-debug-info --compact-dex-level=none --compilation-reason=boot
+11-24 12:27:13.113  1767  1991 V installd: DexInv: --- END '/data/app/com.koala.koackpit-5nqO3k_OKVMcnsZnaxH5PQ==/base.apk' (success) ---
+11-24 12:27:13.201  1906  3676 I BackgroundDexOptService: Pinning optimized code {com.koala.koackpit}
+11-24 12:27:16.624  3698  3698 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 0 <<<<<<
+11-24 12:27:16.625  3698  3698 I AndroidRuntime: Using default boot image
+11-24 12:27:16.625  3698  3698 I AndroidRuntime: Leaving lock profiling enabled
+11-24 12:27:16.671  3698  3698 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-24 12:27:16.678  3698  3698 D AndroidRuntime: Shutting down VM
+11-24 12:27:19.975  3714  3714 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 0 <<<<<<
+11-24 12:27:19.976  3714  3714 I AndroidRuntime: Using default boot image
+11-24 12:27:19.976  3714  3714 I AndroidRuntime: Leaving lock profiling enabled
+11-24 12:27:20.023  3714  3714 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-24 12:27:20.574  3714  3714 D AndroidRuntime: Shutting down VM
+11-24 12:27:12.346  1906  2122 I ActivityTaskManager: START u0 {flg=0x10000000 cmp=com.koala.koackpit/.Golf3DPreview (has extras)} from uid 0
+11-24 12:27:23.793  1906  2869 I ActivityTaskManager: START u0 {flg=0x10000000 cmp=com.koala.koackpit/.Golf3DPreview (has extras)} from uid 0
+11-24 12:27:32.996  3746  3746 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 0 <<<<<<
+11-24 12:27:32.997  3746  3746 I AndroidRuntime: Using default boot image
+11-24 12:27:32.997  3746  3746 I AndroidRuntime: Leaving lock profiling enabled
+11-24 12:27:33.044  3746  3746 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-24 12:27:33.661  3746  3746 D AndroidRuntime: Shutting down VM
+11-24 12:27:37.930  3763  3763 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 0 <<<<<<
+11-24 12:27:37.931  3763  3763 I AndroidRuntime: Using default boot image
+11-24 12:27:37.931  3763  3763 I AndroidRuntime: Leaving lock profiling enabled
+11-24 12:27:37.978  3763  3763 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+11-24 12:27:38.390  3763  3763 D AndroidRuntime: Shutting down VM
+11-24 12:27:42.547  1906  2869 I ActivityTaskManager: START u0 {flg=0x10000000 cmp=com.koala.koackpit/.Golf3DPreview (has extras)} from uid 0
+11-24 12:27:48.722  1906  2122 I ActivityTaskManager: START u0 {flg=0x10000000 cmp=com.koala.koackpit/.Golf3DPreview (has extras)} from uid 0
+11-24 12:27:54.899  1906  2122 I ActivityTaskManager: START u0 {flg=0x10000000 cmp=com.koala.koackpit/.Golf3DPreview (has extras)} from uid 0
+11-24 12:27:57.926  1906  2122 I ActivityManager: Force stopping com.koala.koackpit appid=10116 user=0: from pid 3804
+11-24 12:27:57.926  1906  2122 I ActivityManager: Killing 3510:com.koala.koackpit/u0a116 (adj 0): stop com.koala.koackpit
+11-24 12:27:57.934  1906  2122 W ActivityTaskManager: Force removing ActivityRecord{34ed87d u0 com.koala.koackpit/.Golf3DPreview t6 f}: app died, no saved state
+11-24 12:27:57.972  1906  2122 I ActivityTaskManager: START u0 {flg=0x10000000 cmp=com.koala.koackpit/.Golf3DPreview (has extras)} from uid 0
+11-24 12:27:58.036  1906  1934 I ActivityManager: Start proc 3813:com.koala.koackpit/u0a116 for activity {com.koala.koackpit/com.koala.koackpit.Golf3DPreview}
+11-24 12:27:58.137  1906  1932 I ActivityTaskManager: Displayed com.koala.koackpit/.Golf3DPreview: +44ms
+11-24 12:27:58.194  3813  3813 W RenderThread: type=1400 audit(0.0:32): avc: denied { write } for name="property_service" dev="tmpfs" ino=855 scontext=u:r:untrusted_app:s0:c116,c256,c512,c768 tcontext=u:object_r:property_socket:s0 tclass=sock_file permissive=0 app=com.koala.koackpit
+11-24 12:28:03.986  3813  3840 D ProfileInstaller: Installing profile for com.koala.koackpit

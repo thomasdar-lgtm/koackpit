@@ -1,0 +1,11 @@
+24/11 12:26:18  Vue voiture : pack d'images n°1, téléchargement
+24/11 12:26:24  Vue voiture : pack d'images n°1 prêt (3457 fichiers, 40 Mo, 6 s)
+24/11 12:26:25  Vue voiture : 72/72 vues « 0_0 » prêtes en 0.7 s (10 ms par vue)
+24/11 12:26:51  Vue voiture : rotation, 16 vues en 0.6 s, 0 fois une vue voisine (pas encore prête)
+24/11 12:26:56  Vue voiture : 72/72 vues « ALL_0 » prêtes en 0.7 s (10 ms par vue)
+24/11 12:27:20  Vue voiture : rotation, 13 vues en 0.5 s, 0 fois une vue voisine (pas encore prête)
+24/11 12:27:27  Vue voiture : 72/72 vues « 0_1 » prêtes en 0.6 s (8 ms par vue)
+24/11 12:27:33  Vue voiture : rotation, 16 vues en 0.6 s, 0 fois une vue voisine (pas encore prête)
+24/11 12:27:43  Vue voiture : 72/72 vues « FL_TAIL_0 » prêtes en 0.6 s (9 ms par vue)
+24/11 12:27:49  Vue voiture : 72/72 vues « DOORS_0 » prêtes en 0.7 s (10 ms par vue)
+24/11 12:27:59  Vue voiture : 72/72 vues « 0_0 » prêtes en 0.6 s (9 ms par vue)
