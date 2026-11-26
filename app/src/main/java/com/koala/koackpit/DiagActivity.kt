@@ -170,8 +170,14 @@ fun DiagScreen(server: FileServer, onBack: () -> Unit = {}, onZip: (File) -> Uni
                     scope.launch {
                         val raw = withContext(Dispatchers.IO) {
                             runCatching {
-                                RootAccess.run(ctx, "timeout 20 getevent -lt 2>&1 | grep -v ' 0000 0000 00000000' | head -250; echo; echo '--- journal système (touches) ---'; " +
-                                    "logcat -d -v time -t 4000 | grep -iE 'keycode|key_|knob|encoder|tuner|seek|mediabutton' | tail -40", 40_000)
+                                // 0.20.5 : getevent perdait tout (sortie gardée en mémoire puis coupée) ; on lit chaque
+                                // périphérique avec dd (écrit au fil de l'eau), puis tout le journal système des 25 s
+                                // (la molette passe par le service de l'autoradio, pas forcément par les touches Android).
+                                RootAccess.run(ctx, "echo '--- périphériques ---'; getevent -pl 2>&1 | grep -E 'add device|name:' ; " +
+                                    "echo; echo '--- événements bruts ---'; " +
+                                    "for d in /dev/input/event*; do (timeout 20 dd if=\$d bs=24 2>/dev/null | od -An -tx1 | head -60 | sed \"s|^|\$d |\") & done; wait; " +
+                                    "echo; echo '--- journal système pendant le test ---'; " +
+                                    "logcat -d -v time -t 2500 | grep -vE 'CanbusManager|NearbySharing|chatty|SettingsProvider|tp2825|vehicle_ad' | tail -150", 45_000)
                             }.getOrElse { "accès système impossible : ${it.message}" }
                         }
                         KeyProbe.on = false
