@@ -36,6 +36,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -107,7 +108,7 @@ fun DiagScreen(server: FileServer, onBack: () -> Unit = {}, onZip: (File) -> Uni
     var savedAt by remember { mutableStateOf<String?>(null) }
     var url by remember { mutableStateOf<String?>(null) }
     var rootLog by remember { mutableStateOf("") }
-    var activeTool by remember { mutableStateOf(0) }   // 1 = test d'accès, 2 = journal : bouton surligné
+    var activeTool by remember { mutableStateOf(if (CanBus.capturing() || CanBus.lastCaptureEnd != null) 3 else 0) }   // 1 = test d'accès, 2 = journal : bouton surligné
     var export by remember { mutableStateOf(false) }   // fenêtre « Créer le fichier »
 
     LaunchedEffect(Unit) {
@@ -153,12 +154,28 @@ fun DiagScreen(server: FileServer, onBack: () -> Unit = {}, onZip: (File) -> Uni
                     scope.launch { rootLog = withContext(Dispatchers.IO) { RootAccess.lastInstallLog(ctx) } }
                 },
                 onCapture = {
-                    CanBus.startCapture(ctx, 10)
-                    toast(ctx, "Relevé voiture lancé pour 10 min : roule normalement")
+                    if (!CanBus.capturing()) CanBus.startCapture(ctx, 10)
+                    activeTool = 3
                 },
                 onExport = { export = true },
             )
             Spacer(Modifier.height(10.dp))
+            // Relevé voiture : avancement visible, mis à jour chaque seconde (0.20.3)
+            if (activeTool == 3) {
+                var tick by remember { mutableIntStateOf(0) }
+                LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(1000); tick++ } }
+                tick
+                val left = CanBus.captureLeftSec()
+                val end = CanBus.lastCaptureEnd
+                rootLog = when {
+                    left > 0 -> "Relevé voiture EN COURS : ${left / 60}:${"%02d".format(left % 60)} restantes · ${CanBus.captureLines()} lignes enregistrées.\n\n" +
+                        "Tu peux quitter cet écran et utiliser l'autoradio : le relevé continue. Reviens ici pour voir où il en est ; " +
+                        "un message s'affichera aussi à la fin."
+                    end != null -> "Relevé voiture TERMINÉ à ${end.first} · ${end.second} lignes enregistrées.\n\n" +
+                        "Appuie sur « Créer le fichier » pour préparer le diagnostic à m'envoyer (le relevé est dedans)."
+                    else -> "Aucun relevé en cours."
+                }
+            }
             // Résultat de l'outil choisi : toute la hauteur de l'écran
             Text(
                 rootLog.ifEmpty { "Choisis un outil ci-dessus. « Créer le fichier » prépare le diagnostic complet à envoyer à Claude." },
@@ -205,7 +222,9 @@ fun DiagHeader(activeTool: Int, onBack: () -> Unit, onTest: () -> Unit, onLogs: 
         Spacer(Modifier.width(8.dp))
         Button(onClick = onLogs, colors = toolColors(activeTool == 2), contentPadding = pad) { Text("Journaux", fontWeight = FontWeight.Black, fontSize = 14.sp) }
         Spacer(Modifier.width(8.dp))
-        Button(onClick = onCapture, colors = toolColors(false), contentPadding = pad) { Text("Relevé (10 min)", fontWeight = FontWeight.Black, fontSize = 14.sp) }
+        Button(onClick = onCapture, colors = toolColors(activeTool == 3), contentPadding = pad) {
+            Text(if (CanBus.capturing()) "Relevé : en cours" else "Relevé (10 min)", fontWeight = FontWeight.Black, fontSize = 14.sp)
+        }
         Spacer(Modifier.width(8.dp))
         Button(onClick = onExport, colors = ButtonDefaults.buttonColors(containerColor = Yellow, contentColor = OnAccent), contentPadding = pad) {
             Text("Créer le fichier", fontWeight = FontWeight.Black, fontSize = 14.sp)

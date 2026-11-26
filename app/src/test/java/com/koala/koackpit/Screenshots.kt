@@ -171,6 +171,20 @@ open class Screenshots {
         }
     } }
 
+    // 0.20.3 : avancement du relevé voiture visible
+    private fun releve(name: String, msg: String) = captureRoboImage("build/screens/${p}$name.png") { Scaled {
+        androidx.compose.foundation.layout.Column(Modifier.fillMaxSize().screenBg().padding(16.dp)) {
+            DiagHeader(3, {}, {}, {}, {}, {})
+            androidx.compose.foundation.layout.Spacer(Modifier.height(10.dp))
+            androidx.compose.material3.Text(msg, color = Ink, fontSize = androidx.compose.ui.unit.TextUnit(14f, androidx.compose.ui.unit.TextUnitType.Sp), lineHeight = androidx.compose.ui.unit.TextUnit(19f, androidx.compose.ui.unit.TextUnitType.Sp),
+                modifier = Modifier.fillMaxSize().background(Card, androidx.compose.foundation.shape.RoundedCornerShape(12.dp)).padding(14.dp))
+        }
+    } }
+    @Test fun diagnostic_releve_en_cours() = releve("diagnostic-releve-en-cours",
+        "Relevé voiture EN COURS : 7:42 restantes · 1234 lignes enregistrées.\n\nTu peux quitter cet écran et utiliser l'autoradio : le relevé continue. Reviens ici pour voir où il en est ; un message s'affichera aussi à la fin.")
+    @Test fun diagnostic_releve_fini() = releve("diagnostic-releve-fini",
+        "Relevé voiture TERMINÉ à 06:52 · 2345 lignes enregistrées.\n\nAppuie sur « Créer le fichier » pour préparer le diagnostic à m'envoyer (le relevé est dedans).")
+
     @Test
     fun diagnostic_fichier() = captureRoboImage("build/screens/${p}diagnostic-fichier.png") { Scaled {
         val f = java.io.File.createTempFile("koackpit-diag", ".zip")

@@ -170,6 +170,12 @@ object CanBus {
 
     fun captureFile(ctx: Context) = java.io.File(ctx.filesDir, "releve-can.txt")
     fun capturing() = SystemClock.elapsedRealtime() < captureUntil
+    /** Secondes restantes du relevé en cours (0 si aucun). */
+    fun captureLeftSec() = ((captureUntil - SystemClock.elapsedRealtime()) / 1000).coerceAtLeast(0)
+    /** Lignes écrites dans le relevé en cours (ou le dernier). */
+    fun captureLines() = capLines
+    /** Fin du dernier relevé (« 06:52 ») et nombre de lignes, ou null. */
+    @Volatile var lastCaptureEnd: Pair<String, Int>? = null
 
     /** Relevé de [minutes] min : chaque nouveau contenu de chaque trame (40 au plus par trame) avec l'heure. */
     fun startCapture(ctx: Context, minutes: Int) {
@@ -185,6 +191,8 @@ object CanBus {
                 stopGps(it)
                 runCatching { captureFile(it).appendText("Fin ${stamp()} — trames : $s\n") }
                 WakeLog.add(it, "Relevé voiture terminé : " + s.ifEmpty { "aucune trame" })
+                lastCaptureEnd = stamp().take(5) to capLines
+                android.widget.Toast.makeText(it, "Relevé voiture terminé : crée le fichier de diagnostic", android.widget.Toast.LENGTH_LONG).show()
             }
         }, minutes * 60_000L)
     }
