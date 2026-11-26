@@ -182,6 +182,8 @@ open class Screenshots {
     } }
     @Test fun diagnostic_releve_en_cours() = releve("diagnostic-releve-en-cours",
         "Relevé voiture EN COURS : 7:42 restantes · 1234 lignes enregistrées.\n\nTu peux quitter cet écran et utiliser l'autoradio : le relevé continue. Reviens ici pour voir où il en est ; un message s'affichera aussi à la fin.")
+    @Test fun diagnostic_boutons() = releve("diagnostic-boutons",
+        "Test des boutons EN COURS (20 s) : tourne la 2e molette lentement dans un sens, puis dans l'autre, puis appuie dessus. Essaie aussi les autres boutons.\n\nKEYCODE_MEDIA_NEXT (code 87, scan 0) appui\nKEYCODE_MEDIA_NEXT (code 87, scan 0) relâché")
     @Test fun diagnostic_releve_fini() = releve("diagnostic-releve-fini",
         "Relevé voiture TERMINÉ à 06:52 · 2345 lignes enregistrées.\n\nAppuie sur « Créer le fichier » pour préparer le diagnostic à m'envoyer (le relevé est dedans).")
 

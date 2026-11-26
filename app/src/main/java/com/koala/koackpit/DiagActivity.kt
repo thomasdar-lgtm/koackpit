@@ -77,6 +77,12 @@ class DiagActivity : ComponentActivity() {
         setContent { DiagScreen(server, onBack = { finish() }) { zip = it } }
     }
 
+    /** Test des boutons : chaque touche reçue est notée (sans la bloquer). */
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        KeyProbe.record(event)
+        return super.dispatchKeyEvent(event)
+    }
+
     override fun onDestroy() {
         server.stop()
         super.onDestroy()
@@ -157,8 +163,32 @@ fun DiagScreen(server: FileServer, onBack: () -> Unit = {}, onZip: (File) -> Uni
                     if (!CanBus.capturing()) CanBus.startCapture(ctx, 10)
                     activeTool = 3
                 },
+                onButtons = {
+                    activeTool = 4
+                    KeyProbe.keys.clear(); KeyProbe.on = true
+                    rootLog = "Test des boutons pendant 20 s : tourne la 2e molette lentement dans un sens, puis dans l'autre, puis appuie dessus. Essaie aussi les autres boutons."
+                    scope.launch {
+                        val raw = withContext(Dispatchers.IO) {
+                            runCatching {
+                                RootAccess.run(ctx, "timeout 20 getevent -lt 2>&1 | grep -v ' 0000 0000 00000000' | head -250; echo; echo '--- journal système (touches) ---'; " +
+                                    "logcat -d -v time -t 4000 | grep -iE 'keycode|key_|knob|encoder|tuner|seek|mediabutton' | tail -40", 40_000)
+                            }.getOrElse { "accès système impossible : ${it.message}" }
+                        }
+                        KeyProbe.on = false
+                        val got = KeyProbe.keys.toList()
+                        val txt = "REÇU PAR KOACKPIT (utilisable pour une fonction) :\n" +
+                            (if (got.isEmpty()) "rien\n" else got.joinToString("\n") + "\n") +
+                            "\nÉVÉNEMENTS BRUTS DES BOUTONS :\n" + raw.ifBlank { "rien" }
+                        runCatching { KeyProbe.file(ctx).writeText("Test des boutons ${java.util.Date()} (Koackpit ${BuildConfig.VERSION_NAME})\n\n$txt\n") }
+                        WakeLog.add(ctx, "Test des boutons : ${got.size} touches reçues par Koackpit")
+                        rootLog = "Test terminé (aussi dans le fichier de diagnostic).\n\n$txt"
+                    }
+                },
                 onExport = { export = true },
             )
+            // Test des boutons : touches reçues en direct
+            if (activeTool == 4 && KeyProbe.on) rootLog = "Test des boutons EN COURS (20 s) : tourne la 2e molette lentement dans un sens, puis dans l'autre, puis appuie dessus. Essaie aussi les autres boutons.\n\n" +
+                (if (KeyProbe.keys.isEmpty()) "Rien reçu pour l'instant." else KeyProbe.keys.takeLast(12).joinToString("\n"))
             Spacer(Modifier.height(10.dp))
             // Relevé voiture : avancement visible, mis à jour chaque seconde (0.20.3)
             if (activeTool == 3) {
@@ -208,7 +238,7 @@ fun DiagScreen(server: FileServer, onBack: () -> Unit = {}, onZip: (File) -> Uni
 }
 
 @Composable
-fun DiagHeader(activeTool: Int, onBack: () -> Unit, onTest: () -> Unit, onLogs: () -> Unit, onCapture: () -> Unit, onExport: () -> Unit) {
+fun DiagHeader(activeTool: Int, onBack: () -> Unit, onTest: () -> Unit, onLogs: () -> Unit, onCapture: () -> Unit, onExport: () -> Unit, onButtons: () -> Unit = {}) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         BackDisc(onBack)
         Spacer(Modifier.width(12.dp))
@@ -217,10 +247,12 @@ fun DiagHeader(activeTool: Int, onBack: () -> Unit, onTest: () -> Unit, onLogs: 
             Text("Diagnostic ${BuildConfig.VERSION_NAME}", color = Muted, fontSize = 12.sp)
         }
         Spacer(Modifier.weight(1f))
-        val pad = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 10.dp)
+        val pad = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 10.dp)
         Button(onClick = onTest, colors = toolColors(activeTool == 1), contentPadding = pad) { Text("Tester l'accès", fontWeight = FontWeight.Black, fontSize = 14.sp) }
         Spacer(Modifier.width(8.dp))
         Button(onClick = onLogs, colors = toolColors(activeTool == 2), contentPadding = pad) { Text("Journaux", fontWeight = FontWeight.Black, fontSize = 14.sp) }
+        Spacer(Modifier.width(8.dp))
+        Button(onClick = onButtons, colors = toolColors(activeTool == 4), contentPadding = pad) { Text("Boutons", fontWeight = FontWeight.Black, fontSize = 14.sp) }
         Spacer(Modifier.width(8.dp))
         Button(onClick = onCapture, colors = toolColors(activeTool == 3), contentPadding = pad) {
             Text(if (CanBus.capturing()) "Relevé : en cours" else "Relevé (10 min)", fontWeight = FontWeight.Black, fontSize = 14.sp)
