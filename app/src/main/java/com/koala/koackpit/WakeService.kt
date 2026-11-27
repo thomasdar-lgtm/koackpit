@@ -48,7 +48,7 @@ class WakeService : Service() {
             relaunches.addLast(now)
             Handler(Looper.getMainLooper()).postDelayed({
                 if (!MusicActivity.isOpen() && Prefs.driving(app)) {
-                    SplitScreen.launch(app, listOf(Prefs.nav(app), Targets.WAZE, Targets.MAPS)) { r ->
+                    SplitScreen.launch(app, listOf(Prefs.nav(app), Targets.WAZE, Targets.MAPS), why = "relance automatique (conduite en cours)") { r ->
                         WakeLog.add(app, "Relance : " + r.lines().filter { it.isNotBlank() }.joinToString(" / "))
                     }
                 }
@@ -160,7 +160,7 @@ class WakeService : Service() {
                     h.postDelayed({
                         if (!MusicActivity.isOpen()) {
                             WakeLog.add(app, "Reprise de la conduite (+${delay} ms)")
-                            SplitScreen.launch(app, listOf(Prefs.nav(app), Targets.WAZE, Targets.MAPS)) { r ->
+                            SplitScreen.launch(app, listOf(Prefs.nav(app), Targets.WAZE, Targets.MAPS), why = "conduite au démarrage (réglage)") { r ->
                                 WakeLog.add(app, r.lines().filter { it.isNotBlank() }.joinToString(" / "))
                                 h.postDelayed({ WakeLog.addWindows(app, "après reprise") }, 3000)
                             }

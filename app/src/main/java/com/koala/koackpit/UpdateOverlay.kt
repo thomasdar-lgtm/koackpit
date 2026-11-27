@@ -33,7 +33,11 @@ object UpdateOverlay {
         val upd = UpdateHub.state
         val awake = (app.getSystemService(Context.POWER_SERVICE) as PowerManager).isInteractive
         val info = upd.info
-        if (info == null || !awake) { hide(app); return }
+        // Jamais pendant que la voiture roule : l'installation redémarre Koackpit (écran figé, Bluetooth et
+        // Wi-Fi affichés « non connecté » le temps de la reprise). La carte revient à l'arrêt.
+        val moving = (CanBus.freshSpeed() ?: 0) > 3
+        val busy0 = upd.progress != null || upd.status.startsWith("Installation")
+        if (info == null || !awake || (moving && !busy0)) { hide(app); return }
         val v = view ?: create(app) ?: return
         val status = upd.status
         val p = upd.progress
@@ -72,7 +76,10 @@ object UpdateOverlay {
             text = "Installer"; textSize = 13f; setTextColor(navy); typeface = Typeface.DEFAULT_BOLD
             background = round(yellow, dp(app, 12).toFloat())
             setPadding(dp(app, 12), dp(app, 7), dp(app, 12), dp(app, 7))
-            setOnClickListener { Updater.startInstall(app, UpdateHub.state) }
+            setOnClickListener {
+                WakeLog.add(app, "Mise à jour : appui sur Installer (${UpdateHub.state.info?.version})")
+                Updater.startInstall(app, UpdateHub.state)
+            }
         }
         row.addView(icon); row.addView(t); row.addView(b)
         val lp = WindowManager.LayoutParams(

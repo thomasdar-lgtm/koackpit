@@ -182,7 +182,7 @@ fun Home(onApps: () -> Unit, onSettings: () -> Unit, onCar: () -> Unit = {}) {
     HomeContent(
         time = time, date = date, navName = if (nav == Targets.MAPS) "Google Maps" else "Waze", media = media,
         rail = RailActions(
-            onDrive = { SplitScreen.launch(ctx, listOf(nav, Targets.WAZE, Targets.MAPS)) {} },
+            onDrive = { SplitScreen.launch(ctx, listOf(nav, Targets.WAZE, Targets.MAPS), why = "appui sur Conduite (carte de l'accueil ou bouton volant)") {} },
             onMusic = { ctx.startActivity(Intent(ctx, MusicActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) },
             onPhone = { go(Targets.PHONE, "Le téléphone") },
             onCar = onCar,
@@ -368,6 +368,6 @@ fun wazeFav(ctx: android.content.Context, nav: String, fav: String): (() -> Unit
     if (nav == Targets.MAPS) return null
     return {
         val i = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("waze://?favorite=$fav&navigate=yes")).setPackage(Targets.WAZE)
-        SplitScreen.launch(ctx, listOf(Targets.WAZE), i) {}
+        SplitScreen.launch(ctx, listOf(Targets.WAZE), i, why = "appui sur le favori Waze $fav") {}
     }
 }

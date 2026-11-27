@@ -32,6 +32,8 @@ object CanBus {
     @Volatile private var speedAt = 0L
     /** Ouvrants ouverts (voir [Doors]). */
     val doors = mutableStateOf(0)
+    @Volatile private var lastDoorsRaw = ""
+    @Volatile private var doorsLogged = 0
 
     /**
      * Infos voiture (écran « Infos carrosserie » de Car Info, type 65 sous-type 2, envoyées seulement sur demande :
@@ -140,6 +142,13 @@ object CanBus {
         if (type == TYPE_KEY && len >= 2) onKey(f[3].toInt() and 255, f[4].toInt() and 255)
         if (type == TYPE_DOORS && len >= 2) {
             val m = f[4].toInt() and 0x3F
+            // Chaque nouveau contenu de la trame des ouvrants est noté (toute la durée du trajet, pas
+            // seulement 2 min) : pour comprendre l'alerte « porte passager » qui apparaît portes fermées.
+            val raw = f.copyOfRange(3, 3 + len).joinToString(" ") { "%02X".format(it) }
+            if (raw != lastDoorsRaw) {
+                lastDoorsRaw = raw
+                if (doorsLogged < 300) { doorsLogged++; app?.let { WakeLog.add(it, "Ouvrants (CAN 36) : $raw → ${Doors.label(m).ifEmpty { "tout fermé" }}") } }
+            }
             main.post {
                 if (doors.value != m) {
                     // Porte qui s'ouvre : on relève quelle appli affiche son alerte par-dessus Koackpit

@@ -47,7 +47,9 @@ object SplitScreen {
      * partagé se place toujours à GAUCHE, et c'est elle seule dont on peut régler la largeur.
      * Le GPS est donc la fenêtre principale (gauche, 2/3) et le panneau Koackpit se met à côté (droite, 1/3).
      */
-    fun launch(ctx: Context, navPkgs: List<String>, navIntent: Intent? = null, done: (String) -> Unit) {
+    fun launch(ctx: Context, navPkgs: List<String>, navIntent: Intent? = null, why: String = "origine inconnue", done: (String) -> Unit) {
+        // Origine notée au journal : pour savoir ce qui a ouvert la conduite (appui ou automatique)
+        WakeLog.add(ctx.applicationContext, "Ouverture conduite demandée : $why")
         val log = StringBuilder()
         // navIntent : ouvrir le GPS directement sur une destination (ex. favori Maison de Waze)
         val nav = navIntent ?: navPkgs.firstNotNullOfOrNull { ctx.packageManager.getLaunchIntentForPackage(it) }
