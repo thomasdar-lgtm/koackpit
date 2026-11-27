@@ -197,7 +197,7 @@ open class Screenshots {
 
     @Test
     fun diagnostic_creer() = captureRoboImage("build/screens/${p}diagnostic-creer.png") { Scaled {
-        ExportPanel(diagApps, emptyList(), false, null, "", null, null, null, {}, {}, {}, {})
+        ExportPanel(diagApps, emptyList(), false, null, "", null, null, null, null, {}, {}, {}, {})
     } }
 
     private fun appel(name: String, call: CallOverlay.Call) = captureRoboImage("build/screens/${p}$name.png") { Scaled {
