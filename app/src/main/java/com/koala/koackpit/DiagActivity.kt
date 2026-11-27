@@ -112,6 +112,7 @@ fun DiagScreen(server: FileServer, onBack: () -> Unit = {}, onZip: (File) -> Uni
     var step by remember { mutableStateOf("") }
     var result by remember { mutableStateOf<File?>(null) }
     var savedAt by remember { mutableStateOf<String?>(null) }
+    var phoneMsg by remember { mutableStateOf<String?>(null) }
     var url by remember { mutableStateOf<String?>(null) }
     var rootLog by remember { mutableStateOf("") }
     var activeTool by remember { mutableStateOf(if (CanBus.capturing() || CanBus.lastCaptureEnd != null) 3 else 0) }   // 1 = test d'accès, 2 = journal : bouton surligné
@@ -127,6 +128,7 @@ fun DiagScreen(server: FileServer, onBack: () -> Unit = {}, onZip: (File) -> Uni
     fun create() {
         progress = 0f
         result = null
+        phoneMsg = null
         scope.launch {
             val f = withContext(Dispatchers.IO) {
                 runCatching {
@@ -137,6 +139,11 @@ fun DiagScreen(server: FileServer, onBack: () -> Unit = {}, onZip: (File) -> Uni
                 onZip(f)
                 result = f
                 savedAt = withContext(Dispatchers.IO) { Diag.copyToDownloads(ctx, f) }
+                phoneMsg = "Envoi sur le téléphone…"
+                scope.launch {
+                    phoneMsg = withContext(Dispatchers.IO) { PhoneLink.sendDiag(f) }
+                    WakeLog.add(ctx, "Diagnostic → téléphone : $phoneMsg")
+                }
                 val port = server.start()
                 url = Diag.ip()?.takeIf { port > 0 }?.let { "http://$it:$port/${Diag.ZIP_NAME}" }
             }
@@ -222,7 +229,7 @@ fun DiagScreen(server: FileServer, onBack: () -> Unit = {}, onZip: (File) -> Uni
         }
         if (export) ExportPanel(
             apps = apps, selected = selected, loading = loading,
-            progress = progress, step = step, result = result, url = url, savedAt = savedAt,
+            progress = progress, step = step, result = result, url = url, savedAt = savedAt, phoneMsg = phoneMsg,
             onToggle = { pkg -> if (pkg in selected) selected.remove(pkg) else selected.add(pkg) },
             onCreate = { create() },
             onShare = { f ->
@@ -287,6 +294,7 @@ private fun BackDisc(onClick: () -> Unit) {
 fun ExportPanel(
     apps: List<AppEntry>, selected: List<String>, loading: Boolean,
     progress: Float?, step: String, result: File?, url: String?, savedAt: String?,
+    phoneMsg: String? = null,
     onToggle: (String) -> Unit, onCreate: () -> Unit, onShare: (File) -> Unit, onClose: () -> Unit,
     qr: android.graphics.Bitmap? = null,
 ) {
@@ -370,8 +378,13 @@ fun ExportPanel(
                         Column(Modifier.weight(1f)) {
                             Text("Fichier prêt (${result.length() / 1_048_576} Mo)", color = AccentText, fontWeight = FontWeight.Black, fontSize = 18.sp)
                             Spacer(Modifier.height(6.dp))
+                            phoneMsg?.let {
+                                val ok = it.startsWith("Envoyé")
+                                Text(it, color = if (ok) AccentText else Ink, fontWeight = if (ok) FontWeight.Bold else FontWeight.Normal, fontSize = 15.sp)
+                                Spacer(Modifier.height(6.dp))
+                            }
                             if (url != null) {
-                                Text("Scanne le QR code avec l'appareil photo du S25 : le fichier se télécharge.", color = Ink, fontSize = 14.sp)
+                                Text("Sinon : scanne le QR code avec l'appareil photo du S25.", color = Ink, fontSize = 14.sp)
                                 Spacer(Modifier.height(4.dp))
                                 Text(url, color = Muted, fontSize = 12.sp)
                             } else {

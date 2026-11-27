@@ -84,6 +84,29 @@ object PhoneLink {
         return "${g and 255}.${(g shr 8) and 255}.${(g shr 16) and 255}.${(g shr 24) and 255}"
     }
 
+    /**
+     * Envoie le fichier de diagnostic directement à l'appli Koackpit Téléphone (partage de connexion) : il
+     * arrive dans les Téléchargements du S25 avec une notification pour le partager. Le QR code ouvrait Chrome,
+     * qui refusait le téléchargement (27/11). Renvoie le message à afficher.
+     */
+    fun sendDiag(f: java.io.File): String {
+        val gw = gateway() ?: return "Pas de Wi-Fi : active le partage de connexion du S25."
+        return runCatching {
+            val c = (URL("http://$gw:$PORT/diag?name=${f.name}").openConnection() as HttpURLConnection)
+            try {
+                c.connectTimeout = 3000; c.readTimeout = 60_000; c.doOutput = true; c.requestMethod = "POST"
+                c.setFixedLengthStreamingMode(f.length())
+                c.setRequestProperty("Content-Type", "application/zip")
+                c.outputStream.use { o -> f.inputStream().use { it.copyTo(o) } }
+                when (c.responseCode) {
+                    200 -> "Envoyé sur le téléphone : touche la notification « Diagnostic Koackpit » pour me l'envoyer."
+                    404 -> "Le téléphone n'a pas pu le recevoir : mets à jour Koackpit Téléphone (1.7)."
+                    else -> "Le téléphone n'a pas pu le recevoir (erreur ${c.responseCode})."
+                }
+            } finally { c.disconnect() }
+        }.getOrElse { "Téléphone injoignable (${it.javaClass.simpleName}) : utilise le QR code." }
+    }
+
     private fun get(url: String): ByteArray? = runCatching {
         (URL(url).openConnection() as HttpURLConnection).run {
             connectTimeout = 2000; readTimeout = 3000; useCaches = false

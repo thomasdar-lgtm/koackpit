@@ -253,7 +253,25 @@ class MediaBridge : NotificationListenerService() {
         s.use {
             runCatching {
                 s.soTimeout = 3000
-                val line = s.getInputStream().bufferedReader().readLine() ?: return
+                // En-têtes lus octet par octet : le corps d'un envoi (POST /diag) reste intact derrière
+                val ins = java.io.BufferedInputStream(s.getInputStream())
+                fun rl(): String? {
+                    val b = ByteArrayOutputStream()
+                    while (true) {
+                        val c = ins.read()
+                        if (c < 0) return if (b.size() == 0) null else b.toString("UTF-8")
+                        if (c == '\n'.code) return b.toString("UTF-8").trimEnd('\r')
+                        b.write(c)
+                        if (b.size() > 8192) return null
+                    }
+                }
+                val line = rl() ?: return
+                var bodyLen = 0L
+                while (true) {
+                    val h = rl() ?: break
+                    if (h.isEmpty()) break
+                    if (h.startsWith("Content-Length:", true)) bodyLen = h.substringAfter(':').trim().toLongOrNull() ?: 0L
+                }
                 lastClient = System.currentTimeMillis(); lastClientIp = s.inetAddress.hostAddress.orEmpty()
                 val path = line.split(' ').getOrNull(1).orEmpty()
                 val out = s.getOutputStream()
@@ -298,6 +316,12 @@ class MediaBridge : NotificationListenerService() {
                         val ms = Regex("ms=(\\d+)").find(path)?.groupValues?.get(1)?.toLongOrNull() ?: 0L
                         command(a, ms)
                         reply("text/plain", "OK".toByteArray())
+                    }
+                    line.startsWith("POST") && path.startsWith("/diag") && bodyLen > 0 -> {
+                        s.soTimeout = 30_000
+                        val ok = DiagReceive.save(this, ins, bodyLen)
+                        if (ok) reply("text/plain", "OK".toByteArray())
+                        else out.write("HTTP/1.0 500 Error\r\nContent-Length: 0\r\n\r\n".toByteArray())
                     }
                     path.startsWith("/art") && art != null -> reply("image/jpeg", art!!)
                     else -> out.write("HTTP/1.0 404 Not Found\r\nContent-Length: 0\r\n\r\n".toByteArray())
