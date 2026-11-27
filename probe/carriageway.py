@@ -3,11 +3,13 @@ PTS = [(43.857986,-0.722169),(43.85137,-0.738436),(43.85506,-0.41901),(43.884949
 HW = "motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|road"
 def q(lat, lon):
     s = f'[out:json][timeout:20];way(around:60,{lat},{lon})[highway~"^({HW})$"];out tags geom;'
-    for url in ["https://overpass.kumi.systems/api/interpreter","https://overpass-api.de/api/interpreter"]:
+    import time
+    for url in ["https://overpass.private.coffee/api/interpreter","https://overpass-api.de/api/interpreter","https://overpass.kumi.systems/api/interpreter"]*2:
         try:
-            r = urllib.request.urlopen(urllib.request.Request(url, data=("data="+urllib.parse.quote(s)).encode(), headers={"User-Agent":"Koackpit-probe"}), timeout=40)
+            r = urllib.request.urlopen(urllib.request.Request(url, data=("data="+urllib.parse.quote(s)).encode(), headers={"User-Agent":"Koackpit-probe"}), timeout=60)
             return json.loads(r.read())
-        except Exception as e: print("err", url, e)
+        except Exception as e: print("err", url, e); time.sleep(3)
+    return {"elements": []}
 for lat, lon in PTS:
     js = q(lat, lon)
     kx = 111320*math.cos(math.radians(lat)); ky = 110540
