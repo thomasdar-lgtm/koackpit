@@ -53,8 +53,19 @@ object BtSound {
             lastHfp = hfp
             val awake = (app.getSystemService(Context.POWER_SERVICE) as PowerManager).isInteractive
             if (hfp >= 3 && awake && p.getBoolean("btFix", true)) {
-                busy = true
-                Handler(Looper.getMainLooper()).post { fix(app) }
+                // 0.20.6 : depuis plusieurs jours, l'autoradio rouvre lui-même le son Bluetooth au réveil
+                // (« enterApp:BT, reason=mcu » puis « setBtmMute:false » dès le contact). Ouvrir la page Bluetooth
+                // ne sert alors à rien et fait scintiller l'écran : on ne l'ouvre que si la source n'est PAS
+                // Bluetooth (cas du 17/11 : source restée « aucune », son coupé).
+                val src = CarLink.currentSource()
+                if (src == CarLink.SRC_BT) {
+                    p.edit().putBoolean("btFix", false).putLong("btFixSlept", sleptMs()).putLong("btFixBoot", bootAt()).apply()
+                    WakeLog.add(app, "Son Bluetooth : déjà rouvert par l'autoradio (source Bluetooth), page non ouverte")
+                } else {
+                    busy = true
+                    WakeLog.add(app, "Son Bluetooth : source ${CarLink.sourceName(src)} → page Bluetooth nécessaire")
+                    Handler(Looper.getMainLooper()).post { fix(app) }
+                }
             }
         }.start()
     }
