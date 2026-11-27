@@ -261,23 +261,71 @@ fun Header(title: String, onBack: () -> Unit) {
 @Composable
 fun AppDrawer(onBack: () -> Unit) {
     val ctx = LocalContext.current
-    val apps = remember { mutableStateListOf<LaunchApp>() }
-    LaunchedEffect(Unit) { apps.addAll(withContext(Dispatchers.IO) { Apps.list(ctx) }) }
+    var apps by remember { mutableStateOf<List<LaunchApp>?>(null) }
+    LaunchedEffect(Unit) { apps = withContext(Dispatchers.IO) { Apps.list(ctx) } }
+    AppDrawerContent(apps, onOpen = { Apps.open(ctx, it) }, onBack = onBack)
+}
+
+/** Applis de l'autoradio et du système (rangées à part, après les applis installées). */
+private fun isVendorApp(pkg: String) = pkg.startsWith("android.car.") || pkg.startsWith("com.android.") ||
+    pkg.startsWith("com.rockchip") || pkg.startsWith("android.rockchip") || pkg == "android"
+
+/**
+ * Tiroir d'applis : tuiles en cartes, rangées en deux groupes (« Mes applis », puis « Autoradio » avec le
+ * bureau d'origine en tête). Icônes converties une seule fois et grille à nombre de colonnes fixe : le défilement
+ * ne recalcule plus rien (il saccadait sur l'autoradio).
+ */
+@Composable
+fun AppDrawerContent(apps: List<LaunchApp>?, onOpen: (LaunchApp) -> Unit, onBack: () -> Unit) {
+    class Tile(val app: LaunchApp, val img: androidx.compose.ui.graphics.ImageBitmap?)
+    val groups = remember(apps) {
+        val tiles = apps.orEmpty().map { Tile(it, it.icon?.asImageBitmap()) }
+        val (vendor, mine) = tiles.partition { isVendorApp(it.app.pkg) }
+        listOf(
+            "Mes applis" to mine,
+            "Autoradio" to vendor.sortedBy { if (it.app.pkg == "com.android.launcher3") 0 else 1 },
+        ).filter { it.second.isNotEmpty() }
+    }
     Column(Modifier.fillMaxSize()) {
         Header("Applis", onBack)
+        if (apps == null) {
+            Text("Chargement…", color = Muted, fontSize = 15.sp, modifier = Modifier.padding(horizontal = 24.dp))
+            return@Column
+        }
         LazyVerticalGrid(
-            GridCells.Adaptive(110.dp),
-            Modifier.fillMaxSize().padding(horizontal = 12.dp),
+            GridCells.Fixed(7),
+            Modifier.fillMaxSize(),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            items(apps, key = { it.pkg + "/" + it.activity }) { a ->
-                Column(
-                    Modifier.clip(RoundedCornerShape(14.dp)).clickable { Apps.open(ctx, a) }.padding(10.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    if (a.icon != null) Image(a.icon.asImageBitmap(), null, Modifier.size(56.dp))
-                    else Box(Modifier.size(56.dp).clip(RoundedCornerShape(14.dp)).background(Card))
-                    Spacer(Modifier.height(6.dp))
-                    Text(a.label, color = Ink, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            for ((title, list) in groups) {
+                item(key = "titre-$title", span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }, contentType = "titre") {
+                    Row(Modifier.padding(top = 6.dp, start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(title.uppercase(), color = AccentText, fontSize = 13.sp, fontWeight = FontWeight.Black, letterSpacing = 1.5.sp)
+                        Spacer(Modifier.width(8.dp))
+                        Text("${list.size}", color = Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                items(list, key = { it.app.pkg + "/" + it.app.activity }, contentType = { "appli" }) { t ->
+                    Column(
+                        Modifier.clip(RoundedCornerShape(18.dp)).background(Card).clickable { onOpen(t.app) }
+                            .padding(top = 14.dp, bottom = 10.dp, start = 6.dp, end = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Box(
+                            Modifier.size(62.dp).clip(RoundedCornerShape(18.dp)).background(Color.White.copy(alpha = 0.07f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (t.img != null) Image(t.img, null, Modifier.size(48.dp))
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            t.app.label, color = Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, lineHeight = 15.sp,
+                            maxLines = 2, minLines = 2, overflow = TextOverflow.Ellipsis,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        )
+                    }
                 }
             }
         }

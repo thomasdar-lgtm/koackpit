@@ -33,6 +33,25 @@ open class Screenshots {
 
     private val media = MediaInfo("Chandelier", "Sia", playing = true)
 
+    private fun fakeIcon(c: Int): android.graphics.Bitmap = android.graphics.Bitmap.createBitmap(96, 96, android.graphics.Bitmap.Config.ARGB_8888).apply {
+        val cv = android.graphics.Canvas(this)
+        val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = c }
+        cv.drawRoundRect(android.graphics.RectF(4f, 4f, 92f, 92f), 24f, 24f, p)
+        p.color = 0xFFFFFFFF.toInt(); cv.drawCircle(48f, 48f, 20f, p)
+    }
+
+    @Test
+    fun applis() = captureRoboImage("build/screens/${p}applis.png") { Scaled {
+        val cols = listOf(0xFF33CCFF, 0xFFEF5350, 0xFF66BB6A, 0xFFFFA726, 0xFFAB47BC, 0xFF26A69A, 0xFF5C6BC0, 0xFF8D6E63).map { it.toInt() }
+        val names = listOf("com.waze" to "Waze", "deezer.android.app" to "Deezer", "com.google.android.apps.maps" to "Maps",
+            "com.spotify.music" to "Spotify", "com.koala.koackpit.updater" to "Koackpit Mise à jour", "org.videolan.vlc" to "VLC",
+            "com.android.chrome" to "Chrome", "com.vivaldi.browser" to "Vivaldi", "com.android.launcher3" to "Bureau autoradio",
+            "com.android.settings" to "Paramètres", "android.car.app.bt" to "Bluetooth", "android.car.app.radio" to "Radio",
+            "android.car.app.car_settings" to "Réglage de la voiture", "android.car.app.canbus" to "CarCanbus",
+            "com.android.gallery3d" to "Galerie", "android.car.app.video_backcar" to "Caméra de recul", "com.android.soundrecorder" to "Magnétophone")
+        AppDrawerContent(names.mapIndexed { i, (pk, l) -> LaunchApp(pk, "$pk.Main", l, fakeIcon(cols[i % cols.size])) }.sortedBy { it.label.lowercase() }, {}, {})
+    } }
+
     @Test
     fun accueil() = captureRoboImage("build/screens/${p}accueil.png") { Scaled {
         LinkStatus.state.value = Links(bt = true, wifi = true, wifiLevel = 2)
