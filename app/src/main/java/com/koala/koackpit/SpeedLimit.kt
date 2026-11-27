@@ -377,6 +377,7 @@ object SpeedLimit {
                 conn.connectTimeout = 8_000; conn.readTimeout = 12_000
                 if (conn.responseCode != 200) null
                 else JSONObject(conn.inputStream.bufferedReader().readText()).optJSONArray("items")?.optJSONObject(0)
+                    ?.takeIf { it.optInt("distance", 999) <= 50 }   // point loin de toute route : rue incertaine
                     ?.optJSONObject("address")?.optString("street")?.takeIf { it.isNotBlank() }
             } catch (e: Exception) { null } finally { conn.disconnect() }
         }
