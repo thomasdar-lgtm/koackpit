@@ -33,11 +33,7 @@ object UpdateOverlay {
         val upd = UpdateHub.state
         val awake = (app.getSystemService(Context.POWER_SERVICE) as PowerManager).isInteractive
         val info = upd.info
-        // Jamais pendant que la voiture roule : l'installation redémarre Koackpit (écran figé, Bluetooth et
-        // Wi-Fi affichés « non connecté » le temps de la reprise). La carte revient à l'arrêt.
-        val moving = (CanBus.freshSpeed() ?: 0) > 3
-        val busy0 = upd.progress != null || upd.status.startsWith("Installation")
-        if (info == null || !awake || (moving && !busy0)) { hide(app); return }
+        if (info == null || !awake) { hide(app); return }
         val v = view ?: create(app) ?: return
         val status = upd.status
         val p = upd.progress

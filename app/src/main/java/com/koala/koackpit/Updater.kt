@@ -207,9 +207,6 @@ object Updater {
 fun UpdateBanner(upd: UpdateState, modifier: Modifier = Modifier) {
     val info = upd.info ?: return
     val ctx = LocalContext.current
-    // Masquée quand la voiture roule (l'installation redémarre Koackpit) ; revient à l'arrêt
-    val busy = upd.progress != null || upd.status.startsWith("Installation")
-    if ((CanBus.speed.value ?: 0) > 3 && !busy) return
     UpdateChip(modifier, info.version, upd.progress, upd.status) {
         WakeLog.add(ctx, "Mise à jour : appui sur Installer (${info.version})")
         Updater.startInstall(ctx, upd)
