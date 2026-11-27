@@ -317,6 +317,12 @@ object SpeedLimit {
      * Un appel tous les 150 m roulés (6 s minimum entre deux) ; forfait gratuit : 1 000 appels/jour, Koackpit
      * s'arrête à 900 et repasse alors sur OpenStreetMap. Sans clé (BuildConfig.HERE_KEY vide) : OpenStreetMap seul.
      */
+    /** Rue sous la voiture selon HERE (dernière réponse de moins de 45 s), ou null. */
+    fun currentStreet(): String? = Here.street.takeIf { Here.active && it.isNotBlank() }
+
+    /** Rue la plus proche d'un point (HERE, appel bloquant, compté dans le quota du jour), ou null si impossible. */
+    fun streetAt(lat: Double, lon: Double): String? = Here.streetAt(lat, lon)
+
     private object Here {
         private const val DAY_MAX = 900
         @Volatile private var busy = false
@@ -359,6 +365,20 @@ object SpeedLimit {
                     lastErr = m
                 } finally { busy = false }
             }.start()
+        }
+
+        fun streetAt(lat: Double, lon: Double): String? {
+            if (BuildConfig.HERE_KEY.isBlank() || dayCount(false) >= DAY_MAX) return null
+            val url = "https://revgeocode.search.hereapi.com/v1/revgeocode?at=%.6f,%.6f".format(java.util.Locale.US, lat, lon) +
+                "&types=street&lang=fr&apiKey=" + BuildConfig.HERE_KEY
+            dayCount(true)
+            val conn = URL(url).openConnection() as HttpURLConnection
+            return try {
+                conn.connectTimeout = 8_000; conn.readTimeout = 12_000
+                if (conn.responseCode != 200) null
+                else JSONObject(conn.inputStream.bufferedReader().readText()).optJSONArray("items")?.optJSONObject(0)
+                    ?.optJSONObject("address")?.optString("street")?.takeIf { it.isNotBlank() }
+            } catch (e: Exception) { null } finally { conn.disconnect() }
         }
 
         private val DIRS = mapOf("N" to 0, "NE" to 45, "E" to 90, "SE" to 135, "S" to 180, "SW" to 225, "W" to 270, "NW" to 315)
