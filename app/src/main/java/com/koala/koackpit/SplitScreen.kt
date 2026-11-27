@@ -103,8 +103,12 @@ object SplitScreen {
             (app.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager).defaultDisplay.getRealSize(size)
             val w = maxOf(size.x, size.y); val hgt = minOf(size.x, size.y)
             val r = runCatching {
-                RootWindows.run(app, "drive", navPkg, (w / PANEL_FRACTION).toString(), w.toString(), hgt.toString())
+                val res = app.resources
+                val barId = res.getIdentifier("status_bar_height", "dimen", "android")
+                val bar = if (barId != 0) res.getDimensionPixelSize(barId) else (24 * res.displayMetrics.density).toInt()
+                RootWindows.run(app, "drive", navPkg, (w / PANEL_FRACTION).toString(), w.toString(), hgt.toString(), bar.toString())
             }.getOrElse { "ERREUR ${it.message}" }
+            if ("barre masquée" in r) app.getSharedPreferences("barre", Context.MODE_PRIVATE).edit().putBoolean("cachee", true).apply()
             WakeLog.add(app, "Disposition conduite (${android.os.SystemClock.elapsedRealtime() - t0} ms) : ${r.trim().take(300)}")
         }.start()
     }
@@ -118,8 +122,26 @@ object SplitScreen {
         val t0 = android.os.SystemClock.elapsedRealtime()
         Thread {
             val r = runCatching { RootWindows.run(app, "dismiss") }.getOrElse { "ERREUR ${it.message}" }
+            if ("barre rendue" in r) app.getSharedPreferences("barre", Context.MODE_PRIVATE).edit().putBoolean("cachee", false).apply()
             WakeLog.add(app, "Fin de conduite (${android.os.SystemClock.elapsedRealtime() - t0} ms) : ${r.trim().take(200)}")
             then?.let { Handler(Looper.getMainLooper()).post(it) }
+        }.start()
+    }
+
+    /**
+     * Au démarrage hors conduite : si la barre d'état est restée cachée (contact coupé en pleine conduite),
+     * on la rend, sinon elle manquerait sur le bureau de l'autoradio.
+     */
+    fun restoreBarIfNeeded(ctx: Context) {
+        val app = ctx.applicationContext
+        val p = app.getSharedPreferences("barre", Context.MODE_PRIVATE)
+        if (!p.getBoolean("cachee", false) || Prefs.driving(app)) return
+        Thread {
+            Thread.sleep(20_000)
+            if (Prefs.driving(app) || MusicActivity.isOpen()) return@Thread
+            val r = runCatching { RootWindows.run(app, "barshow") }.getOrElse { "ERREUR ${it.message}" }
+            if ("barre rendue" in r) p.edit().putBoolean("cachee", false).apply()
+            WakeLog.add(app, "Barre d'état (démarrage hors conduite) : ${r.trim().take(120)}")
         }.start()
     }
 

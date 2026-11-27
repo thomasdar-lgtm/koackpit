@@ -118,7 +118,15 @@ object RootTool {
                 }
                 step = "largeur $r"
                 call("resizeDockedStack", r, null, null, null, null)
-                "OK [$source] " + stacks()
+                // Barre d'état de l'autoradio poussée hors de l'écran pendant la conduite : Android 9 l'impose
+                // en écran partagé (au-dessus de Waze et en transparence sur le panneau). Rendue à la fin.
+                val bar = args.getOrNull(5)?.toIntOrNull()?.takeIf { it in 10..120 }
+                val barMsg = if (bar == null) "" else {
+                    step = "barre d'état"
+                    val rc = Runtime.getRuntime().exec(arrayOf("wm", "overscan", "0,-$bar,0,0")).waitFor()
+                    " · barre masquée ($bar px, code $rc)"
+                }
+                "OK [$source] " + stacks() + barMsg
             }
             "anim" -> {
                 // Vitesse des animations d'Android (ouverture/fermeture/changement de fenêtre). 1 = d'origine.
@@ -128,7 +136,12 @@ object RootTool {
                     Runtime.getRuntime().exec(arrayOf("settings", "put", "global", k, v)).waitFor()
                 "OK"
             }
-            "dismiss" -> { step = "fermeture"; call("dismissSplitScreenMode", false); "OK" }
+            "dismiss" -> {
+                step = "fermeture"; call("dismissSplitScreenMode", false)
+                val rc = Runtime.getRuntime().exec(arrayOf("wm", "overscan", "reset")).waitFor()
+                "OK · barre rendue (code $rc)"
+            }
+            "barshow" -> "OK · barre rendue (code ${Runtime.getRuntime().exec(arrayOf("wm", "overscan", "reset")).waitFor()})"
             "stacks" -> stacks()
             // Écran au premier plan (« paquet/activité ») : sert à la surveillance du démarrage
             "top" -> {

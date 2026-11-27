@@ -303,6 +303,7 @@ class WakeService : Service() {
         watchWifi()
         unthrottleWifiScan()
         restoreStatusBar()
+        SplitScreen.restoreBarIfNeeded(this)
         startupGuard(this)
         // L'autoradio réactive au redémarrage les applis allégées (FM, DVD…) : on les redésactive (après 50 s,
         // pour ne pas gêner une mise à jour ni les autres accès système du démarrage)

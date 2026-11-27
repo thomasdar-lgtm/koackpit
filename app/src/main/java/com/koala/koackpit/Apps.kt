@@ -70,6 +70,18 @@ object Apps {
         )
     }.isSuccess
 
+    /**
+     * Bureau d'origine de l'autoradio : ce n'est pas une appli « lançable », il n'apparaissait donc pas dans le
+     * tiroir. Ajouté sous le nom « Bureau autoradio » (accès aux réglages et aux applis du fabricant).
+     */
+    private fun desktop(ctx: Context, pm: PackageManager, size: Int): List<LaunchApp> =
+        pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), PackageManager.MATCH_ALL)
+            .filter { it.activityInfo.packageName != ctx.packageName && it.activityInfo.packageName != "com.android.settings" }
+            .map { ri ->
+                val icon = runCatching { ri.loadIcon(pm).toBitmap(size, size) }.getOrNull()
+                LaunchApp(ri.activityInfo.packageName, ri.activityInfo.name, "Bureau autoradio", icon)
+            }
+
     /** Toutes les applis lançables, triées par nom (pour le tiroir). */
     fun list(ctx: Context): List<LaunchApp> {
         val pm = ctx.packageManager
@@ -81,6 +93,7 @@ object Apps {
                 val icon = runCatching { ri.loadIcon(pm).toBitmap(size, size) }.getOrNull()
                 LaunchApp(ri.activityInfo.packageName, ri.activityInfo.name, ri.loadLabel(pm).toString(), icon)
             }
+            .plus(desktop(ctx, pm, size))
             .distinctBy { it.pkg + "/" + it.activity }
             .sortedBy { it.label.lowercase() }
     }
