@@ -102,7 +102,8 @@ object Radar {
                 log("fin de zone (${c.label})")
                 cur = null; alert.value = null
             } else {
-                alert.value = Alert(c.label, c.vma, left.toInt(), c.vma != null && kmh != null && kmh > c.vma)
+                val v = shownVma(c)
+                alert.value = Alert(c.label, v, left.toInt(), v != null && kmh != null && kmh > v)
                 return
             }
         }
@@ -131,13 +132,7 @@ object Radar {
         // plusieurs secondes ; demandée seulement à l'entrée de la zone, l'alerte arrivait radar passé (27/11).
         ahead?.let { if (it !== best) sameRoad(ctx, it) }
         val s = best ?: return
-        // Limitation de la route très différente de celle du radar (ex. radar 80 alors qu'on roule sur
-        // une route à 110, 27/11) : le radar est sur une autre route (bretelle, route voisine).
-        val lim = SpeedLimit.limit.value
-        if (s.vma != null && lim != null && abs(s.vma - lim) >= 30) {
-            log("radar n°${s.n} ignoré : contrôle à ${s.vma}, route limitée à $lim")
-            done[s] = now; return
-        }
+
         // Même route ? (rue du radar selon HERE, demandée une fois en arrière-plan)
         when (val v = sameRoad(ctx, s)) {
             null -> return                                     // réponse en attente : on revérifie à la position suivante
@@ -148,12 +143,21 @@ object Radar {
         walked = s.before - bestD   // on entre dans la zone là où on la détecte
         lastLat = loc.latitude; lastLon = loc.longitude
         val left = (s.len - walked).toInt()
-        alert.value = Alert(s.label, s.vma, left, s.vma != null && kmh != null && kmh > s.vma)
-        log("zone de danger : ${s.label}${s.vma?.let { " $it" } ?: ""}, ${s.len.toInt()} m")
+        val v = shownVma(s)
+        alert.value = Alert(s.label, v, left, v != null && kmh != null && kmh > v)
+        log("zone de danger : ${s.label}${s.vma?.let { " $it (liste officielle)" } ?: ""}, affiché ${v ?: "sans vitesse"}, ${s.len.toInt()} m")
         beep()
     }
 
     private const val PREFETCH = 4000.0
+
+    /**
+     * Vitesse affichée dans le bandeau : celle de la route (panneau affiché par Koackpit), pas celle de la
+     * liste officielle, qui peut être fausse ou ancienne (radar noté 80 sur une route à 110, 27/11).
+     * Feu rouge / passage à niveau : pas de vitesse.
+     */
+    private fun shownVma(s: Spot): Int? =
+        if (s.type == "ETFR" || s.type == "ETPN") null else SpeedLimit.limit.value ?: s.vma
 
     // Rue de chaque radar (HERE), gardée d'un trajet à l'autre ; « ? » = HERE n'a pas pu répondre
     private val roads = HashMap<Int, String>()
