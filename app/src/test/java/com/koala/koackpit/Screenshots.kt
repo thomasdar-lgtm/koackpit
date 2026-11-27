@@ -191,7 +191,7 @@ open class Screenshots {
     fun diagnostic_fichier() = captureRoboImage("build/screens/${p}diagnostic-fichier.png") { Scaled {
         val f = java.io.File.createTempFile("koackpit-diag", ".zip")
         ExportPanel(diagApps, emptyList(), false, null, "", f, "http://192.168.43.12:8080/koackpit-diag.zip", "Téléchargements/Koackpit/koackpit-diag.zip",
-            "Envoyé sur le téléphone : touche la notification « Diagnostic Koackpit » pour me l'envoyer.",
+            "Envoyé sur le S25 : touche la notification.",
             {}, {}, {}, {}, qr = qrBitmap("http://192.168.43.12:8080/koackpit-diag.zip"))
     } }
 

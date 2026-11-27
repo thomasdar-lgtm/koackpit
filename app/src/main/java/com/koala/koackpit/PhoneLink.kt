@@ -99,7 +99,7 @@ object PhoneLink {
                 c.setRequestProperty("Content-Type", "application/zip")
                 c.outputStream.use { o -> f.inputStream().use { it.copyTo(o) } }
                 when (c.responseCode) {
-                    200 -> "Envoyé sur le téléphone : touche la notification « Diagnostic Koackpit » pour me l'envoyer."
+                    200 -> "Envoyé sur le S25 : touche la notification."
                     404 -> "Le téléphone n'a pas pu le recevoir : mets à jour Koackpit Téléphone (1.7)."
                     else -> "Le téléphone n'a pas pu le recevoir (erreur ${c.responseCode})."
                 }
