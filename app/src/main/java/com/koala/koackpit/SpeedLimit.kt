@@ -226,6 +226,17 @@ object SpeedLimit {
         } finally { conn.disconnect() }
     }
 
+    /** Requête Overpass libre (radars) : premier serveur qui répond, null si aucun. */
+    fun overpass(q: String): String? {
+        for (n in SERVERS.indices) {
+            val url = SERVERS[(server + n) % SERVERS.size]
+            val t = runCatching { post(url, q) }.getOrNull() ?: continue
+            if (runCatching { JSONObject(t).optString("remark") }.getOrDefault("").isNotBlank()) continue
+            return t
+        }
+        return null
+    }
+
     /** Routes avec limitation d'un carreau (et autoroutes : 130 par défaut en France). */
     private fun fetchTile(k: String): List<Way> {
         val (ty, tx) = k.split(',').map { it.toInt() }

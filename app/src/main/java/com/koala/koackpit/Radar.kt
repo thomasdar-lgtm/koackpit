@@ -7,6 +7,8 @@ import android.media.ToneGenerator
 import android.os.SystemClock
 import androidx.compose.runtime.mutableStateOf
 import kotlin.math.abs
+import kotlin.math.roundToInt
+import org.json.JSONObject
 import kotlin.math.atan2
 import kotlin.math.cos
 
@@ -80,7 +82,7 @@ object Radar {
             val p = line.split(';')
             if (p.size < 4) null else Spot(i, p[0], p[1].toIntOrNull(), p[2].toDouble(), p[3].toDouble())
         }
-        spots = l; cur = null; done.clear()
+        spots = l; cur = null; done.clear(); near.clear()
         return l.size
     }
 
@@ -128,13 +130,13 @@ object Radar {
             if (dd > s.before || dd >= bestD) continue
             best = s; bestD = dd
         }
-        // Rue du prochain radar demandée à l'avance (jusqu'à 4 km) : la réponse de HERE peut prendre
-        // plusieurs secondes ; demandée seulement à l'entrée de la zone, l'alerte arrivait radar passé (27/11).
-        ahead?.let { if (it !== best) sameRoad(ctx, it) }
+        // Routes du prochain radar demandées à l'avance (jusqu'à 4 km) : la réponse peut prendre plusieurs
+        // secondes ; demandée seulement à l'entrée de la zone, l'alerte arrivait radar passé (27/11).
+        ahead?.let { if (it !== best) around(ctx, it) }
         val s = best ?: return
 
-        // Même route ? (rue du radar selon HERE, demandée une fois en arrière-plan)
-        when (val v = sameRoad(ctx, s)) {
+        // Même route et même sens ? (routes autour du radar, demandées une fois en arrière-plan)
+        when (val v = sameRoad(ctx, s, loc)) {
             null -> return                                     // réponse en attente : on revérifie à la position suivante
             false -> { done[s] = now; return }                 // autre route : ignoré 10 min
             true -> {}
@@ -159,40 +161,126 @@ object Radar {
     private fun shownVma(s: Spot): Int? =
         if (s.type == "ETFR" || s.type == "ETPN") null else SpeedLimit.limit.value ?: s.vma
 
-    // Rue de chaque radar (HERE), gardée d'un trajet à l'autre ; « ? » = HERE n'a pas pu répondre
-    private val roads = HashMap<Int, String>()
+    // Routes autour de chaque radar, gardées d'un trajet à l'autre ; « ? » = pas de réponse (ce trajet seulement)
+    private val near = HashMap<Int, String>()
 
-    private fun known(ctx: Context, s: Spot): Boolean = roads.containsKey(s.n) ||
-        ctx.getSharedPreferences("radar-rues", Context.MODE_PRIVATE).contains("r${s.n}")
+    private fun known(ctx: Context, s: Spot): Boolean = near.containsKey(s.n) ||
+        ctx.getSharedPreferences("radar-routes", Context.MODE_PRIVATE).contains("o${s.n}")
     @Volatile private var asking = -1
     private var asked = 0L
 
-    /** true = même rue (ou impossible à savoir), false = autre rue, null = réponse en attente. */
-    private fun sameRoad(ctx: Context, s: Spot): Boolean? {
-        val p = ctx.getSharedPreferences("radar-rues", Context.MODE_PRIVATE)
-        val road = roads[s.n] ?: p.getString("r${s.n}", null)?.also { roads[s.n] = it }
-        if (road == null) {
-            if (BuildConfig.HERE_KEY.isBlank()) return true      // pas de HERE (essais) : comme avant
-            val now = SystemClock.elapsedRealtime()
-            if (asking == s.n && now - asked < 15_000) return null
-            if (asking == s.n) { roads[s.n] = "?"; return true }        // pas de réponse en 15 s : on alerte
-            asking = s.n; asked = now
-            Thread {
-                val r = SpeedLimit.streetAt(s.lat, s.lon)
-                roads[s.n] = r ?: "?"
-                if (r != null) p.edit().putString("r${s.n}", r).apply()
-                asking = -1
-            }.start()
-            return null
+    /**
+     * Routes réelles autour du radar (OpenStreetMap, 35 m) : nom/numéro, sens unique ou non, cap de la chaussée
+     * au droit du radar, distance. Remplace la rue donnée par HERE, qui se trompait sur les 2×2 voies longées
+     * d'une petite route (27/11, D824 : radar placé sur « Route de Peyrehitte », donc ignoré, puis alerte pour
+     * le radar de la chaussée d'en face). Gardé d'un trajet à l'autre.
+     * Format : une route par ligne « noms|sensunique(0/1)|cap|distance ».
+     */
+    /** Essais sans réseau : routes fournies par le test (n° de radar → lignes « noms|sensunique|cap|distance »). */
+    internal var testRoads: Map<Int, String>? = null
+
+    private fun around(ctx: Context, s: Spot): List<Road>? {
+        testRoads?.let { t -> return t[s.n]?.lines()?.mapNotNull(Road::parse) ?: emptyList() }
+        val p = ctx.getSharedPreferences("radar-routes", Context.MODE_PRIVATE)
+        val raw = near[s.n] ?: p.getString("o${s.n}", null)?.also { near[s.n] = it }
+        if (raw != null) return if (raw == "?") emptyList() else raw.lines().mapNotNull(Road::parse)
+        val now = SystemClock.elapsedRealtime()
+        if (asking == s.n && now - asked < 25_000) return null
+        if (asking == s.n) { near[s.n] = "?"; log("radar n°${s.n} : routes inconnues (pas de réponse)"); return emptyList() }
+        if (asking != -1 && now - asked < 25_000) return null   // une demande à la fois
+        asking = s.n; asked = now
+        Thread {
+            val r = runCatching { fetchRoads(s) }.getOrNull()
+            if (r != null) {
+                val txt = r.joinToString("\n") { it.line() }
+                near[s.n] = txt
+                p.edit().putString("o${s.n}", txt).apply()
+            } else near[s.n] = "?"
+            asking = -1
+        }.start()
+        return null
+    }
+
+    private class Road(val names: String, val oneway: Boolean, val cap: Int, val d: Int) {
+        fun line() = "$names|${if (oneway) 1 else 0}|$cap|$d"
+        companion object {
+            fun parse(l: String): Road? = l.split('|').takeIf { it.size == 4 }?.let {
+                Road(it[0], it[1] == "1", it[2].toIntOrNull() ?: return null, it[3].toIntOrNull() ?: return null)
+            }
         }
-        val here = SpeedLimit.currentStreet()
-        if (road == "?" || here == null) return true
-        fun norm(x: String) = java.text.Normalizer.normalize(x.lowercase(), java.text.Normalizer.Form.NFD)
-            .replace(Regex("\\p{M}+"), "").replace(Regex("[^a-z0-9]"), "")
-        val a = norm(road); val b = norm(here)
-        val same = a == b || (a.length > 3 && b.length > 3 && (a.contains(b) || b.contains(a)))
-        if (!same) log("radar n°${s.n} ignoré : sur « $road », on roule sur « $here »")
-        return same
+    }
+
+    private const val HW = "motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|" +
+        "tertiary|tertiary_link|unclassified|residential|living_street|road"
+
+    private fun fetchRoads(s: Spot): List<Road>? {
+        val q = "[out:json][timeout:20];way(around:35,%.6f,%.6f)[highway~\"^($HW)$\"];out tags geom;"
+            .format(java.util.Locale.US, s.lat, s.lon)
+        val js = JSONObject(SpeedLimit.overpass(q) ?: return null)
+        val els = js.getJSONArray("elements")
+        val kx = 111_320.0 * cos(Math.toRadians(s.lat)); val ky = 110_540.0
+        val out = ArrayList<Road>()
+        for (i in 0 until els.length()) {
+            val e = els.getJSONObject(i)
+            val t = e.optJSONObject("tags") ?: JSONObject()
+            val g = e.optJSONArray("geometry") ?: continue
+            var bestD = Double.MAX_VALUE; var bestCap = 0.0
+            for (k in 0 until g.length() - 1) {
+                val a = g.getJSONObject(k); val b = g.getJSONObject(k + 1)
+                val ax = (a.getDouble("lon") - s.lon) * kx; val ay = (a.getDouble("lat") - s.lat) * ky
+                val bx = (b.getDouble("lon") - s.lon) * kx; val by = (b.getDouble("lat") - s.lat) * ky
+                val dx = bx - ax; val dy = by - ay; val l2 = dx * dx + dy * dy
+                val u = if (l2 == 0.0) 0.0 else (-(ax * dx + ay * dy) / l2).coerceIn(0.0, 1.0)
+                val d = Math.hypot(ax + u * dx, ay + u * dy)
+                if (d < bestD) { bestD = d; bestCap = (Math.toDegrees(atan2(dx, dy)) + 360) % 360 }
+            }
+            if (bestD == Double.MAX_VALUE) continue
+            val hw = t.optString("highway"); val ow = t.optString("oneway")
+            val oneway = ow in setOf("yes", "1", "true", "-1") ||
+                (ow != "no" && (hw == "motorway" || t.optString("junction") in setOf("roundabout", "circular")))
+            if (ow == "-1") bestCap = (bestCap + 180) % 360
+            val names = listOf(t.optString("ref"), t.optString("name")).flatMap { it.split(';') }
+                .map(::norm).filter { it.isNotBlank() }.joinToString(",")
+            out += Road(names, oneway, bestCap.roundToInt(), bestD.roundToInt())
+        }
+        return out
+    }
+
+    private fun norm(x: String) = java.text.Normalizer.normalize(x.lowercase(), java.text.Normalizer.Form.NFD)
+        .replace(Regex("\\p{M}+"), "").replace(Regex("[^a-z0-9]"), "")
+
+    private fun angle(a: Float, b: Int): Float = abs(a - b).let { if (it > 180) 360 - it else it }
+
+    /**
+     * Le radar contrôle-t-il la route et le sens où l'on roule ? null = en attente des routes.
+     * - route connue (HERE) : on garde les chaussées du radar qui portent ce nom ou ce numéro ;
+     *   aucune → radar sur une autre route (ignoré) ;
+     * - 2×2 voies (chaussées à sens unique) : la chaussée de notre sens doit être la plus proche du radar,
+     *   sinon il est sur la chaussée d'en face (ignoré) ;
+     * - sinon (routes inconnues, pas de réponse) : on alerte, comme avant.
+     */
+    private fun sameRoad(ctx: Context, s: Spot, loc: Location): Boolean? {
+        val list = around(ctx, s) ?: return null
+        if (list.isEmpty()) return true
+        val here = SpeedLimit.currentStreet()?.let(::norm)?.takeIf { it.isNotBlank() }
+        fun match(r: Road) = here == null || r.names.split(',').any { n ->
+            n == here || (n.length > 3 && here.length > 3 && (n.contains(here) || here.contains(n)))
+        }
+        val ours = list.filter(::match)
+        if (ours.isEmpty()) {
+            log("radar n°${s.n} ignoré : routes du radar « ${list.joinToString(" / ") { it.names.ifBlank { "?" } }} », on roule sur « ${SpeedLimit.currentStreet()} »")
+            return false
+        }
+        if (!loc.hasBearing()) return true
+        val ways = ours.filter { it.oneway }
+        if (ways.isEmpty()) return true
+        val mine = ways.filter { angle(loc.bearing, it.cap) < 70 }.minByOrNull { it.d }
+        val other = ways.filter { angle(loc.bearing, it.cap) > 110 }.minByOrNull { it.d }
+        if (other != null && (mine == null || other.d + 3 < mine.d)) {
+            log("radar n°${s.n} ignoré : sur la chaussée d'en face (${other.d} m contre ${mine?.d ?: "–"} m)")
+            return false
+        }
+        return true
     }
 
     private fun dist(loc: Location, s: Spot): Float {
