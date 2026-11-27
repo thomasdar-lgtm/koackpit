@@ -49,7 +49,9 @@ open class Screenshots {
             "com.android.settings" to "Paramètres", "android.car.app.bt" to "Bluetooth", "android.car.app.radio" to "Radio",
             "android.car.app.car_settings" to "Réglage de la voiture", "android.car.app.canbus" to "CarCanbus",
             "com.android.gallery3d" to "Galerie", "android.car.app.video_backcar" to "Caméra de recul", "com.android.soundrecorder" to "Magnétophone")
-        AppDrawerContent(names.mapIndexed { i, (pk, l) -> LaunchApp(pk, "$pk.Main", l, fakeIcon(cols[i % cols.size])) }.sortedBy { it.label.lowercase() }, {}, {})
+        Box(Modifier.fillMaxSize().screenBg()) {
+            AppDrawerContent(names.mapIndexed { i, (pk, l) -> LaunchApp(pk, "$pk.Main", l, fakeIcon(cols[i % cols.size])) }.sortedBy { it.label.lowercase() }, {}, {})
+        }
     } }
 
     @Test

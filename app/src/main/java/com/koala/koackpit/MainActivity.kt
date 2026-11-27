@@ -286,18 +286,19 @@ fun AppDrawerContent(apps: List<LaunchApp>?, onOpen: (LaunchApp) -> Unit, onBack
             "Autoradio" to vendor.sortedBy { if (it.app.pkg == "com.android.launcher3") 0 else 1 },
         ).filter { it.second.isNotEmpty() }
     }
-    Column(Modifier.fillMaxSize().screenBg()) {
+    // Pas de fond ici : l'écran principal en a déjà un (le dessiner deux fois ralentissait le défilement)
+    Column(Modifier.fillMaxSize()) {
         Header("Applis", onBack)
         if (apps == null) {
             Text("Chargement…", color = Muted, fontSize = 15.sp, modifier = Modifier.padding(horizontal = 24.dp))
             return@Column
         }
         LazyVerticalGrid(
-            GridCells.Fixed(7),
+            GridCells.Fixed(9),
             Modifier.fillMaxSize(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 20.dp, end = 20.dp, bottom = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             for ((title, list) in groups) {
                 item(key = "titre-$title", span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }, contentType = "titre") {
@@ -308,20 +309,17 @@ fun AppDrawerContent(apps: List<LaunchApp>?, onOpen: (LaunchApp) -> Unit, onBack
                     }
                 }
                 items(list, key = { it.app.pkg + "/" + it.app.activity }, contentType = { "appli" }) { t ->
+                    // Tuile légère : un seul fond arrondi, l'icône posée directement (moins de calques à dessiner)
                     Column(
-                        Modifier.clip(RoundedCornerShape(18.dp)).background(Card).clickable { onOpen(t.app) }
-                            .padding(top = 14.dp, bottom = 10.dp, start = 6.dp, end = 6.dp),
+                        Modifier.fillMaxWidth().background(Card, RoundedCornerShape(14.dp)).clip(RoundedCornerShape(14.dp))
+                            .clickable { onOpen(t.app) }.padding(top = 10.dp, bottom = 8.dp, start = 4.dp, end = 4.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Box(
-                            Modifier.size(62.dp).clip(RoundedCornerShape(18.dp)).background(Color.White.copy(alpha = 0.07f)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            if (t.img != null) Image(t.img, null, Modifier.size(48.dp))
-                        }
-                        Spacer(Modifier.height(8.dp))
+                        if (t.img != null) Image(t.img, null, Modifier.size(44.dp))
+                        else Spacer(Modifier.size(44.dp))
+                        Spacer(Modifier.height(6.dp))
                         Text(
-                            t.app.label, color = Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, lineHeight = 15.sp,
+                            t.app.label, color = Ink, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, lineHeight = 14.sp,
                             maxLines = 2, minLines = 2, overflow = TextOverflow.Ellipsis,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         )
