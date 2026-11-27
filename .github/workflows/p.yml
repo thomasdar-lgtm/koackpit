@@ -1,0 +1,15 @@
+name: ProbeRues
+on: { push: { branches: [probe-rues] } }
+permissions: { contents: write }
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - env: { K: "${{ secrets.HERE_API_KEY }}" }
+        run: |
+          mkdir out
+          for pt in "43.711000,-1.228200" "43.706500,-1.228200" "43.702000,-1.228900" "43.711000,-1.216000" "43.711000,-1.240000"; do
+            echo "== $pt" >> out/res.txt
+            curl -s "https://revgeocode.search.hereapi.com/v1/revgeocode?at=$pt&types=street&lang=fr&apiKey=$K" | python3 -c "import sys,json;d=json.load(sys.stdin);[print(i['address'].get('street'),'|',i.get('distance'),'|',i['address'].get('label')) for i in d.get('items',[])] or print(d)" >> out/res.txt 2>&1
+          done
+          cd out && git init -q -b probe-rues-result && git config user.name b && git config user.email b@b && git add -A && git commit -qm r && git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" probe-rues-result
