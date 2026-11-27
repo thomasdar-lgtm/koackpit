@@ -38,7 +38,16 @@ object RootAccess {
         sp.getMethod("get", String::class.java).invoke(null, key) as String
     }.getOrDefault("?")
 
+    /**
+     * Mise à jour confiée à l'appli compagnon : adb doit rester ouvert et ne pas être redémarré tant qu'elle
+     * installe. Sinon les tâches de fond de Koackpit (fenêtres, appels, luminosité…) le referment ou le
+     * redémarrent en plein milieu → « accès système indisponible (ECONNREFUSED) » (constaté le 27/11).
+     */
+    @Volatile private var holdUntil = 0L
+    private fun held() = android.os.SystemClock.elapsedRealtime() < holdUntil
+
     private fun openAdb(ctx: Context) {
+        if (held()) return   // déjà ouvert pour la mise à jour : on s'y connecte tel quel
         // Noté au journal : permet de voir si une coupure Bluetooth suit une action système de Koackpit
         WakeLog.add(ctx, "Accès système ouvert")
         setProp(ctx, "service.adb.tcp.port", PORT.toString())
@@ -47,6 +56,7 @@ object RootAccess {
 
     /** Referme adb réseau : adb reste disponible uniquement en USB, comme à l'origine. */
     fun closeAdb(ctx: Context) {
+        if (held()) return   // la mise à jour en cours le refermera elle-même
         setProp(ctx, "service.adb.tcp.port", "-1")
         setProp(ctx, "ctl.restart", "adbd")
     }
@@ -143,7 +153,7 @@ object RootAccess {
      * sa réponse. Si l'installation réussit, Android arrête Koackpit pendant la validation : l'installation
      * continue côté système, et le récepteur PackageReplaced relance Koackpit.
      */
-    fun silentInstall(ctx: Context, apk: File, onStep: (String) -> Unit) {
+    fun silentInstall(ctx: Context, apk: File, onStep: (String) -> Unit) = synchronized(lock) {
         val tmp = "/data/local/tmp/koackpit-update.apk"
         openAdb(ctx)
         try {
@@ -209,6 +219,8 @@ object RootAccess {
         try {
             val ls = shellRetry("cp '${apk.absolutePath}' $tmp && chmod 644 $tmp && ls -l $tmp 2>&1")
             if (!ls.contains("koackpit-update.apk") || ls.contains("No such")) throw IllegalStateException("copie impossible : ${ls.take(80)}")
+            // 3 min : le temps de l'installation par l'appli compagnon (Koackpit est remplacé avant la fin)
+            holdUntil = android.os.SystemClock.elapsedRealtime() + 180_000
             tmp
         } catch (e: Exception) {
             closeAdb(ctx)
@@ -218,6 +230,7 @@ object RootAccess {
 
     /** Sécurité : si adb réseau est resté ouvert (coupure pendant une opération), on le referme. */
     fun ensureClosed(ctx: Context) {
+        if (held()) return
         val p = prop("service.adb.tcp.port")
         if (p.isNotEmpty() && p != "-1" && p != "?") closeAdb(ctx)
     }

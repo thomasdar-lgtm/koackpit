@@ -112,19 +112,32 @@ object Radar {
         done.entries.removeAll { now - it.value > 10 * 60_000L }
         val kx = 111_320.0 * cos(Math.toRadians(loc.latitude)); val ky = 110_540.0
         var best: Spot? = null; var bestD = Double.MAX_VALUE
+        var ahead: Spot? = null; var aheadD = Double.MAX_VALUE
         for (s in list) {
             val dy = (s.lat - loc.latitude) * ky
-            if (abs(dy) > 2100) continue
+            if (abs(dy) > PREFETCH) continue
             val dx = (s.lon - loc.longitude) * kx
-            if (abs(dx) > 2100) continue
+            if (abs(dx) > PREFETCH) continue
             val dd = Math.sqrt(dx * dx + dy * dy)
-            if (dd > s.before || dd >= bestD || done.containsKey(s)) continue
+            if (dd > PREFETCH || done.containsKey(s)) continue
             val ang = (Math.toDegrees(atan2(dx, dy)) + 360) % 360
             val diff = abs(ang - loc.bearing).let { if (it > 180) 360 - it else it }
             if (diff > 30) continue
+            if (dd < aheadD && !known(ctx, s)) { ahead = s; aheadD = dd }
+            if (dd > s.before || dd >= bestD) continue
             best = s; bestD = dd
         }
+        // Rue du prochain radar demandée à l'avance (jusqu'à 4 km) : la réponse de HERE peut prendre
+        // plusieurs secondes ; demandée seulement à l'entrée de la zone, l'alerte arrivait radar passé (27/11).
+        ahead?.let { if (it !== best) sameRoad(ctx, it) }
         val s = best ?: return
+        // Limitation de la route très différente de celle du radar (ex. radar 80 alors qu'on roule sur
+        // une route à 110, 27/11) : le radar est sur une autre route (bretelle, route voisine).
+        val lim = SpeedLimit.limit.value
+        if (s.vma != null && lim != null && abs(s.vma - lim) >= 30) {
+            log("radar n°${s.n} ignoré : contrôle à ${s.vma}, route limitée à $lim")
+            done[s] = now; return
+        }
         // Même route ? (rue du radar selon HERE, demandée une fois en arrière-plan)
         when (val v = sameRoad(ctx, s)) {
             null -> return                                     // réponse en attente : on revérifie à la position suivante
@@ -140,8 +153,13 @@ object Radar {
         beep()
     }
 
+    private const val PREFETCH = 4000.0
+
     // Rue de chaque radar (HERE), gardée d'un trajet à l'autre ; « ? » = HERE n'a pas pu répondre
     private val roads = HashMap<Int, String>()
+
+    private fun known(ctx: Context, s: Spot): Boolean = roads.containsKey(s.n) ||
+        ctx.getSharedPreferences("radar-rues", Context.MODE_PRIVATE).contains("r${s.n}")
     @Volatile private var asking = -1
     private var asked = 0L
 
