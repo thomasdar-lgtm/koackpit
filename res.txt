@@ -1,0 +1,10 @@
+== 43.711000,-1.228200
+A63 | 4 | A63, 40230 Saint-Geours-de-Maremne, France
+== 43.706500,-1.228200
+A63 | 7 | A63, 40230 Saint-Geours-de-Maremne, France
+== 43.702000,-1.228900
+A63 | 11 | A63, 40230 Saint-Geours-de-Maremne, France
+== 43.711000,-1.216000
+Rue de la Gravière | 572 | Rue de la Gravière, 40230 Saint-Geours-de-Maremne, France
+== 43.711000,-1.240000
+Route de Soustons | 82 | Route de Soustons, 40230 Saint-Geours-de-Maremne, France
