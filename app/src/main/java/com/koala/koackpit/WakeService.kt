@@ -302,7 +302,7 @@ class WakeService : Service() {
         })
         watchWifi()
         unthrottleWifiScan()
-        hideStatusBarEverywhere()
+        restoreStatusBar()
         startupGuard(this)
         // L'autoradio réactive au redémarrage les applis allégées (FM, DVD…) : on les redésactive (après 50 s,
         // pour ne pas gêner une mise à jour ni les autres accès système du démarrage)
@@ -490,21 +490,18 @@ class WakeService : Service() {
     }
 
     /**
-     * Barre d'état de l'autoradio masquée pour TOUTES les applis (réglage d'Android 9, une fois pour toutes).
-     * En conduite, dès qu'on touche Waze, c'est lui qui décide de la barre : elle réapparaissait en haut, en
-     * transparence, par-dessus Waze (27/11). Toujours affichable un instant en glissant depuis le haut.
+     * Annule le réglage de la 0.20.12 (barre d'état cachée pour toutes les applis) : sans effet en conduite
+     * (Android 9 l'impose en écran partagé), et il la cachait sur le bureau de l'autoradio, où elle sert.
      */
-    private fun hideStatusBarEverywhere() {
-        val want = "immersive.status=*"
+    private fun restoreStatusBar() {
         val v = runCatching { Settings.Global.getString(contentResolver, "policy_control") }.getOrNull()
-        if (v == want) return
+        if (v.isNullOrEmpty() || v == "null") return
         val app = applicationContext
         Thread {
             Thread.sleep(45_000)
             runCatching {
-                RootAccess.run(app, "settings put global policy_control $want")
-                val now = runCatching { Settings.Global.getString(contentResolver, "policy_control") }.getOrNull()
-                WakeLog.add(app, "Barre d'état masquée pour toutes les applis : ${if (now == want) "OK" else "ÉCHEC ($now)"}")
+                RootAccess.run(app, "settings delete global policy_control")
+                WakeLog.add(app, "Barre d'état : réglage « toutes les applis » annulé")
             }
         }.start()
     }
