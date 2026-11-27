@@ -267,8 +267,8 @@ fun AppDrawer(onBack: () -> Unit) {
 }
 
 /** Applis de l'autoradio et du système (rangées à part, après les applis installées). */
-private fun isVendorApp(pkg: String) = pkg.startsWith("android.car.") || pkg.startsWith("com.android.") ||
-    pkg.startsWith("com.rockchip") || pkg.startsWith("android.rockchip") || pkg == "android"
+private fun isVendorApp(pkg: String) = pkg.startsWith("android.car.") || pkg.startsWith("com.rockchip") ||
+    (pkg.startsWith("com.android.") && pkg != "com.android.chrome" && pkg != "com.android.vending")
 
 /**
  * Tiroir d'applis : tuiles en cartes, rangées en deux groupes (« Mes applis », puis « Autoradio » avec le
@@ -286,7 +286,7 @@ fun AppDrawerContent(apps: List<LaunchApp>?, onOpen: (LaunchApp) -> Unit, onBack
             "Autoradio" to vendor.sortedBy { if (it.app.pkg == "com.android.launcher3") 0 else 1 },
         ).filter { it.second.isNotEmpty() }
     }
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().screenBg()) {
         Header("Applis", onBack)
         if (apps == null) {
             Text("Chargement…", color = Muted, fontSize = 15.sp, modifier = Modifier.padding(horizontal = 24.dp))
