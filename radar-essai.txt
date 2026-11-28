@@ -1,0 +1,6 @@
+Radars chargés : 3309
+ETD 80, vers le nord à 78 : zone de -725 m à 1250 m (radar à 0 m), Vitesse, 90, reste 1988 m au début, excès=false
+ETD 80, vers le nord à 95 (excès) : zone de -725 m à 1250 m (radar à 0 m), Vitesse, 90, reste 1988 m au début, excès=true
+route parallèle à 1 km : zone de - m à - m (radar à 0 m)
+feu rouge 48.267350,4.088970 à 45 : zone de -175 m à 100 m (radar à 0 m), Feu rouge, -, reste 292 m au début, excès=false
+arrêté (5 km/h) : zone de - m à - m (radar à 0 m)

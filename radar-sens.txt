@@ -1,0 +1,3 @@
+D824 vers l'est, radar de notre chaussée : zone de -875 m à 1100 m (radar à 0 m), Vitesse, 80, reste 1990 m au début, excès=true
+D824 vers l'est, radar de la chaussée d'en face : zone de - m à - m (radar à 0 m)
+D824 vers l'ouest, radar n°0 (sa chaussée) : zone de -1025 m à 950 m (radar à 0 m), Vitesse, 80, reste 1998 m au début, excès=true
