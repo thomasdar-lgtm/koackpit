@@ -279,6 +279,7 @@ class WakeService : Service() {
             if (v == 0) { BtSound.markNeeded(c, "contact coupé"); DayNight.onStop() }
             if (v != 0) Handler(Looper.getMainLooper()).postDelayed({ WakeLog.addWindows(c, "réveil +1 s") }, 1000)
             if (v != 0) bringToFront(c)
+            if (v != 0) FrameWatch.afterWake(c)
         }
     }
 

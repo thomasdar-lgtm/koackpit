@@ -75,8 +75,10 @@ class MainActivity : ComponentActivity() {
     private val resumes = mutableStateOf(0)
 
     private val topEdge by lazy { TopEdgeGuard(this) }
-    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean =
-        if (topEdge.shouldIgnore(ev)) true else super.dispatchTouchEvent(ev)
+    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
+        if (ev.actionMasked == android.view.MotionEvent.ACTION_UP) FrameWatch.touched(this)
+        return if (topEdge.shouldIgnore(ev)) true else super.dispatchTouchEvent(ev)
+    }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
@@ -105,6 +107,7 @@ class MainActivity : ComponentActivity() {
             override fun handleOnBackPressed() { screen.value = Screen.HOME }
         })
         fullScreen()
+        FrameWatch.attach(this)
         setContent { Scaled { Koackpit(screen, upd, resumes.value) } }
     }
 
