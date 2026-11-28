@@ -287,6 +287,7 @@ class MediaBridge : NotificationListenerService() {
                         val (b, ch) = battery(); put("batt", b); put("charging", ch)
                         put("notif", notifSeq)
                         put("jseq", RadioWatch.seq)
+                        put("out", Outbox.list(this@MediaBridge).size)
                         loc?.let { l ->
                             put("loc", JSONObject().apply {
                                 put("lat", l.latitude); put("lon", l.longitude); put("acc", l.accuracy.toDouble())
@@ -326,6 +327,25 @@ class MediaBridge : NotificationListenerService() {
                             out.write("HTTP/1.0 500 Error\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: ${body.size}\r\n\r\n".toByteArray())
                             out.write(body); out.flush()
                         }
+                    }
+                    path.startsWith("/outbox/get") -> {
+                        val id = java.net.URLDecoder.decode(path.substringAfter("id=", ""), "UTF-8")
+                        val f = Outbox.file(this, id)
+                        if (f == null) out.write("HTTP/1.0 404 Not Found\r\nContent-Length: 0\r\n\r\n".toByteArray())
+                        else {
+                            s.soTimeout = 30_000
+                            out.write("HTTP/1.0 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: ${f.length()}\r\nConnection: close\r\n\r\n".toByteArray())
+                            f.inputStream().use { it.copyTo(out) }; out.flush()
+                        }
+                    }
+                    path.startsWith("/outbox/done") -> {
+                        Outbox.done(this, java.net.URLDecoder.decode(path.substringAfter("id=", ""), "UTF-8"))
+                        reply("text/plain", "OK".toByteArray())
+                    }
+                    path.startsWith("/outbox") -> {
+                        val arr = org.json.JSONArray()
+                        for ((id, name, size) in Outbox.list(this)) arr.put(JSONObject().apply { put("id", id); put("name", name); put("size", size) })
+                        reply("application/json", arr.toString().toByteArray())
                     }
                     path.startsWith("/art") && art != null -> reply("image/jpeg", art!!)
                     else -> {

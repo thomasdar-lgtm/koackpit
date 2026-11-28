@@ -63,6 +63,7 @@ object PhoneLink {
         // Pas de position supposée : la barre suit ce que le téléphone renvoie (si Deezer refuse, elle ne bouge pas)
     }
 
+    @Volatile private var receiving = false
     private var artId = ""
     private var app: Context? = null
     private var started = false
@@ -183,6 +184,8 @@ object PhoneLink {
                     // Journal radio du téléphone (appli 1.5) : ce que le téléphone a vu des coupures, joint au diagnostic
                     val jseq = js.optInt("jseq", -1)
                     if (jseq >= 0) app?.let { a -> fetchPhoneJournal(a, gw!!, jseq) }
+                    // Fichiers partagés depuis le téléphone (appli 1.9) : récupérés, APK installé
+                    if (js.optInt("out", 0) > 0 && !receiving) app?.let { a -> receiving = true; val g = gw!!; Thread { try { Inbox.fetch(a, "http://$g:$PORT") } finally { receiving = false } }.start() }
                 }
             }
             if (ok) lastOk = android.os.SystemClock.elapsedRealtime()

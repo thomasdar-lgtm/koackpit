@@ -26,6 +26,24 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- Partager → Koackpit Téléphone : fichier envoyé à l'autoradio (1.9) -->
+        <activity
+            android:name=".ShareActivity"
+            android:exported="true"
+            android:label="Envoyer à l'autoradio"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+        </activity>
         <!-- Accès aux notifications : seul moyen autorisé de lire le lecteur en cours (Deezer…), pochette comprise.
              Le service est maintenu par Android tant que l'accès est accordé : pas besoin de notification permanente. -->
         <service
