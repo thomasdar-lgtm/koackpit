@@ -1,0 +1,150 @@
+> Task :phone:stripReleaseDebugSymbols NO-SOURCE
+> Task :phone:extractReleaseNativeSymbolTables NO-SOURCE
+> Task :phone:mergeReleaseNativeDebugMetadata NO-SOURCE
+> Task :phone:checkReleaseDuplicateClasses
+> Task :phone:processReleaseResources
+
+> Task :app:compileReleaseKotlin
+e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
+    1. Kotlin compile daemon is ready
+
+> Task :phone:desugarReleaseFileDependencies
+> Task :phone:mergeReleaseStartupProfile
+> Task :app:mergeExtDexRelease
+> Task :phone:mergeReleaseArtProfile
+> Task :phone:mergeExtDexRelease
+> Task :phone:mergeReleaseShaders
+> Task :phone:compileReleaseShaders NO-SOURCE
+> Task :phone:generateReleaseAssets UP-TO-DATE
+> Task :phone:mergeReleaseAssets
+> Task :phone:compressReleaseAssets
+> Task :phone:extractReleaseVersionControlInfo
+> Task :phone:collectReleaseDependencies
+> Task :phone:sdkReleaseDependencyData
+> Task :phone:validateSigningRelease
+> Task :phone:writeReleaseAppMetadata
+> Task :phone:writeReleaseSigningConfigVersions
+> Task :phone:optimizeReleaseResources
+> Task :updater:buildKotlinToolingMetadata
+> Task :updater:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :updater:preBuild UP-TO-DATE
+> Task :updater:preReleaseBuild UP-TO-DATE
+> Task :updater:checkReleaseAarMetadata
+> Task :updater:generateReleaseResValues
+> Task :updater:mapReleaseSourceSetPaths
+> Task :updater:generateReleaseResources
+> Task :updater:mergeReleaseResources
+> Task :updater:packageReleaseResources
+> Task :updater:parseReleaseLocalResources
+> Task :updater:createReleaseCompatibleScreenManifests
+> Task :updater:extractDeepLinksRelease
+> Task :updater:processReleaseMainManifest
+> Task :updater:processReleaseManifest
+> Task :updater:processReleaseManifestForPackage
+> Task :updater:javaPreCompileRelease
+> Task :updater:extractProguardFiles
+> Task :updater:mergeReleaseJniLibFolders
+> Task :updater:mergeReleaseNativeLibs NO-SOURCE
+> Task :updater:stripReleaseDebugSymbols NO-SOURCE
+> Task :updater:extractReleaseNativeSymbolTables NO-SOURCE
+> Task :updater:mergeReleaseNativeDebugMetadata NO-SOURCE
+> Task :updater:checkReleaseDuplicateClasses
+> Task :updater:desugarReleaseFileDependencies
+> Task :updater:mergeReleaseStartupProfile
+> Task :updater:processReleaseResources
+> Task :updater:mergeExtDexRelease
+> Task :updater:mergeReleaseArtProfile
+> Task :updater:mergeReleaseShaders
+> Task :updater:compileReleaseShaders NO-SOURCE
+> Task :updater:generateReleaseAssets UP-TO-DATE
+> Task :updater:mergeReleaseAssets
+> Task :updater:compressReleaseAssets
+> Task :updater:extractReleaseVersionControlInfo
+> Task :updater:optimizeReleaseResources
+> Task :updater:collectReleaseDependencies
+> Task :updater:sdkReleaseDependencyData
+> Task :updater:validateSigningRelease
+> Task :updater:writeReleaseAppMetadata
+> Task :updater:writeReleaseSigningConfigVersions
+
+> Task :updater:compileReleaseKotlin
+w: file:///home/runner/work/koackpit/koackpit/updater/src/main/java/com/koala/koackpit/updater/UpdateActivity.kt:42:26 'var systemUiVisibility: Int' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/koackpit/koackpit/updater/src/main/java/com/koala/koackpit/updater/UpdateActivity.kt:42:52 'static field SYSTEM_UI_FLAG_FULLSCREEN: Int' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/koackpit/koackpit/updater/src/main/java/com/koala/koackpit/updater/UpdateActivity.kt:42:86 'static field SYSTEM_UI_FLAG_HIDE_NAVIGATION: Int' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/koackpit/koackpit/updater/src/main/java/com/koala/koackpit/updater/UpdateActivity.kt:43:18 'static field SYSTEM_UI_FLAG_IMMERSIVE_STICKY: Int' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/koackpit/koackpit/updater/src/main/java/com/koala/koackpit/updater/UpdateActivity.kt:92:29 'fun onBackPressed(): Unit' is deprecated. Deprecated in Java.
+
+> Task :updater:compileReleaseJavaWithJavac NO-SOURCE
+> Task :updater:generateReleaseLintVitalReportModel
+> Task :updater:dexBuilderRelease
+
+> Task :phone:compileReleaseKotlin
+w: file:///home/runner/work/koackpit/koackpit/phone/src/main/java/com/koala/koackpit/phone/MediaBridge.kt:106:28 'fun getParcelableArray(p0: String?): (Array<Parcelable!>?..Array<out Parcelable!>?)' is deprecated. Deprecated in Java.
+
+> Task :phone:compileReleaseJavaWithJavac NO-SOURCE
+> Task :phone:generateReleaseLintVitalReportModel
+> Task :updater:mergeDexRelease
+> Task :phone:dexBuilderRelease
+> Task :phone:mergeDexRelease
+> Task :phone:mergeReleaseGlobalSynthetics
+> Task :phone:compileReleaseArtProfile
+> Task :phone:processReleaseJavaRes
+> Task :phone:mergeReleaseJavaResource
+> Task :phone:packageRelease
+> Task :phone:createReleaseApkListingFileRedirect
+> Task :updater:mergeReleaseGlobalSynthetics
+> Task :updater:compileReleaseArtProfile
+> Task :updater:processReleaseJavaRes
+> Task :updater:mergeReleaseJavaResource
+> Task :updater:packageRelease
+> Task :updater:createReleaseApkListingFileRedirect
+> Task :updater:lintVitalAnalyzeRelease
+> Task :updater:lintVitalReportRelease
+> Task :updater:lintVitalRelease
+> Task :updater:assembleRelease
+> Task :phone:lintVitalAnalyzeRelease
+> Task :phone:lintVitalReportRelease
+> Task :phone:lintVitalRelease
+> Task :phone:assembleRelease
+
+> Task :app:compileReleaseKotlin
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/CarScreen.kt:112:35 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/Diag.kt:95:90 'field protectionLevel: Int' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/Diag.kt:100:101 'fun get(p0: String!): Any?' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/DiagActivity.kt:287:58 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/FullScreen.kt:17:65 'static field FLAG_FULLSCREEN: Int' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/FullScreen.kt:56:80 'static field FLAG_FULLSCREEN: Int' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/MainActivity.kt:258:34 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/Radar.kt:149:60 Condition is always 'true'.
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/Slim.kt:153:35 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/WakeService.kt:230:112 'fun get(p0: String!): Any?' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/WakeService.kt:442:45 'val connectionInfo: WifiInfo!' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/WakeService.kt:456:34 'val connectionInfo: WifiInfo!' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/WakeService.kt:487:57 'var isWifiEnabled: Boolean' is deprecated. Deprecated in Java.
+
+> Task :app:compileReleaseJavaWithJavac
+> Task :app:generateReleaseLintVitalReportModel
+> Task :app:dexBuilderRelease
+> Task :app:mergeReleaseGlobalSynthetics
+> Task :app:processReleaseJavaRes
+> Task :app:mergeReleaseJavaResource
+> Task :app:mergeDexRelease
+> Task :app:compileReleaseArtProfile
+> Task :app:packageRelease
+> Task :app:createReleaseApkListingFileRedirect
+> Task :app:lintVitalAnalyzeRelease
+> Task :app:lintVitalReportRelease
+> Task :app:lintVitalRelease
+> Task :app:assembleRelease
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run-1795880799442.json
+
+[Incubating] Problems report is available at: file:///home/runner/work/koackpit/koackpit/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 1m 37s
+140 actionable tasks: 140 executed

@@ -1,0 +1,21 @@
+e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
+w: file:///home/runner/work/koackpit/koackpit/updater/src/main/java/com/koala/koackpit/updater/UpdateActivity.kt:42:26 'var systemUiVisibility: Int' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/koackpit/koackpit/updater/src/main/java/com/koala/koackpit/updater/UpdateActivity.kt:42:52 'static field SYSTEM_UI_FLAG_FULLSCREEN: Int' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/koackpit/koackpit/updater/src/main/java/com/koala/koackpit/updater/UpdateActivity.kt:42:86 'static field SYSTEM_UI_FLAG_HIDE_NAVIGATION: Int' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/koackpit/koackpit/updater/src/main/java/com/koala/koackpit/updater/UpdateActivity.kt:43:18 'static field SYSTEM_UI_FLAG_IMMERSIVE_STICKY: Int' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/koackpit/koackpit/updater/src/main/java/com/koala/koackpit/updater/UpdateActivity.kt:92:29 'fun onBackPressed(): Unit' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/koackpit/koackpit/phone/src/main/java/com/koala/koackpit/phone/MediaBridge.kt:106:28 'fun getParcelableArray(p0: String?): (Array<Parcelable!>?..Array<out Parcelable!>?)' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/CarScreen.kt:112:35 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/Diag.kt:95:90 'field protectionLevel: Int' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/Diag.kt:100:101 'fun get(p0: String!): Any?' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/DiagActivity.kt:287:58 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/FullScreen.kt:17:65 'static field FLAG_FULLSCREEN: Int' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/FullScreen.kt:56:80 'static field FLAG_FULLSCREEN: Int' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/MainActivity.kt:258:34 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/Radar.kt:149:60 Condition is always 'true'.
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/Slim.kt:153:35 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/WakeService.kt:230:112 'fun get(p0: String!): Any?' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/WakeService.kt:442:45 'val connectionInfo: WifiInfo!' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/WakeService.kt:456:34 'val connectionInfo: WifiInfo!' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/koackpit/koackpit/app/src/main/java/com/koala/koackpit/WakeService.kt:487:57 'var isWifiEnabled: Boolean' is deprecated. Deprecated in Java.
+BUILD SUCCESSFUL in 1m 37s
