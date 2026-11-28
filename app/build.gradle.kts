@@ -12,8 +12,8 @@ android {
         applicationId = "com.koala.koackpit"
         minSdk = 26
         targetSdk = 35
-        versionCode = 172
-        versionName = "0.20.21"
+        versionCode = 173
+        versionName = "0.20.22"
         // Clé HERE (limitations de vitesse) : secret GitHub HERE_API_KEY, ajouté seulement à la fabrication de l'APK
         buildConfigField("String", "HERE_KEY", "\"" + (System.getenv("HERE_API_KEY") ?: "") + "\"")
     }

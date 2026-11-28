@@ -55,6 +55,21 @@ open class Screenshots {
     } }
 
     @Test
+    fun reception_telephone() = captureRoboImage("build/screens/${p}reception-telephone.png") { Scaled {
+        androidx.compose.foundation.layout.Column(Modifier.fillMaxSize().screenBg().padding(20.dp), horizontalAlignment = androidx.compose.ui.Alignment.End) {
+            for (st in listOf(
+                InboxOverlay.State("Réception de KoalaTV.apk · 45 %", 0.45f),
+                InboxOverlay.State("Installation de KoalaTV.apk…", null),
+                InboxOverlay.State("✓ « KoalaTV » installée", null),
+                InboxOverlay.State("KoalaTV.apk : installation de « KoalaTV » refusée (INSTALL_FAILED_…)", null, true),
+            )) {
+                androidx.compose.ui.viewinterop.AndroidView(factory = { InboxOverlay.build(it, st) })
+                androidx.compose.foundation.layout.Spacer(Modifier.height(14.dp))
+            }
+        }
+    } }
+
+    @Test
     fun accueil() = captureRoboImage("build/screens/${p}accueil.png") { Scaled {
         LinkStatus.state.value = Links(bt = true, wifi = true, wifiLevel = 2)
         HomeContent("17:42", "Jeudi 12 novembre", "Waze", media, RailActions(), {}, {}, {}, {}, speedKmh = 0, onHomeAddr = {}, onWorkAddr = {})

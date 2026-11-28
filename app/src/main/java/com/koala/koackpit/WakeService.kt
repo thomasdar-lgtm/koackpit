@@ -256,6 +256,7 @@ class WakeService : Service() {
     private val overlayTick = object : Runnable {
         override fun run() {
             runCatching { UpdateOverlay.tick(this@WakeService) }
+            runCatching { InboxOverlay.tick(this@WakeService) }
             runCatching { CallOverlay.tick(this@WakeService) }
             runCatching { LinkStatus.tick(this@WakeService) }
             runCatching { DayNight.tick(this@WakeService) }

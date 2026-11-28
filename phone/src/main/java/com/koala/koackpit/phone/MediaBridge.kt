@@ -333,13 +333,15 @@ class MediaBridge : NotificationListenerService() {
                         val f = Outbox.file(this, id)
                         if (f == null) out.write("HTTP/1.0 404 Not Found\r\nContent-Length: 0\r\n\r\n".toByteArray())
                         else {
+                            Outbox.started(this, id)
                             s.soTimeout = 30_000
                             out.write("HTTP/1.0 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: ${f.length()}\r\nConnection: close\r\n\r\n".toByteArray())
                             f.inputStream().use { it.copyTo(out) }; out.flush()
                         }
                     }
                     path.startsWith("/outbox/done") -> {
-                        Outbox.done(this, java.net.URLDecoder.decode(path.substringAfter("id=", ""), "UTF-8"))
+                        val q = path.substringAfter('?', "").split('&').associate { it.substringBefore('=') to java.net.URLDecoder.decode(it.substringAfter('=', ""), "UTF-8") }
+                        Outbox.done(this, q["id"].orEmpty(), q["r"].orEmpty())
                         reply("text/plain", "OK".toByteArray())
                     }
                     path.startsWith("/outbox") -> {

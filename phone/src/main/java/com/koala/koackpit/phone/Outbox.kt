@@ -23,7 +23,34 @@ object Outbox {
 
     fun file(c: Context, id: String): File? = File(dir(c), id).takeIf { it.isFile && it.parentFile == dir(c) && !id.contains('/') }
 
-    fun done(c: Context, id: String) { file(c, id)?.let { RadioWatch.add("Envoi à l'autoradio : ${id.substringAfter('_')} récupéré"); it.delete() } }
+    /** L'autoradio a récupéré le fichier ; [result] = ce qu'il en a fait (installée, rangé, refusée…). */
+    fun done(c: Context, id: String, result: String) {
+        val f = file(c, id) ?: return
+        val name = id.substringAfter('_')
+        RadioWatch.add("Envoi à l'autoradio : $name récupéré → $result")
+        f.delete()
+        runCatching {
+            val nm = c.getSystemService(android.app.NotificationManager::class.java)
+            nm.createNotificationChannel(android.app.NotificationChannel("envoi", "Envois à l'autoradio", android.app.NotificationManager.IMPORTANCE_DEFAULT))
+            nm.notify(id.hashCode(), android.app.Notification.Builder(c, "envoi")
+                .setSmallIcon(android.R.drawable.stat_sys_upload_done)
+                .setContentTitle("Reçu par l'autoradio : $name")
+                .setContentText(result.ifBlank { "fichier récupéré" })
+                .setStyle(android.app.Notification.BigTextStyle().bigText(result.ifBlank { "fichier récupéré" }))
+                .setAutoCancel(true).build())
+        }
+    }
+
+    /** L'autoradio a commencé à le télécharger (notification mise à jour ensuite par [done]). */
+    fun started(c: Context, id: String) = runCatching {
+        val nm = c.getSystemService(android.app.NotificationManager::class.java)
+        nm.createNotificationChannel(android.app.NotificationChannel("envoi", "Envois à l'autoradio", android.app.NotificationManager.IMPORTANCE_DEFAULT))
+        nm.notify(id.hashCode(), android.app.Notification.Builder(c, "envoi")
+            .setSmallIcon(android.R.drawable.stat_sys_upload)
+            .setContentTitle("Envoi à l'autoradio : ${id.substringAfter('_')}")
+            .setContentText("L'autoradio le récupère…")
+            .setOnlyAlertOnce(true).build())
+    }
 
     fun add(c: Context, uri: Uri): String? = runCatching {
         var name = "fichier"

@@ -23,19 +23,40 @@ object Inbox {
             val id = o.getString("id"); val name = o.getString("name")
             val dir = File(app.cacheDir, "recus").apply { mkdirs() }
             val f = File(dir, name.replace('/', '_'))
+            val size = o.optLong("size", -1)
+            val main = Handler(Looper.getMainLooper())
+            fun refresh() = main.post { InboxOverlay.tick(app) }
+            InboxOverlay.show("Réception de $name", 0f); refresh()
             val got = runCatching {
                 val c = URL("$base/outbox/get?id=" + URLEncoder.encode(id, "UTF-8")).openConnection() as HttpURLConnection
                 try {
                     c.connectTimeout = 4000; c.readTimeout = 30_000
-                    c.inputStream.use { inp -> f.outputStream().use { inp.copyTo(it) } }
+                    c.inputStream.use { inp ->
+                        f.outputStream().use { out ->
+                            val buf = ByteArray(64 * 1024); var n = 0L; var lastPct = -1
+                            while (true) {
+                                val r = inp.read(buf); if (r < 0) break
+                                out.write(buf, 0, r); n += r
+                                val pct = if (size > 0) (n * 100 / size).toInt() else 0
+                                if (pct != lastPct) { lastPct = pct; InboxOverlay.show("Réception de $name · $pct %", pct / 100f); refresh() }
+                            }
+                        }
+                    }
                 } finally { c.disconnect() }
-                f.length() == o.optLong("size", -1)
+                f.length() == size
             }.getOrDefault(false)
-            if (!got) { WakeLog.add(app, "Fichier du téléphone : $name — réception incomplète, nouvel essai plus tard"); f.delete(); return }
-            val msg = if (name.endsWith(".apk", true)) install(app, f) else store(app, f)
+            if (!got) {
+                WakeLog.add(app, "Fichier du téléphone : $name — réception incomplète, nouvel essai plus tard")
+                InboxOverlay.done("$name : réception coupée, nouvel essai bientôt", true); refresh()
+                f.delete(); return
+            }
+            val apk = name.endsWith(".apk", true)
+            if (apk) { InboxOverlay.show("Installation de $name…", null); refresh() }
+            val msg = if (apk) install(app, f) else store(app, f)
+            val ok = msg.contains("installée") || msg.startsWith("rangé")
             WakeLog.add(app, "Fichier du téléphone : $name → $msg")
-            Handler(Looper.getMainLooper()).post { toast(app, "$name : $msg") }
-            runCatching { get("$base/outbox/done?id=" + URLEncoder.encode(id, "UTF-8"), 4000) }
+            InboxOverlay.done(if (ok) "✓ $msg" else "$name : $msg", !ok); refresh()
+            runCatching { get("$base/outbox/done?id=" + URLEncoder.encode(id, "UTF-8") + "&r=" + URLEncoder.encode(msg, "UTF-8"), 4000) }
             f.delete()
         }
     }
