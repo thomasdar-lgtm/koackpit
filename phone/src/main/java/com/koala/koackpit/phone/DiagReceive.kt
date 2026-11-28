@@ -20,7 +20,30 @@ import java.util.Locale
  * Remplace le QR code, que Chrome n'arrivait pas à télécharger.
  */
 object DiagReceive {
-    fun save(c: Context, ins: InputStream, len: Long): Boolean = runCatching {
+    /**
+     * Range le fichier reçu. Renvoie null si tout va bien, sinon la raison de l'échec (notée au journal et
+     * renvoyée à l'autoradio). En cas d'échec, le reste de l'envoi est quand même lu : l'autoradio reçoit
+     * alors une vraie réponse avec la raison, au lieu d'une connexion coupée (« SocketException », 28/11).
+     */
+    fun receive(c: Context, ins: InputStream, len: Long): String? {
+        val counting = object : InputStream() {
+            var n = 0L
+            override fun read(): Int = ins.read().also { if (it >= 0) n++ }
+            override fun read(b: ByteArray, off: Int, l: Int): Int = ins.read(b, off, l).also { if (it > 0) n += it }
+        }
+        val err = runCatching { if (save(c, counting, len)) null else "fichier incomplet" }
+            .getOrElse { "${it.javaClass.simpleName} : ${it.message}" }
+        if (err != null) {
+            runCatching {
+                val buf = ByteArray(16 * 1024)
+                while (counting.n < len) { val r = counting.read(buf, 0, minOf(buf.size.toLong(), len - counting.n).toInt()); if (r < 0) break }
+            }
+            RadioWatch.add("Diagnostic : réception échouée ($err, ${counting.n}/$len octets)")
+        }
+        return err
+    }
+
+    private fun save(c: Context, ins: InputStream, len: Long): Boolean = run {
         val name = "koackpit-diag-" + SimpleDateFormat("dd-MM_HH'h'mm", Locale.FRANCE).format(Date()) + ".zip"
         val values = ContentValues().apply {
             put(MediaStore.Downloads.DISPLAY_NAME, name)
@@ -29,7 +52,7 @@ object DiagReceive {
             put(MediaStore.Downloads.IS_PENDING, 1)
         }
         val cr = c.contentResolver
-        val uri = cr.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: return false
+        val uri = cr.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: error("rangement refusé par le téléphone")
         var left = len
         cr.openOutputStream(uri)!!.use { o ->
             val buf = ByteArray(64 * 1024)
@@ -39,7 +62,7 @@ object DiagReceive {
                 o.write(buf, 0, n); left -= n
             }
         }
-        if (left > 0) { cr.delete(uri, null, null); return false }
+        if (left > 0) { cr.delete(uri, null, null); return@run false }
         cr.update(uri, ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }, null, null)
 
         val share = Intent(Intent.ACTION_SEND).apply {
@@ -58,5 +81,5 @@ object DiagReceive {
             .setContentIntent(pi).setAutoCancel(true).build())
         RadioWatch.add("Diagnostic reçu de l'autoradio : $name")
         true
-    }.getOrDefault(false)
+    }
 }

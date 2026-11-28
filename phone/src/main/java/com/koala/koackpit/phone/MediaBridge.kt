@@ -319,13 +319,22 @@ class MediaBridge : NotificationListenerService() {
                     }
                     line.startsWith("POST") && path.startsWith("/diag") && bodyLen > 0 -> {
                         s.soTimeout = 30_000
-                        val ok = DiagReceive.save(this, ins, bodyLen)
-                        if (ok) reply("text/plain", "OK".toByteArray())
-                        else out.write("HTTP/1.0 500 Error\r\nContent-Length: 0\r\n\r\n".toByteArray())
+                        val err = DiagReceive.receive(this, ins, bodyLen)
+                        if (err == null) reply("text/plain", "OK".toByteArray())
+                        else {
+                            val body = err.toByteArray()
+                            out.write("HTTP/1.0 500 Error\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: ${body.size}\r\n\r\n".toByteArray())
+                            out.write(body); out.flush()
+                        }
                     }
                     path.startsWith("/art") && art != null -> reply("image/jpeg", art!!)
-                    else -> out.write("HTTP/1.0 404 Not Found\r\nContent-Length: 0\r\n\r\n".toByteArray())
+                    else -> {
+                        if (path.startsWith("/diag")) RadioWatch.add("Diagnostic : envoi incomplet reçu ($line, taille $bodyLen)")
+                        out.write("HTTP/1.0 404 Not Found\r\nContent-Length: 0\r\n\r\n".toByteArray())
+                    }
                 }
+            }.onFailure { e ->
+                if (e !is java.net.SocketTimeoutException) RadioWatch.add("Échange avec l'autoradio interrompu : ${e.javaClass.simpleName} ${e.message.orEmpty()}")
             }
         }
     }

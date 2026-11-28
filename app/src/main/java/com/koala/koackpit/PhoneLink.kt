@@ -90,6 +90,13 @@ object PhoneLink {
      * qui refusait le téléchargement (27/11). Renvoie le message à afficher.
      */
     fun sendDiag(f: java.io.File): String {
+        var r = sendDiagOnce(f)
+        // Une seconde tentative si la connexion a lâché (le Wi-Fi de l'autoradio est parfois long à réagir)
+        if (r.startsWith("Téléphone injoignable")) { Thread.sleep(2000); r = sendDiagOnce(f).let { if (it.startsWith("Envoyé")) it else "$it (2 essais)" } }
+        return r
+    }
+
+    private fun sendDiagOnce(f: java.io.File): String {
         val gw = gateway() ?: return "Pas de Wi-Fi : active le partage de connexion du S25."
         return runCatching {
             val c = (URL("http://$gw:$PORT/diag?name=${f.name}").openConnection() as HttpURLConnection)
@@ -101,10 +108,11 @@ object PhoneLink {
                 when (c.responseCode) {
                     200 -> "Envoyé sur le S25 : touche la notification."
                     404 -> "Le téléphone n'a pas pu le recevoir : mets à jour Koackpit Téléphone (1.7)."
-                    else -> "Le téléphone n'a pas pu le recevoir (erreur ${c.responseCode})."
+                    else -> "Le téléphone n'a pas pu le recevoir : " +
+                        (runCatching { c.errorStream?.bufferedReader()?.readText() }.getOrNull()?.take(120)?.ifBlank { null } ?: "erreur ${c.responseCode}")
                 }
             } finally { c.disconnect() }
-        }.getOrElse { "Téléphone injoignable (${it.javaClass.simpleName}) : utilise le QR code." }
+        }.getOrElse { "Téléphone injoignable (${it.javaClass.simpleName} : ${it.message.orEmpty().take(80)}) : utilise le QR code." }
     }
 
     private fun get(url: String): ByteArray? = runCatching {
